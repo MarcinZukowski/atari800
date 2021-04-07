@@ -24,6 +24,15 @@
 
 #include <SDL.h>
 #include <SDL_opengl.h>
+#include <assert.h>
+#include <math.h>
+
+#define TINYOBJ_LOADER_C_IMPLEMENTATION
+char *dynamic_fgets(char **buf, size_t *size, FILE *file);
+#include "tinyobj_loader_c.h"
+
+#include "akey.h"
+#include "memory.h"
 
 #include "af80.h"
 #include "bit3.h"
@@ -48,6 +57,9 @@
 #include "sdl/palette.h"
 #include "sdl/video.h"
 #include "sdl/video_gl.h"
+
+void xx_init(void);
+void xx_draw(void);
 
 static int currently_rotated = FALSE;
 /* If TRUE, then 32 bit, else 16 bit screen. */
@@ -75,6 +87,7 @@ static struct
 	void(APIENTRY*TexSubImage2D)(GLenum, GLint, GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, const GLvoid*);
 	void(APIENTRY*TexCoord2f)(GLfloat, GLfloat);
 	void(APIENTRY*Vertex3f)(GLfloat, GLfloat, GLfloat);
+	void(APIENTRY*Normal3f)(GLfloat, GLfloat, GLfloat);
 	void(APIENTRY*Color4f)(GLfloat, GLfloat, GLfloat, GLfloat);
 	void(APIENTRY*BlendFunc)(GLenum,GLenum);
 	void(APIENTRY*MatrixMode)(GLenum);
@@ -82,6 +95,12 @@ static struct
 	void(APIENTRY*LoadIdentity)(void);
 	void(APIENTRY*Begin)(GLenum);
 	void(APIENTRY*End)(void);
+	void(APIENTRY*PushMatrix)(void);
+	void(APIENTRY*PopMatrix)(void);
+	void(APIENTRY*Rotatef)(GLfloat, GLfloat, GLfloat, GLfloat);
+	void(APIENTRY*Translatef)(GLfloat, GLfloat, GLfloat);
+	void(APIENTRY*Scalef)(GLfloat, GLfloat, GLfloat);
+	void(APIENTRY*Lightfv)(GLenum, GLenum, const GLfloat*);
 	void(APIENTRY*GetIntegerv)(GLenum, GLint*);
 	const GLubyte*(APIENTRY*GetString)(GLenum);
 	GLuint(APIENTRY*GenLists)(GLsizei);
@@ -363,7 +382,7 @@ static void SetSubpixelShifts(void)
 	else
 		screen_vshift = 0.0;
 
-	
+
 	if (dest_height % VIDEOMODE_src_height == 0 &&
 	    ((SDL_VIDEO_interpolate_scanlines && !(vmult & 1)) ||
 	     (!SDL_VIDEO_interpolate_scanlines && (vmult & 3) == 3)
@@ -438,6 +457,8 @@ static void SetGlDisplayList(void)
 		gl.Disable(GL_BLEND);
 	}
 	gl.EndList();
+
+	xx_init();
 }
 
 /* Resets the screen texture/PBO to all-black. */
@@ -492,6 +513,7 @@ static int InitGlFunctions(void)
 	    (gl.TexSubImage2D = (void(APIENTRY*)(GLenum, GLint, GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, const GLvoid*))GetGlFunc("glTexSubImage2D")) == NULL ||
 	    (gl.TexCoord2f = (void(APIENTRY*)(GLfloat, GLfloat))GetGlFunc("glTexCoord2f")) == NULL ||
 	    (gl.Vertex3f = (void(APIENTRY*)(GLfloat, GLfloat, GLfloat))GetGlFunc("glVertex3f")) == NULL ||
+	    (gl.Normal3f = (void(APIENTRY*)(GLfloat, GLfloat, GLfloat))GetGlFunc("glNormal3f")) == NULL ||
 	    (gl.Color4f = (void(APIENTRY*)(GLfloat, GLfloat, GLfloat, GLfloat))GetGlFunc("glColor4f")) == NULL ||
 	    (gl.BlendFunc = (void(APIENTRY*)(GLenum,GLenum))GetGlFunc("glBlendFunc")) == NULL ||
 	    (gl.MatrixMode = (void(APIENTRY*)(GLenum))GetGlFunc("glMatrixMode")) == NULL ||
@@ -499,6 +521,12 @@ static int InitGlFunctions(void)
 	    (gl.LoadIdentity = (void(APIENTRY*)(void))GetGlFunc("glLoadIdentity")) == NULL ||
 	    (gl.Begin = (void(APIENTRY*)(GLenum))GetGlFunc("glBegin")) == NULL ||
 	    (gl.End = (void(APIENTRY*)(void))GetGlFunc("glEnd")) == NULL ||
+	    (gl.PushMatrix = (void(APIENTRY*)(void))GetGlFunc("glPushMatrix")) == NULL ||
+	    (gl.PopMatrix = (void(APIENTRY*)(void))GetGlFunc("glPopMatrix")) == NULL ||
+	    (gl.Rotatef = (void(APIENTRY*)(GLfloat, GLfloat, GLfloat, GLfloat))GetGlFunc("glRotatef")) == NULL ||
+	    (gl.Translatef = (void(APIENTRY*)(GLfloat, GLfloat, GLfloat))GetGlFunc("glTranslatef")) == NULL ||
+	    (gl.Scalef = (void(APIENTRY*)(GLfloat, GLfloat, GLfloat))GetGlFunc("glScalef")) == NULL ||
+	    (gl.Lightfv = (void(APIENTRY*)(GLenum, GLenum, const GLfloat*))GetGlFunc("glLightfv")) == NULL ||
 	    (gl.GetIntegerv = (void(APIENTRY*)(GLenum, GLint*))GetGlFunc("glGetIntegerv")) == NULL ||
 	    (gl.GetString = (const GLubyte*(APIENTRY*)(GLenum))GetGlFunc("glGetString")) == NULL ||
 	    (gl.GenLists = (GLuint(APIENTRY*)(GLsizei))GetGlFunc("glGenLists")) == NULL ||
@@ -783,8 +811,20 @@ void SDL_VIDEO_GL_DisplayScreen(void)
 		gl.TexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, VIDEOMODE_actual_width, VIDEOMODE_src_height,
 		                 pixel_formats[SDL_VIDEO_GL_pixel_format].format, pixel_formats[SDL_VIDEO_GL_pixel_format].type,
 		                 screen_texture);
+#if 1
+		unsigned int pixels[4] = {
+			0xff00ffff,
+			0xffff00ff,
+			0xff00ffff,
+			0xffff00ff,
+		};
+		gl.TexSubImage2D(GL_TEXTURE_2D, 0, 330, 30, 2, 2, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+#endif
 	}
 	gl.CallList(screen_dlist);
+
+	xx_draw();
+
 	SDL_GL_SwapBuffers();
 }
 
@@ -978,4 +1018,265 @@ void SDL_VIDEO_GL_InterpolateScanlinesChanged(void)
 		SetSubpixelShifts();
 		SetGlDisplayList();
 	}
+}
+
+static void xx_load_file(void *ctx, const char * filename, const int is_mtl, const char *obj_filename, char ** buffer, size_t * len)
+{
+    long string_size = 0, read_size = 0;
+    FILE * handler = fopen(filename, "r");
+
+    if (handler) {
+        fseek(handler, 0, SEEK_END);
+        string_size = ftell(handler);
+        rewind(handler);
+        *buffer = (char *) malloc(sizeof(char) * (string_size + 1));
+        read_size = fread(*buffer, sizeof(char), (size_t) string_size, handler);
+        (*buffer)[string_size] = '\0';
+        if (string_size != read_size) {
+            free(buffer);
+            *buffer = NULL;
+        }
+        fclose(handler);
+    }
+
+    *len = read_size;
+}
+
+tinyobj_shape_t * xx_shape = NULL;
+tinyobj_material_t * xx_material = NULL;
+tinyobj_attrib_t xx_attrib;
+
+static void xx_load_obj()
+{
+
+    size_t num_shapes;
+    size_t num_materials;
+
+    tinyobj_attrib_init(&xx_attrib);
+
+	chdir("data/ext/yoomp");
+
+//	const char* filename = "beach-ball.obj";
+	const char* filename = "ball-yoomp.obj";
+//	const char* filename = "ball-amiga.obj";
+//	const char* filename = "ball-amiga-2.obj";
+
+	printf("Loading obj: %s\n", filename);
+
+    int result = tinyobj_parse_obj(&xx_attrib, &xx_shape, &num_shapes, &xx_material, &num_materials, filename, xx_load_file, NULL, TINYOBJ_FLAG_TRIANGULATE);
+
+	chdir("../../..");
+
+	assert(result == TINYOBJ_SUCCESS);
+
+	printf("%zd shapes, %zd materials\n", num_shapes, num_materials);
+	printf("shape: %s %d %d\n", xx_shape->name, xx_shape->length, xx_shape->face_offset);
+	printf("attribs: #v:%d #n:%d #tc:%d #f:%d #fnv: %d\n",
+	    xx_attrib.num_vertices, xx_attrib.num_normals, xx_attrib.num_texcoords, xx_attrib.num_faces, xx_attrib.num_face_num_verts);
+}
+
+static void xx_v3(int idx)
+{
+	int v_idx = xx_attrib.faces[idx].v_idx;
+	gl.Normal3f(xx_attrib.normals[3 * v_idx], xx_attrib.normals[3 * v_idx + 1], xx_attrib.normals[3 * v_idx + 2]);
+	gl.Vertex3f(xx_attrib.vertices[3 * v_idx], xx_attrib.vertices[3 * v_idx + 1], xx_attrib.vertices[3 * v_idx + 2]);
+}
+
+static float xx_last = 0;
+
+static void xx_render_ball()
+{
+	gl.Disable(GL_TEXTURE_2D);
+
+	gl.MatrixMode(GL_MODELVIEW);
+	gl.PushMatrix();
+	gl.LoadIdentity();
+
+/*
+	gl.Enable(GL_LIGHTING);
+	gl.Enable(GL_LIGHT0);
+	gl.Enable(GL_COLOR_MATERIAL);
+	GLfloat light_pos[] = {0, 0.2, 2.5, 0};
+	gl.Lightfv(GL_LIGHT0, GL_POSITION, light_pos);
+*/
+	int last_matid = -1;
+
+	tinyobj_attrib_t *a = &xx_attrib;
+
+	xx_last++;
+
+	const int EQU_BALL_X = 0x0030;
+	const int EQU_BALL_VX = 0x0031;
+	const int EQU_BALL_VY = 0x0032;
+
+	float ball_angle = MEMORY_mem[EQU_BALL_X];
+	float ball_vx = MEMORY_mem[EQU_BALL_VX];
+	float ball_vy = MEMORY_mem[EQU_BALL_VY];
+
+	gl.Translatef(
+		(ball_vx - 128 + 4) / 84,
+		- (ball_vy - 112 - 8) / 120,
+		0);
+	gl.Scalef(0.05, 0.07, 0.07);
+	gl.Rotatef(ball_angle / 256.0 * 360.0, 0, 0, 1);
+	gl.Rotatef(11 * xx_last, 1, 0, 0);
+	gl.Rotatef(90, 0, 0, 1);
+
+	for (int f = 0; f < a->num_face_num_verts; f++) {
+		assert(a->face_num_verts[f] == 3);
+		int matid = a->material_ids[f];
+		if (f == 0 || matid != last_matid) {
+			if (f) {
+				gl.End();
+			}
+			last_matid = matid;
+			tinyobj_material_t mat = xx_material[matid];
+			gl.Color4f(mat.diffuse[0], mat.diffuse[1], mat.diffuse[2], 1);
+			gl.Begin(GL_TRIANGLES);
+		}
+		xx_v3(3 * f + 0);
+		xx_v3(3 * f + 1);
+		xx_v3(3 * f + 2);
+	}
+	gl.End();
+
+	gl.Rotatef(30, 1, 1, 1);
+
+	gl.PopMatrix();
+
+	gl.Enable(GL_TEXTURE_2D);
+	gl.Color4f(1, 1, 1, 1);
+	gl.Disable(GL_LIGHTING);
+	gl.Disable(GL_LIGHT0);
+}
+
+
+typedef struct xx_texture {
+	int width;
+	int height;
+	int pixels;
+	size_t bytes;
+
+	unsigned char *data;
+
+	GLuint id;
+} xx_texture;
+
+static xx_texture xx_background;
+
+static xx_texture xx_texture_load_rgba(const char* fname, int width, int height)
+{
+	xx_texture xt;
+	FILE *f;
+	size_t res;
+
+	xt.width = width;
+	xt.height = height;
+	xt.pixels = width * height;
+	xt.bytes = xt.pixels * 4;
+
+	xt.data = malloc(xt.bytes);
+
+	printf("Loading: %s\n", fname);
+	f = fopen(fname, "rb");
+	assert(f);
+	res = fread(xt.data, 1, xt.bytes, f);
+	assert(res == xt.bytes);
+	fclose(f);
+
+	gl.GenTextures(1, &xt.id);
+
+	printf("Texture %s loaded, id=%d\n", fname, xt.id);
+
+	return xt;
+}
+
+static void xx_texture_finalize(xx_texture *xt)
+{
+	gl.BindTexture(GL_TEXTURE_2D, xt->id);
+	gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, xt->width, xt->height, /*border=*/0,
+		GL_RGBA, GL_UNSIGNED_BYTE, xt->data);
+
+	GLint filtering = SDL_VIDEO_GL_filtering ? GL_LINEAR : GL_NEAREST;
+	gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filtering);
+	gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filtering);
+	gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+}
+
+void xx_init()
+{
+	gl.Enable(GL_BLEND);
+
+	xx_background = xx_texture_load_rgba("data/ext/yoomp/rof.rgba", 476, 476);
+
+	xx_texture *xt = &xx_background;
+	float xc = xt->width / 2.0f + 7;
+	float yc = xt->height / 2.0f;
+	float rad = 120.0;
+	float dark = 0.8 * rad;
+
+	// Fix alphas
+	for (int y = 0; y < xt->width; y++) {
+		for (int x = 0; x < xt->width; x++) {
+			int idx = y * xt->width + x;
+			float r = sqrt((x - xc) * (x - xc) + (y - yc) * (y - yc));
+			int alpha = 0;
+			if (r <= dark) {
+				alpha = 255 - 255.0 * r / dark;
+			} else if (r <= rad) {
+				alpha = 0;
+			} else {
+				alpha = 255;
+			}
+			xt->data[4 * idx + 3] = alpha;
+		}
+	}
+
+	xx_texture_finalize(&xx_background);
+
+	xx_load_obj();
+}
+
+void xx_draw()
+{
+	float L = -0.77;
+	float R = -L;
+	float T = 0.9;
+	float B = -0.75;
+
+	float TL = 0.18;
+	float TR = 0.84;
+	float TT = 0.76;
+	float TB = 0.25;
+
+	const Uint8 *state = SDL_GetKeyState(NULL);
+	if (!state[SDLK_RETURN]) {
+		return;
+	}
+
+	gl.BindTexture(GL_TEXTURE_2D, xx_background.id);
+
+	gl.Disable(GL_DEPTH_TEST);
+	gl.Color4f(1.0f, 1.0f, 1.0f, 1.0f);
+	gl.Enable(GL_BLEND);
+	gl.BlendFunc(
+		GL_SRC_ALPHA,
+		GL_ONE_MINUS_SRC_ALPHA
+	);
+
+	gl.Begin(GL_QUADS);
+	gl.TexCoord2f(TL, TB);
+	gl.Vertex3f(L, B, -2.0f);
+	gl.TexCoord2f(TR, TB);
+	gl.Vertex3f(R, B, -2.0f);
+	gl.TexCoord2f(TR, TT);
+	gl.Vertex3f(R, T, -2.0f);
+	gl.TexCoord2f(TL, TT);
+	gl.Vertex3f(L, T, -2.0f);
+	gl.End();
+
+	gl.Disable(GL_BLEND);
+
+	xx_render_ball();
 }
