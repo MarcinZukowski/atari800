@@ -35,10 +35,12 @@
 #include <stdio.h>
 #include <string.h>
 
+
 /* Atari800 includes */
 #include "atari.h"
 #include "../input.h"
 #include "log.h"
+#include "../lua-ext.h"
 #include "monitor.h"
 #include "platform.h"
 #ifdef SOUND
@@ -177,6 +179,10 @@ int main(int argc, char **argv)
 			/* if 'quit' typed in monitor, exit emulator */
 			exit(0);
 	}
+
+#ifdef WITH_LUA_EXT
+	lua_ext_init();
+#endif
 
 	/* main loop */
 	for (;;) {

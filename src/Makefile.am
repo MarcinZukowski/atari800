@@ -177,6 +177,11 @@ atari800_SOURCES += \
 atari800_SOURCES += pbi_proto80.c pbi_proto80.h af80.c af80.h bit3.c bit3.h
 endif
 
+if WITH_LUA_EXT
+atari800_SOURCES += \
+	lua-ext.c lua-ext.h
+endif
+
 if WITH_VIDEO_DOSVGA
 atari800_SOURCES += dos/atari_vga.c dos/vga_gfx.c dos/vga_gfx.h dos/vga_asm.s dos/dos_ints.h
 endif

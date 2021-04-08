@@ -1168,6 +1168,37 @@ fi
 AM_CONDITIONAL([WITH_OPENGL], test "$with_opengl" = "yes")
 
 
+dnl Check for Lua extensions support
+AC_ARG_WITH(lua_ext,
+    AC_HELP_STRING(--with-lua-ext,[Build support for Lua extensions - only in SDL/OPENGL target @<:@default=yes@:>@]),
+    [],
+    [with_lua_ext=yes])
+if [[ "$a8_target" != default -o "$with_video" != sdl -o "$with_opengl" != yes ]]; then
+    if [[ "$with_lua_ext" = "yes" ]]; then
+        AC_MSG_ERROR([option --with-lua-ext only supported with --target=default --with-video=sdl --with_opengl=yes !])
+    fi
+    with_lua_ext=no
+fi
+
+if [[ "$with_lua_ext" != no ]]; then
+    have_lua=no
+    AC_CHECK_HEADER([lua/lua.h], [
+        have_lua=yes
+    ], [
+       AC_MSG_ERROR([unable to use Lua  - lua/lua.h not found or not compilable.])
+    ])
+    with_lua_ext=$have_lua
+fi
+AC_MSG_NOTICE([with_lua_ext='$with_lua_ext'])
+if [[ "$with_lua_ext" = "yes" ]]; then
+    AC_DEFINE(HAVE_LUA, 1, [Support for Lua extensions.])
+    LIBS="-llua $LIBS"
+    AC_MSG_NOTICE([LIBS='$LIBS'])
+    CFLAGS="$CFLAGS -DWITH_LUA_EXT"
+fi
+AM_CONDITIONAL([WITH_LUA_EXT], test "$with_lua_ext" = "yes")
+
+
 dnl Select host/target specific features...
 
 if [[ "$a8_host" = "falcon" ]]; then
@@ -1337,6 +1368,7 @@ fi
 if [[ "$a8_target" = default -a "$with_video" = sdl ]]; then
     echo "Using on-screen keyboard?.............: $WANT_USE_UI_BASIC_ONSCREEN_KEYBOARD"
     echo "Using OpenGL?.........................: $with_opengl"
+    echo "Using Lua extensions?.................: $with_lua_ext"
 fi
 echo
 echo "Main build variables:"
