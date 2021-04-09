@@ -137,9 +137,16 @@ static gl_obj gl_obj_load(const char *path)
     return o;
 }
 
+static void gl_obj_vertex(tinyobj_attrib_t *a, int idx)
+{
+	int v_idx = a->faces[idx].v_idx;
+	gl.Normal3f(a->normals[3 * v_idx], a->normals[3 * v_idx + 1], a->normals[3 * v_idx + 2]);
+	gl.Vertex3f(a->vertices[3 * v_idx], a->vertices[3 * v_idx + 1], a->vertices[3 * v_idx + 2]);
+}
+
 static void gl_obj_render(gl_obj *o)
 {
-	tinyobj_attrib_t *a = &glo_ball.attrib;
+	tinyobj_attrib_t *a = &o->attrib;
 	int last_matid = -1;
 
 	for (int f = 0; f < a->num_face_num_verts; f++) {
@@ -150,13 +157,13 @@ static void gl_obj_render(gl_obj *o)
 				gl.End();
 			}
 			last_matid = matid;
-			tinyobj_material_t mat = glo_ball.materials[matid];
+			tinyobj_material_t mat = o->materials[matid];
 			gl.Color4f(mat.diffuse[0], mat.diffuse[1], mat.diffuse[2], 1);
 			gl.Begin(GL_TRIANGLES);
 		}
-		xx_v3(a, 3 * f + 0);
-		xx_v3(a, 3 * f + 1);
-		xx_v3(a, 3 * f + 2);
+		gl_obj_vertex(a, 3 * f + 0);
+		gl_obj_vertex(a, 3 * f + 1);
+		gl_obj_vertex(a, 3 * f + 2);
 	}
 	gl.End();
 
@@ -244,13 +251,6 @@ void xx_draw_background()
 	gl.End();
 
 	gl.Disable(GL_BLEND);
-}
-
-static void xx_v3(tinyobj_attrib_t *a, int idx)
-{
-	int v_idx = a->faces[idx].v_idx;
-	gl.Normal3f(a->normals[3 * v_idx], a->normals[3 * v_idx + 1], a->normals[3 * v_idx + 2]);
-	gl.Vertex3f(a->vertices[3 * v_idx], a->vertices[3 * v_idx + 1], a->vertices[3 * v_idx + 2]);
 }
 
 static float xx_last = 0;
