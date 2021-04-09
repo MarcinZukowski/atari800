@@ -286,8 +286,6 @@ static void xx_render_ball()
 	}
 	gl.End();
 
-	gl.Rotatef(30, 1, 1, 1);
-
 	gl.PopMatrix();
 
 	gl.Enable(GL_TEXTURE_2D);
