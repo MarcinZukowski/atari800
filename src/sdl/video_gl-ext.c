@@ -137,6 +137,31 @@ static gl_obj gl_obj_load(const char *path)
     return o;
 }
 
+static void gl_obj_render(gl_obj *o)
+{
+	tinyobj_attrib_t *a = &glo_ball.attrib;
+	int last_matid = -1;
+
+	for (int f = 0; f < a->num_face_num_verts; f++) {
+		assert(a->face_num_verts[f] == 3);
+		int matid = a->material_ids[f];
+		if (f == 0 || matid != last_matid) {
+			if (f) {
+				gl.End();
+			}
+			last_matid = matid;
+			tinyobj_material_t mat = glo_ball.materials[matid];
+			gl.Color4f(mat.diffuse[0], mat.diffuse[1], mat.diffuse[2], 1);
+			gl.Begin(GL_TRIANGLES);
+		}
+		xx_v3(a, 3 * f + 0);
+		xx_v3(a, 3 * f + 1);
+		xx_v3(a, 3 * f + 2);
+	}
+	gl.End();
+
+}
+
 /* main code ******************************************************************* */
 
 static gl_texture glt_background;
@@ -245,10 +270,6 @@ static void xx_render_ball()
 	GLfloat light_pos[] = {0, 0.2, 2.5, 0};
 	gl.Lightfv(GL_LIGHT0, GL_POSITION, light_pos);
 */
-	int last_matid = -1;
-
-	tinyobj_attrib_t *a = &glo_ball.attrib;
-
 	xx_last++;
 
 	const int EQU_BALL_X = 0x0030;
@@ -268,23 +289,7 @@ static void xx_render_ball()
 	gl.Rotatef(11 * xx_last, 1, 0, 0);
 	gl.Rotatef(90, 0, 0, 1);
 
-	for (int f = 0; f < a->num_face_num_verts; f++) {
-		assert(a->face_num_verts[f] == 3);
-		int matid = a->material_ids[f];
-		if (f == 0 || matid != last_matid) {
-			if (f) {
-				gl.End();
-			}
-			last_matid = matid;
-			tinyobj_material_t mat = glo_ball.materials[matid];
-			gl.Color4f(mat.diffuse[0], mat.diffuse[1], mat.diffuse[2], 1);
-			gl.Begin(GL_TRIANGLES);
-		}
-		xx_v3(a, 3 * f + 0);
-		xx_v3(a, 3 * f + 1);
-		xx_v3(a, 3 * f + 2);
-	}
-	gl.End();
+    gl_obj_render(&glo_ball);
 
 	gl.PopMatrix();
 
