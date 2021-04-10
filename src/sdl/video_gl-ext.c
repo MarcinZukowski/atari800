@@ -1,11 +1,15 @@
 // Include these just for the editor, it doesn't hurt
-#include <SDL.h>
-#include <SDL_opengl.h>
-
 #include <stdio.h>
 #include <libgen.h>
 #include <unistd.h>
 #include <sys/param.h>
+
+#include <lua/lua.h>
+#include <lua/lualib.h>
+#include <lua/lauxlib.h>
+
+#include <SDL.h>
+#include <SDL_opengl.h>
 
 #define TINYOBJ_LOADER_C_IMPLEMENTATION
 char *dynamic_fgets(char **buf, size_t *size, FILE *file);
@@ -37,7 +41,7 @@ static gl_texture gl_texture_load_rgba(const char* fname, int width, int height)
 
 	t.data = malloc(t.num_bytes);
 
-	printf("Loading: %s\n", fname);
+	printf("Loading: %s (%d x %d)\n", fname, width, height);
 	f = fopen(fname, "rb");
 	assert(f);
 	res = fread(t.data, 1, t.num_bytes, f);
@@ -215,10 +219,8 @@ static void xx_load_background()
 	gl_texture_finalize(&glt_background);
 }
 
-void xx_draw_background()
+static void xx_draw_background()
 {
-	gl.Enable(GL_BLEND);
-
 	float L = -0.77;
 	float R = -L;
 	float T = 0.9;
@@ -287,7 +289,6 @@ static void xx_render_ball()
 	gl.Scalef(0.05, 0.07, 0.07);
 	gl.Rotatef(ball_angle / 256.0 * 360.0, 0, 0, 1);
 	gl.Rotatef(11 * xx_last, 1, 0, 0);
-	gl.Rotatef(90, 0, 0, 1);
 
     gl_obj_render(&glo_ball);
 
@@ -305,8 +306,12 @@ void xx_init()
 	xx_load_ball();
 }
 
+void lua_draw_background();
+
 void xx_draw()
 {
+    lua_draw_background();
+
 	const Uint8 *state = SDL_GetKeyState(NULL);
 	if (!state[SDLK_RETURN]) {
 		return;
@@ -314,4 +319,234 @@ void xx_draw()
 
     xx_draw_background();
 	xx_render_ball();
+}
+
+/* Lua extensions - texture ******************************************************************* */
+
+#define LE_GLT "glt"
+
+static int gl_le_glt_get(lua_State *L)
+{
+    gl_texture* glt = *(gl_texture**)luaL_checkudata(L, 1, LE_GLT);
+    int index = luaL_checkinteger(L, 2);
+    lua_pushnumber(L, glt->data[index]);
+    return 1;
+}
+
+static int gl_le_glt_set(lua_State *L)
+{
+    gl_texture* glt = *(gl_texture**)luaL_checkudata(L, 1, LE_GLT);
+    int index = luaL_checkinteger(L, 2);
+    int value = luaL_checkinteger(L, 3);
+    glt->data[index] = value;
+    return 0;
+}
+
+static int gl_le_glt_width(lua_State *L)
+{
+    gl_texture* glt = *(gl_texture**)luaL_checkudata(L, 1, LE_GLT);
+    lua_pushnumber(L, glt->width);
+    return 1;
+}
+
+static int gl_le_glt_height(lua_State *L)
+{
+    gl_texture* glt = *(gl_texture**)luaL_checkudata(L, 1, LE_GLT);
+    lua_pushnumber(L, glt->height);
+    return 1;
+}
+
+static int gl_le_glt_num_pixels(lua_State *L)
+{
+    gl_texture* glt = *(gl_texture**)luaL_checkudata(L, 1, LE_GLT);
+    lua_pushnumber(L, glt->num_pixels);
+    return 1;
+}
+
+static int gl_le_glt_num_bytes(lua_State *L)
+{
+    gl_texture* glt = *(gl_texture**)luaL_checkudata(L, 1, LE_GLT);
+    lua_pushnumber(L, glt->num_bytes);
+    return 1;
+}
+
+static int gl_le_glt_gl_id(lua_State *L)
+{
+    gl_texture* glt = *(gl_texture**)luaL_checkudata(L, 1, LE_GLT);
+    lua_pushnumber(L, glt->gl_id);
+    return 1;
+}
+
+static int gl_le_glt_finalize(lua_State *L)
+{
+    gl_texture* glt = *(gl_texture**)luaL_checkudata(L, 1, LE_GLT);
+    gl_texture_finalize(glt);
+    return 0;
+}
+
+static int gl_le_glt_load_rgba(lua_State* L) {
+    const char* filename = luaL_checkstring(L, 1);
+    int width = luaL_checkinteger(L, 2);
+    int height = luaL_checkinteger(L, 3);
+
+    gl_texture** parray = lua_newuserdata(L, sizeof(gl_texture**));
+    gl_texture *glt = malloc(sizeof(gl_texture));
+    assert(glt);
+    *glt = gl_texture_load_rgba(filename, width, height);
+    *parray = glt;
+    luaL_getmetatable(L, LE_GLT);
+    lua_setmetatable(L, -2);
+    printf("ok!\n");
+
+    return 1;
+}
+
+static void gl_le_glt_create_type(lua_State* L) {
+    static const struct luaL_Reg funcs[] = {
+        { "get", gl_le_glt_get },
+        { "set", gl_le_glt_set },
+        { "width", gl_le_glt_width },
+        { "height", gl_le_glt_height },
+        { "num_pixels", gl_le_glt_num_pixels },
+        { "num_bytes", gl_le_glt_num_bytes },
+        { "gl_id", gl_le_glt_gl_id },
+        { "finalize", gl_le_glt_finalize },
+        NULL, NULL
+    };
+    luaL_newmetatable(L, LE_GLT);
+    luaL_setfuncs(L, funcs, 0);
+    lua_pushvalue(L, -1);
+    lua_setfield(L, -2, "__index");
+
+    lua_register(L, "glt_load_rgba", gl_le_glt_load_rgba);
+}
+
+/* Lua extensions - gl api ******************************************************************* */
+
+#define LE_GL "gl_api"
+
+static int gl_le_gl_Enable(lua_State *L)
+{
+    luaL_checkudata(L, 1, LE_GL);
+    int value = luaL_checkinteger(L, 2);
+    gl.Enable(value);
+    return 0;
+}
+
+static int gl_le_gl_Disable(lua_State *L)
+{
+    luaL_checkudata(L, 1, LE_GL);
+    int value = luaL_checkinteger(L, 2);
+    gl.Disable(value);
+    return 0;
+}
+
+static int gl_le_gl_Begin(lua_State *L)
+{
+    luaL_checkudata(L, 1, LE_GL);
+    int value = luaL_checkinteger(L, 2);
+    gl.Begin(value);
+    return 0;
+}
+
+static int gl_le_gl_End(lua_State *L)
+{
+    luaL_checkudata(L, 1, LE_GL);
+    gl.End();
+    return 0;
+}
+
+static int gl_le_gl_Color4f(lua_State *L)
+{
+    luaL_checkudata(L, 1, LE_GL);
+    float cr = luaL_checknumber(L, 2);
+    float cg = luaL_checknumber(L, 3);
+    float cb = luaL_checknumber(L, 4);
+    float ca = luaL_checknumber(L, 5);
+    gl.Color4f(cr, cg, cb, ca);
+    return 0;
+}
+
+static int gl_le_gl_TexCoord2f(lua_State *L)
+{
+    luaL_checkudata(L, 1, LE_GL);
+    float cx = luaL_checknumber(L, 2);
+    float cy = luaL_checknumber(L, 3);
+    gl.TexCoord2f(cx, cy);
+    return 0;
+}
+
+static int gl_le_gl_Vertex3f(lua_State *L)
+{
+    luaL_checkudata(L, 1, LE_GL);
+    float cx = luaL_checknumber(L, 2);
+    float cy = luaL_checknumber(L, 3);
+    float cz = luaL_checknumber(L, 4);
+    gl.Vertex3f(cx, cy, cz);
+    return 0;
+}
+
+static int gl_le_gl_BlendFunc(lua_State *L)
+{
+    luaL_checkudata(L, 1, LE_GL);
+    int v1 = luaL_checkinteger(L, 2);
+    int v2 = luaL_checkinteger(L, 3);
+    gl.BlendFunc(v1, v2);
+    return 0;
+}
+
+static int gl_le_gl_BindTexture(lua_State *L)
+{
+    luaL_checkudata(L, 1, LE_GL);
+    int v1 = luaL_checkinteger(L, 2);
+    int v2 = luaL_checkinteger(L, 3);
+    gl.BindTexture(v1, v2);
+    return 0;
+}
+
+
+static int gl_le_gl_api(lua_State* L) {
+    printf("%s: gl=%p\n", __FUNCTION__, &gl);
+    void** parray = lua_newuserdata(L, sizeof(void**));
+    *parray = &gl;
+    luaL_getmetatable(L, LE_GL);
+    lua_setmetatable(L, -2);
+    return 1;
+}
+
+#define push_integer_value(_id) \
+    lua_pushinteger(L, _id); \
+    lua_setfield(L, -2, #_id);
+
+static void gl_le_gl_create_type(lua_State* L) {
+    static const struct luaL_Reg funcs[] = {
+        { "Enable", gl_le_gl_Enable },
+        { "Disable", gl_le_gl_Disable },
+        { "Begin", gl_le_gl_Begin },
+        { "End", gl_le_gl_End },
+        { "Color4f", gl_le_gl_Color4f },
+        { "BlendFunc", gl_le_gl_BlendFunc },
+        { "BindTexture", gl_le_gl_BindTexture },
+        { "TexCoord2f", gl_le_gl_TexCoord2f },
+        { "Vertex3f", gl_le_gl_Vertex3f },
+        NULL, NULL
+    };
+    luaL_newmetatable(L, LE_GL);
+    luaL_setfuncs(L, funcs, 0);
+    lua_pushvalue(L, -1);
+    lua_setfield(L, -2, "__index");
+    push_integer_value(GL_BLEND);
+    push_integer_value(GL_TEXTURE_2D);
+    push_integer_value(GL_DEPTH_TEST);
+    push_integer_value(GL_SRC_ALPHA);
+    push_integer_value(GL_ONE_MINUS_SRC_ALPHA);
+    push_integer_value(GL_QUADS);
+
+    lua_register(L, "gl_api", gl_le_gl_api);
+}
+
+void gl_lua_ext_init(lua_State *L)
+{
+    gl_le_glt_create_type(L);
+    gl_le_gl_create_type(L);
 }

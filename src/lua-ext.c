@@ -40,6 +40,8 @@ char *dynamic_fgets(char **buf, size_t *size, FILE *file);  //  pacify compiler 
 #error "WITH_LUA_EXT is expected"
 #endif
 
+#include "sdl/video_gl.h"
+
 typedef unsigned char byte;
 
 // FROM: https://stackoverflow.com/questions/11689135/share-array-between-lua-and-c
@@ -93,7 +95,7 @@ static int barray_gc(lua_State *L) {
 // create a metatable for our array type
 static void create_barray_type(lua_State* L) {
    static const struct luaL_Reg barray[] = {
-//      { "__index",  barray_index  },
+//      { "__index",  barray_index  },    // This doesn't work, unfortunately
       { "__newindex",  barray_newindex  },
       { "size",  barray_size  },
 	  { "get", barray_index },
@@ -106,22 +108,6 @@ static void create_barray_type(lua_State* L) {
    lua_pushvalue(L, -1);
    lua_setfield(L, -2, "__index");
 }
-
-// Based on: https://gist.github.com/Youka/2a6e69584672f7cb0331
-static void create_barray_type2(lua_State* L) {
-	lua_register(L, LUA_BARRAY, barray_new);
-	luaL_newmetatable(L, LUA_BARRAY);
-	lua_pushcfunction(L, barray_gc); lua_setfield(L, -2, "__gc");
-	lua_pushvalue(L, -1); lua_setfield(L, -2, "__index");
-	lua_pushcfunction(L, barray_size); lua_setfield(L, -2, "size");
-//	lua_pushcfunction(L, barray_index); lua_setfield(L, -2, "__index");
-	lua_pushcfunction(L, barray_index); lua_setfield(L, -2, "get");
-	lua_pushcfunction(L, barray_newindex); lua_setfield(L, -2, "__newindex");
-	lua_pushcfunction(L, barray_newindex); lua_setfield(L, -2, "set");
-//	lua_pop(L, 1);
-//  lua_setmetatable(L, -2);
-}
-
 
 // expose an array to lua, by storing it in a userdata with the array metatable
 static int expose_barray(lua_State* L, byte *barray) {
@@ -138,317 +124,101 @@ static int get_a8_memory (lua_State* L) {
     return expose_barray(L, MEMORY_mem );
 }
 
+lua_State *L = NULL;
+
+static int lext_eval(const char* str)
+{
+	int res;
+	if ((res = luaL_loadstring(L, str)) == LUA_OK) {
+		if ((res = lua_pcall(L, 0, 0, 0)) == LUA_OK) {
+			// If it was executed successfuly we
+			// remove the code from the stack
+			lua_pop(L, lua_gettop(L));
+		} else {
+			const char* errmsg = lua_tostring(L, -1);
+			printf("ERROR(call): %s\n", errmsg);
+			return 1;
+		}
+		return 0;
+	} else {
+		const char* errmsg = lua_tostring(L, -1);
+		printf("ERROR(run): %s\n", errmsg);
+		return 1;
+	}
+}
+
+static int lext_run_str(const char *str)
+{
+	printf("\nRUNNING: %s\n", str);
+	return lext_eval(str);
+}
+
+static int lext_run_file(const char *fname)
+{
+	FILE *f;
+	int res;
+	size_t fsize;
+
+	printf("\n%s: opening %s\n", __FUNCTION__, fname);
+	f = fopen(fname, "rb");
+	assert(f);
+
+	fseek(f, 0, SEEK_END);
+	fsize = ftell(f);
+	rewind(f);
+
+	char *str = alloca(fsize+1);
+
+	res = fread(str, 1, fsize, f);
+	assert(res == fsize);
+	str[fsize] = '\0';
+	fclose(f);
+
+	printf("%s: Running from file (%zd bytes)\n", __FUNCTION__, fsize);
+	res = lext_eval(str);
+	printf("%s: File evaluated, exit code: %d\n", __FUNCTION__, res);
+	return res;
+}
+
 void lua_ext_init()
 {
     printf("Initializing Lua\n");
-    lua_State *L = luaL_newstate();
+    L = luaL_newstate();
 	assert(L);
 	luaL_openlibs(L);
 
-	create_barray_type(L);
 
+	gl_lua_ext_init(L);
+
+	create_barray_type(L);
     lua_register(L, "a8_memory", get_a8_memory);
+
+	if(lext_run_file("data/ext/yoomp/script.lua")) {
+		printf("exiting\n");
+		exit(1);
+	};
 
 	char* code [] = {
 		"print('Hello, World')",
-/*
-		"print(barray(3))",
-		"xx = barray(4); print(xx);",
-		"print(xx);",
-		"foo = barray(5)",
-		"print(foo)",
-		"print(foo[0])",
-*/
-		"a8mem = a8_memory()",
-		"print(a8mem[2])",
-		"print(a8mem:get(2))",
-		"a8mem[2] = 1",
-		"print(a8mem:get(2))",
-		"print(a8mem)",
-		"print(a8mem[2.0])",
-		"print(a8mem:size())",
+		"yoomp_initialize()",
 	};
 
 	for (int c = 0; c < sizeof(code) / sizeof(*code); c++) {
 		int res;
 		// Here we load the string and use lua_pcall for run the code
-		printf("\nRUNNING: %s\n", code[c]);
-		if (res = luaL_loadstring(L, code[c]) == LUA_OK) {
-			if (res = lua_pcall(L, 0, 0, 0) == LUA_OK) {
-				// If it was executed successfuly we
-				// remove the code from the stack
-				lua_pop(L, lua_gettop(L));
-			} else {
-				const char* errmsg = lua_tostring(L, -1);
-				printf("ERROR: %s\n", errmsg);
-			}
-		} else {
-			const char* errmsg = lua_tostring(L, -1);
-			printf("ERROR: %s\n", errmsg);
+		if (lext_run_str(code[c])) {
+			printf("exiting\n");
+			exit(1);
 		}
 	}
 }
 
-#if 0
-
-static void xx_load_file(void *ctx, const char * filename, const int is_mtl, const char *obj_filename, char ** buffer, size_t * len)
+void lua_draw_background()
 {
-    long string_size = 0, read_size = 0;
-    FILE * handler = fopen(filename, "r");
-
-    if (handler) {
-        fseek(handler, 0, SEEK_END);
-        string_size = ftell(handler);
-        rewind(handler);
-        *buffer = (char *) malloc(sizeof(char) * (string_size + 1));
-        read_size = fread(*buffer, sizeof(char), (size_t) string_size, handler);
-        (*buffer)[string_size] = '\0';
-        if (string_size != read_size) {
-            free(buffer);
-            *buffer = NULL;
-        }
-        fclose(handler);
-    }
-
-    *len = read_size;
-}
-
-tinyobj_shape_t * xx_shape = NULL;
-tinyobj_material_t * xx_material = NULL;
-tinyobj_attrib_t xx_attrib;
-
-static void xx_load_obj()
-{
-
-    size_t num_shapes;
-    size_t num_materials;
-
-    tinyobj_attrib_init(&xx_attrib);
-
-	chdir("data/ext/yoomp");
-
-//	const char* filename = "beach-ball.obj";
-	const char* filename = "ball-yoomp.obj";
-//	const char* filename = "ball-amiga.obj";
-//	const char* filename = "ball-amiga-2.obj";
-
-	printf("Loading obj: %s\n", filename);
-
-    int result = tinyobj_parse_obj(&xx_attrib, &xx_shape, &num_shapes, &xx_material, &num_materials, filename, xx_load_file, NULL, TINYOBJ_FLAG_TRIANGULATE);
-
-	chdir("../../..");
-
-	assert(result == TINYOBJ_SUCCESS);
-
-	printf("%zd shapes, %zd materials\n", num_shapes, num_materials);
-	printf("shape: %s %d %d\n", xx_shape->name, xx_shape->length, xx_shape->face_offset);
-	printf("attribs: #v:%d #n:%d #tc:%d #f:%d #fnv: %d\n",
-	    xx_attrib.num_vertices, xx_attrib.num_normals, xx_attrib.num_texcoords, xx_attrib.num_faces, xx_attrib.num_face_num_verts);
-}
-
-static void xx_v3(int idx)
-{
-	int v_idx = xx_attrib.faces[idx].v_idx;
-	gl.Normal3f(xx_attrib.normals[3 * v_idx], xx_attrib.normals[3 * v_idx + 1], xx_attrib.normals[3 * v_idx + 2]);
-	gl.Vertex3f(xx_attrib.vertices[3 * v_idx], xx_attrib.vertices[3 * v_idx + 1], xx_attrib.vertices[3 * v_idx + 2]);
-}
-
-static float xx_last = 0;
-
-static void xx_render_ball()
-{
-	gl.Disable(GL_TEXTURE_2D);
-
-	gl.MatrixMode(GL_MODELVIEW);
-	gl.PushMatrix();
-	gl.LoadIdentity();
-
-/*
-	gl.Enable(GL_LIGHTING);
-	gl.Enable(GL_LIGHT0);
-	gl.Enable(GL_COLOR_MATERIAL);
-	GLfloat light_pos[] = {0, 0.2, 2.5, 0};
-	gl.Lightfv(GL_LIGHT0, GL_POSITION, light_pos);
-*/
-	int last_matid = -1;
-
-	tinyobj_attrib_t *a = &xx_attrib;
-
-	xx_last++;
-
-	const int EQU_BALL_X = 0x0030;
-	const int EQU_BALL_VX = 0x0031;
-	const int EQU_BALL_VY = 0x0032;
-
-	float ball_angle = MEMORY_mem[EQU_BALL_X];
-	float ball_vx = MEMORY_mem[EQU_BALL_VX];
-	float ball_vy = MEMORY_mem[EQU_BALL_VY];
-
-	gl.Translatef(
-		(ball_vx - 128 + 4) / 84,
-		- (ball_vy - 112 - 8) / 120,
-		0);
-	gl.Scalef(0.05, 0.07, 0.07);
-	gl.Rotatef(ball_angle / 256.0 * 360.0, 0, 0, 1);
-	gl.Rotatef(11 * xx_last, 1, 0, 0);
-	gl.Rotatef(90, 0, 0, 1);
-
-	for (int f = 0; f < a->num_face_num_verts; f++) {
-		assert(a->face_num_verts[f] == 3);
-		int matid = a->material_ids[f];
-		if (f == 0 || matid != last_matid) {
-			if (f) {
-				gl.End();
-			}
-			last_matid = matid;
-			tinyobj_material_t mat = xx_material[matid];
-			gl.Color4f(mat.diffuse[0], mat.diffuse[1], mat.diffuse[2], 1);
-			gl.Begin(GL_TRIANGLES);
-		}
-		xx_v3(3 * f + 0);
-		xx_v3(3 * f + 1);
-		xx_v3(3 * f + 2);
-	}
-	gl.End();
-
-	gl.Rotatef(30, 1, 1, 1);
-
-	gl.PopMatrix();
-
-	gl.Enable(GL_TEXTURE_2D);
-	gl.Color4f(1, 1, 1, 1);
-	gl.Disable(GL_LIGHTING);
-	gl.Disable(GL_LIGHT0);
-}
-
-
-typedef struct xx_texture {
-	int width;
-	int height;
-	int pixels;
-	size_t bytes;
-
-	unsigned char *data;
-
-	GLuint id;
-} xx_texture;
-
-static xx_texture xx_background;
-
-static xx_texture xx_texture_load_rgba(const char* fname, int width, int height)
-{
-	xx_texture xt;
-	FILE *f;
-	size_t res;
-
-	xt.width = width;
-	xt.height = height;
-	xt.pixels = width * height;
-	xt.bytes = xt.pixels * 4;
-
-	xt.data = malloc(xt.bytes);
-
-	printf("Loading: %s\n", fname);
-	f = fopen(fname, "rb");
-	assert(f);
-	res = fread(xt.data, 1, xt.bytes, f);
-	assert(res == xt.bytes);
-	fclose(f);
-
-	gl.GenTextures(1, &xt.id);
-
-	printf("Texture %s loaded, id=%d\n", fname, xt.id);
-
-	return xt;
-}
-
-static void xx_texture_finalize(xx_texture *xt)
-{
-	gl.BindTexture(GL_TEXTURE_2D, xt->id);
-	gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, xt->width, xt->height, /*border=*/0,
-		GL_RGBA, GL_UNSIGNED_BYTE, xt->data);
-
-	GLint filtering = SDL_VIDEO_GL_filtering ? GL_LINEAR : GL_NEAREST;
-	gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filtering);
-	gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filtering);
-	gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-	gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-}
-
-void xx_init()
-{
-	gl.Enable(GL_BLEND);
-
-	xx_background = xx_texture_load_rgba("data/ext/yoomp/rof.rgba", 476, 476);
-
-	xx_texture *xt = &xx_background;
-	float xc = xt->width / 2.0f + 7;
-	float yc = xt->height / 2.0f;
-	float rad = 120.0;
-	float dark = 0.8 * rad;
-
-	// Fix alphas
-	for (int y = 0; y < xt->width; y++) {
-		for (int x = 0; x < xt->width; x++) {
-			int idx = y * xt->width + x;
-			float r = sqrt((x - xc) * (x - xc) + (y - yc) * (y - yc));
-			int alpha = 0;
-			if (r <= dark) {
-				alpha = 255 - 255.0 * r / dark;
-			} else if (r <= rad) {
-				alpha = 0;
-			} else {
-				alpha = 255;
-			}
-			xt->data[4 * idx + 3] = alpha;
-		}
-	}
-
-	xx_texture_finalize(&xx_background);
-
-	xx_load_obj();
-}
-
-void xx_draw()
-{
-	float L = -0.77;
-	float R = -L;
-	float T = 0.9;
-	float B = -0.75;
-
-	float TL = 0.18;
-	float TR = 0.84;
-	float TT = 0.76;
-	float TB = 0.25;
-
-	const Uint8 *state = SDL_GetKeyState(NULL);
-	if (!state[SDLK_RETURN]) {
+	if (!L) {
+		printf("%s: Lua not ready, waiting\n", __FUNCTION__);
 		return;
 	}
 
-	gl.BindTexture(GL_TEXTURE_2D, xx_background.id);
-
-	gl.Disable(GL_DEPTH_TEST);
-	gl.Color4f(1.0f, 1.0f, 1.0f, 1.0f);
-	gl.Enable(GL_BLEND);
-	gl.BlendFunc(
-		GL_SRC_ALPHA,
-		GL_ONE_MINUS_SRC_ALPHA
-	);
-
-	gl.Begin(GL_QUADS);
-	gl.TexCoord2f(TL, TB);
-	gl.Vertex3f(L, B, -2.0f);
-	gl.TexCoord2f(TR, TB);
-	gl.Vertex3f(R, B, -2.0f);
-	gl.TexCoord2f(TR, TT);
-	gl.Vertex3f(R, T, -2.0f);
-	gl.TexCoord2f(TL, TT);
-	gl.Vertex3f(L, T, -2.0f);
-	gl.End();
-
-	gl.Disable(GL_BLEND);
-
-	xx_render_ball();
+	lext_run_str("yoomp_draw_background()");
 }
-#endif
