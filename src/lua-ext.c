@@ -49,7 +49,6 @@ typedef unsigned char byte;
 #define LUA_BARRAY "barray"
 // metatable method for handling "array[index]"
 static int barray_index (lua_State* L) {
-	printf("barray_index\n");
     byte** parray = luaL_checkudata(L, 1, LUA_BARRAY);
     int index = luaL_checkinteger(L, 2);
     lua_pushnumber(L, (*parray)[index]);
@@ -58,7 +57,6 @@ static int barray_index (lua_State* L) {
 
 // metatable method for handle "array[index] = value"
 static int barray_newindex (lua_State* L) {
-	printf("barray_newindex\n");
     byte** parray = luaL_checkudata(L, 1, LUA_BARRAY);
     int index = luaL_checkinteger(L, 2);
     int value = luaL_checkinteger(L, 3);
@@ -67,7 +65,6 @@ static int barray_newindex (lua_State* L) {
 }
 
 static int barray_size(lua_State* L) {
-	printf("barray_size\n");
     byte** parray = luaL_checkudata(L, 1, LUA_BARRAY);
     lua_pushnumber(L, 7);
     return 1;
@@ -76,7 +73,6 @@ static int barray_size(lua_State* L) {
 static int barray_new(lua_State *L) {
 	size_t size = luaL_checkinteger(L, 1);
 	byte *ptr = malloc(size);
-	printf("barray_new: %zd %p\n", size, ptr);
     byte** parray = lua_newuserdata(L, sizeof(byte**));
     *parray = ptr;
 	luaL_setmetatable(L, LUA_BARRAY);
@@ -89,6 +85,7 @@ static int barray_gc(lua_State *L) {
 	byte *ptr = *(byte**)(lua_touserdata(L, 1));
 	printf("barray_gc: %p\n", ptr);
 	free(ptr);
+	exit(1);
 	return 0;
 }
 
@@ -97,6 +94,7 @@ static void create_barray_type(lua_State* L) {
    static const struct luaL_Reg barray[] = {
 //      { "__index",  barray_index  },    // This doesn't work, unfortunately
       { "__newindex",  barray_newindex  },
+      { "__gc",  barray_gc  },
       { "size",  barray_size  },
 	  { "get", barray_index },
 	  { "set", barray_newindex },
@@ -200,6 +198,7 @@ void lua_ext_init()
 
 	char* code [] = {
 		"print('Hello, World')",
+		"a8mem = a8_memory()",
 		"yoomp_initialize()",
 	};
 
@@ -220,5 +219,5 @@ void lua_draw_background()
 		return;
 	}
 
-	lext_run_str("yoomp_draw_background()");
+	lext_run_str("yoomp_render_frame()");
 }

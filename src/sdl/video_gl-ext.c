@@ -421,6 +421,42 @@ static void gl_le_glt_create_type(lua_State* L) {
     lua_register(L, "glt_load_rgba", gl_le_glt_load_rgba);
 }
 
+/* Lua extensions - globj ******************************************************************* */
+#define LE_GLO "glo"
+
+static int gl_le_glo_load(lua_State* L) {
+    const char* filename = luaL_checkstring(L, 1);
+
+    gl_obj** parray = lua_newuserdata(L, sizeof(gl_obj**));
+    gl_obj *glo = malloc(sizeof(gl_obj));
+    assert(glo);
+    *glo = gl_obj_load(filename);
+    *parray = glo;
+    luaL_getmetatable(L, LE_GLO);
+    lua_setmetatable(L, -2);
+    return 1;
+}
+
+static int gl_le_glo_render(lua_State *L)
+{
+    gl_texture* glo = *(gl_obj**)luaL_checkudata(L, 1, LE_GLO);
+    gl_obj_render(glo);
+    return 0;
+}
+
+static void gl_le_glo_create_type(lua_State* L) {
+    static const struct luaL_Reg funcs[] = {
+        { "render", gl_le_glo_render },
+        NULL, NULL
+    };
+    luaL_newmetatable(L, LE_GLO);
+    luaL_setfuncs(L, funcs, 0);
+    lua_pushvalue(L, -1);
+    lua_setfield(L, -2, "__index");
+
+    lua_register(L, "glo_load", gl_le_glo_load);
+}
+
 /* Lua extensions - gl api ******************************************************************* */
 
 #define LE_GL "gl_api"
@@ -486,6 +522,37 @@ static int gl_le_gl_Vertex3f(lua_State *L)
     return 0;
 }
 
+static int gl_le_gl_Translatef(lua_State *L)
+{
+    luaL_checkudata(L, 1, LE_GL);
+    float x = luaL_checknumber(L, 2);
+    float y = luaL_checknumber(L, 3);
+    float z = luaL_checknumber(L, 4);
+    gl.Translatef(x, y, z);
+    return 0;
+}
+
+static int gl_le_gl_Scalef(lua_State *L)
+{
+    luaL_checkudata(L, 1, LE_GL);
+    float x = luaL_checknumber(L, 2);
+    float y = luaL_checknumber(L, 3);
+    float z = luaL_checknumber(L, 4);
+    gl.Scalef(x, y, z);
+    return 0;
+}
+
+static int gl_le_gl_Rotatef(lua_State *L)
+{
+    luaL_checkudata(L, 1, LE_GL);
+    float a = luaL_checknumber(L, 2);
+    float x = luaL_checknumber(L, 3);
+    float y = luaL_checknumber(L, 4);
+    float z = luaL_checknumber(L, 5);
+    gl.Rotatef(a, x, y, z);
+    return 0;
+}
+
 static int gl_le_gl_BlendFunc(lua_State *L)
 {
     luaL_checkudata(L, 1, LE_GL);
@@ -504,6 +571,34 @@ static int gl_le_gl_BindTexture(lua_State *L)
     return 0;
 }
 
+static int gl_le_gl_MatrixMode(lua_State *L)
+{
+    luaL_checkudata(L, 1, LE_GL);
+    int v = luaL_checkinteger(L, 2);
+    gl.MatrixMode(v);
+    return 0;
+}
+
+static int gl_le_gl_PushMatrix(lua_State *L)
+{
+    luaL_checkudata(L, 1, LE_GL);
+    gl.PushMatrix();
+    return 0;
+}
+
+static int gl_le_gl_PopMatrix(lua_State *L)
+{
+    luaL_checkudata(L, 1, LE_GL);
+    gl.PopMatrix();
+    return 0;
+}
+
+static int gl_le_gl_LoadIdentity(lua_State *L)
+{
+    luaL_checkudata(L, 1, LE_GL);
+    gl.LoadIdentity();
+    return 0;
+}
 
 static int gl_le_gl_api(lua_State* L) {
     printf("%s: gl=%p\n", __FUNCTION__, &gl);
@@ -529,6 +624,13 @@ static void gl_le_gl_create_type(lua_State* L) {
         { "BindTexture", gl_le_gl_BindTexture },
         { "TexCoord2f", gl_le_gl_TexCoord2f },
         { "Vertex3f", gl_le_gl_Vertex3f },
+        { "Translatef", gl_le_gl_Translatef },
+        { "Scalef", gl_le_gl_Scalef },
+        { "Rotatef", gl_le_gl_Rotatef },
+        { "MatrixMode", gl_le_gl_MatrixMode },
+        { "PushMatrix", gl_le_gl_PushMatrix },
+        { "PopMatrix", gl_le_gl_PopMatrix },
+        { "LoadIdentity", gl_le_gl_LoadIdentity },
         NULL, NULL
     };
     luaL_newmetatable(L, LE_GL);
@@ -536,11 +638,14 @@ static void gl_le_gl_create_type(lua_State* L) {
     lua_pushvalue(L, -1);
     lua_setfield(L, -2, "__index");
     push_integer_value(GL_BLEND);
-    push_integer_value(GL_TEXTURE_2D);
     push_integer_value(GL_DEPTH_TEST);
-    push_integer_value(GL_SRC_ALPHA);
+    push_integer_value(GL_LIGHTING);
+    push_integer_value(GL_LIGHT0);
+    push_integer_value(GL_MODELVIEW);
     push_integer_value(GL_ONE_MINUS_SRC_ALPHA);
     push_integer_value(GL_QUADS);
+    push_integer_value(GL_SRC_ALPHA);
+    push_integer_value(GL_TEXTURE_2D);
 
     lua_register(L, "gl_api", gl_le_gl_api);
 }
@@ -548,5 +653,6 @@ static void gl_le_gl_create_type(lua_State* L) {
 void gl_lua_ext_init(lua_State *L)
 {
     gl_le_glt_create_type(L);
+    gl_le_glo_create_type(L);
     gl_le_gl_create_type(L);
 }
