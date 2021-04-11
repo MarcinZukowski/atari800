@@ -124,6 +124,10 @@ function yoomp_render_frame()
     print(glt_background);
     print(glo_ball);
 
+    if antic_dlist() ~= 0xCA00 then
+        return
+    end
+
     yoomp_draw_background()
     yoomp_draw_ball();
 end

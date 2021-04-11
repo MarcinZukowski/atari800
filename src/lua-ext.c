@@ -35,6 +35,7 @@ char *dynamic_fgets(char **buf, size_t *size, FILE *file);  //  pacify compiler 
 
 #include "akey.h"
 #include "memory.h"
+#include "antic.h"
 
 #ifndef WITH_LUA_EXT
 #error "WITH_LUA_EXT is expected"
@@ -178,6 +179,12 @@ static int lext_run_file(const char *fname)
 	return res;
 }
 
+static int lext_antic_dlist(lua_State* L) {
+    lua_pushnumber(L, ANTIC_dlist);
+    return 1;
+}
+
+
 void lua_ext_init()
 {
     printf("Initializing Lua\n");
@@ -185,11 +192,12 @@ void lua_ext_init()
 	assert(L);
 	luaL_openlibs(L);
 
-
 	gl_lua_ext_init(L);
 
 	create_barray_type(L);
     lua_register(L, "a8_memory", get_a8_memory);
+
+	lua_register(L, "antic_dlist", lext_antic_dlist);
 
 	if(lext_run_file("data/ext/yoomp/script.lua")) {
 		printf("exiting\n");
