@@ -120,13 +120,13 @@ function yoomp_draw_background()
 end
 
 function yoomp_render_frame()
-    print(gl);
-    print(glt_background);
-    print(glo_ball);
-
     if antic_dlist() ~= 0xCA00 then
         return
     end
+
+    print(gl);
+    print(glt_background);
+    print(glo_ball);
 
     yoomp_draw_background()
     yoomp_draw_ball();
