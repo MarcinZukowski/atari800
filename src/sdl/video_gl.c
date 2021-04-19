@@ -22,14 +22,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include <SDL.h>
-#include <SDL_opengl.h>
 #include <assert.h>
 #include <math.h>
 
-#define TINYOBJ_LOADER_C_IMPLEMENTATION
-char *dynamic_fgets(char **buf, size_t *size, FILE *file);
-#include "tinyobj_loader_c.h"
+#include "sdl/video_gl-common.h"
+#include "sdl/video_gl-ext.h"
 
 #include "akey.h"
 #include "memory.h"
@@ -58,9 +55,6 @@ char *dynamic_fgets(char **buf, size_t *size, FILE *file);
 #include "sdl/video.h"
 #include "sdl/video_gl.h"
 
-void xx_init(void);
-void xx_draw(void);
-
 static int currently_rotated = FALSE;
 /* If TRUE, then 32 bit, else 16 bit screen. */
 static int bpp_32 = FALSE;
@@ -71,50 +65,7 @@ int SDL_VIDEO_GL_pixel_format = SDL_VIDEO_GL_PIXEL_FORMAT_BGR16;
 /* Path to the OpenGL shared library. */
 static char const *library_path = NULL;
 
-/* Pointers to OpenGL functions, loaded dynamically during initialisation. */
-static struct
-{
-	void(APIENTRY*Viewport)(GLint,GLint,GLsizei,GLsizei);
-	void(APIENTRY*ClearColor)(GLfloat, GLfloat, GLfloat, GLfloat);
-	void(APIENTRY*Clear)(GLbitfield);
-	void(APIENTRY*Enable)(GLenum);
-	void(APIENTRY*Disable)(GLenum);
-	void(APIENTRY*GenTextures)(GLsizei, GLuint*);
-	void(APIENTRY*DeleteTextures)(GLsizei, const GLuint*);
-	void(APIENTRY*BindTexture)(GLenum, GLuint);
-	void(APIENTRY*TexParameteri)(GLenum, GLenum, GLint);
-	void(APIENTRY*TexImage2D)(GLenum, GLint, GLint, GLsizei, GLsizei, GLint, GLenum, GLenum, const GLvoid*);
-	void(APIENTRY*TexSubImage2D)(GLenum, GLint, GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, const GLvoid*);
-	void(APIENTRY*TexCoord2f)(GLfloat, GLfloat);
-	void(APIENTRY*Vertex3f)(GLfloat, GLfloat, GLfloat);
-	void(APIENTRY*Normal3f)(GLfloat, GLfloat, GLfloat);
-	void(APIENTRY*Color4f)(GLfloat, GLfloat, GLfloat, GLfloat);
-	void(APIENTRY*BlendFunc)(GLenum,GLenum);
-	void(APIENTRY*MatrixMode)(GLenum);
-	void(APIENTRY*Ortho)(GLdouble,GLdouble,GLdouble,GLdouble,GLdouble,GLdouble);
-	void(APIENTRY*LoadIdentity)(void);
-	void(APIENTRY*Begin)(GLenum);
-	void(APIENTRY*End)(void);
-	void(APIENTRY*PushMatrix)(void);
-	void(APIENTRY*PopMatrix)(void);
-	void(APIENTRY*Rotatef)(GLfloat, GLfloat, GLfloat, GLfloat);
-	void(APIENTRY*Translatef)(GLfloat, GLfloat, GLfloat);
-	void(APIENTRY*Scalef)(GLfloat, GLfloat, GLfloat);
-	void(APIENTRY*Lightfv)(GLenum, GLenum, const GLfloat*);
-	void(APIENTRY*GetIntegerv)(GLenum, GLint*);
-	const GLubyte*(APIENTRY*GetString)(GLenum);
-	GLuint(APIENTRY*GenLists)(GLsizei);
-	void(APIENTRY*DeleteLists)(GLuint, GLsizei);
-	void(APIENTRY*NewList)(GLuint, GLenum);
-	void(APIENTRY*EndList)(void);
-	void(APIENTRY*CallList)(GLuint);
-	void(APIENTRY*GenBuffers)(GLsizei, GLuint*);
-	void(APIENTRY*DeleteBuffers)(GLsizei, const GLuint*);
-	void(APIENTRY*BindBuffer)(GLenum, GLuint);
-	void(APIENTRY*BufferData)(GLenum, GLsizeiptr, const GLvoid*, GLenum);
-	void*(APIENTRY*MapBuffer)(GLenum, GLenum);
-	GLboolean(APIENTRY*UnmapBuffer)(GLenum);
-} gl;
+struct glapi gl;
 
 static void DisplayNormal(GLvoid *dest);
 #if NTSC_FILTER
@@ -1019,7 +970,3 @@ void SDL_VIDEO_GL_InterpolateScanlinesChanged(void)
 		SetGlDisplayList();
 	}
 }
-
-#ifdef WITH_LUA_EXT
-#include "video_gl-ext.c"
-#endif

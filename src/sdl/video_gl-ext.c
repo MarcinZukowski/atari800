@@ -1,15 +1,17 @@
-// Include these just for the editor, it doesn't hurt
-#include <stdio.h>
+#include "sdl/video_gl-ext.h"
+#include "sdl/video_gl-common.h"
+
 #include <libgen.h>
+#include <math.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <sys/param.h>
+
+#include "memory.h"
 
 #include <lua/lua.h>
 #include <lua/lualib.h>
 #include <lua/lauxlib.h>
-
-#include <SDL.h>
-#include <SDL_opengl.h>
 
 #define TINYOBJ_LOADER_C_IMPLEMENTATION
 char *dynamic_fgets(char **buf, size_t *size, FILE *file);
@@ -306,7 +308,7 @@ void xx_init()
 	xx_load_ball();
 }
 
-void lua_draw_background();
+void lua_draw_background(void);
 
 void xx_draw()
 {
@@ -439,7 +441,7 @@ static int gl_le_glo_load(lua_State* L) {
 
 static int gl_le_glo_render(lua_State *L)
 {
-    gl_texture* glo = *(gl_obj**)luaL_checkudata(L, 1, LE_GLO);
+    gl_obj* glo = *(gl_obj**)luaL_checkudata(L, 1, LE_GLO);
     gl_obj_render(glo);
     return 0;
 }

@@ -1,0 +1,22 @@
+#!/bin/bash -ex
+
+function bootstrap()
+{
+  ./autogen.sh
+  cd build
+  CC="clang" CFLAGS="-fsanitize=address -g -Wno-c99-extensions \
+    -Wno-declaration-after-statement -Wno-missing-prototypes \
+    -Wno-gcc-compat -Wno-long-long -Wno-comment" \
+    ../configure --prefix $PWD/../local \
+    --with-video=sdl --with-opengl --enable-opengl-by-default \
+    --enable-monitorbreakpoints --enable-seriosound \
+    --with-sound=sdl --with-lua-ext
+  cd -
+}
+
+install()
+{
+  VERBOSE=1 SHELL='sh -x' make -C build -j 4 install
+}
+
+$1

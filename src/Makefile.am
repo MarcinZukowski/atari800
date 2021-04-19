@@ -247,9 +247,14 @@ endif
 if WANT_IDE
 atari800_SOURCES += ide.c ide.h ide_internal.h
 endif
+
 if WITH_OPENGL
-atari800_SOURCES += sdl/video_gl.c sdl/video_gl.h
+atari800_SOURCES += sdl/video_gl.c sdl/video_gl.h sdl/video_gl-common.h
+if WITH_LUA_EXT
+atari800_SOURCES += sdl/video_gl-ext.c sdl/video_gl-ext.h
 endif
+endif
+
 if WANT_FALCON_CPUASM
 atari800_SOURCES += falcon/cpu_m68k.asm
 endif
