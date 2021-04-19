@@ -179,7 +179,9 @@ endif
 
 if WITH_LUA_EXT
 atari800_SOURCES += \
-	lua-ext.c lua-ext.h
+	lua-ext.c lua-ext.h \
+	ext/ext-yoomp.c ext/ext-yoomp.h \
+	ext/ext-mercenary.c ext/ext-mercenary.h
 endif
 
 if WITH_VIDEO_DOSVGA
@@ -335,6 +337,7 @@ CLEANFILES += roms/*.o roms/*.bak roms/*~
 CLEANFILES += dos/*.o dos/*.bak dos/*~
 CLEANFILES += falcon/*.o falcon/*.bak falcon/*~
 CLEANFILES += sdl/*.o sdl/*.bak sdl/*~
+CLEANFILES += ext/*.o ext/*.bak ext/*~
 CLEANFILES += win32/*.o win32/*.ro win32/*.bak win32/*~
 CLEANFILES += javanvm/*.o javanvm/*.bak javanvm/*~
 CLEANFILES += atari_ntsc/*.o atari_ntsc/*.bak atari_ntsc/*~
