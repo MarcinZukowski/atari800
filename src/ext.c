@@ -3,6 +3,7 @@
 #include "ext-lua.h"
 
 #include <SDL.h>
+
 #include <assert.h>
 #include <string.h>
 
@@ -19,6 +20,8 @@ static ext_state* current_state = NULL;
 
 static byte code_injection_map[RAM_SIZE];
 static int code_injection_map_set = 0;
+
+static int inside_menu = 0;
 
 static void set_current_state(ext_state *state)
 {
@@ -58,6 +61,10 @@ void ext_init()
 
 static void ext_choose_ext()
 {
+	if (inside_menu) {
+		return;
+	}
+
 	// Choose extension
 	if (!current_state) {
 		for (int i = 0; i < NUM_STATES; i++) {
@@ -68,23 +75,48 @@ static void ext_choose_ext()
 		}
 	}
 
-	static UI_tMenuItem menu_array[] = {
+	static UI_tMenuItem menu_array_template[] = {
 		UI_MENU_ACTION(0, "Found extension:"),
 //		UI_MENU_SUBMENU_SUFFIX(1, "Frequency:", freq_string),
 		UI_MENU_END
 	};
 
-	FindMenuItem(menu_array, 0)->suffix = current_state ? current_state->name : "-UNKNOWN-";
+	#define MAX_CONFIG_ITEMS 10
+	UI_tMenuItem *menu_array = malloc(sizeof(UI_tMenuItem) * MAX_CONFIG_ITEMS);
+
+	menu_array[0] = menu_array_template[0];
+	menu_array[1] = menu_array_template[1];
+
+	menu_array[0].suffix = current_state ? current_state->name : "-UNKNOWN-";
+
+	if (current_state && current_state->add_to_config) {
+		current_state->add_to_config(menu_array);
+	}
 
 	int option = 0;
 	UI_driver->fInit();
-	option = UI_driver->fSelect("Extensions", 0, option, menu_array, NULL);
+	inside_menu = 1;
+	for (;;) {
+		option = UI_driver->fSelect("Extensions", 0, option, menu_array, NULL);
+		printf("Option: %d\n", option);
+		if (option < 0) {
+			break;
+		}
+		if (current_state && current_state->handle_config) {
+			current_state->handle_config(menu_array, option);
+		}
+	}
+	inside_menu = 0;
+
 }
 
 void ext_frame(void)
 {
+	if (inside_menu) {
+		return;
+	}
 	const Uint8 *state = SDL_GetKeyState(NULL);
-	if (!state[SDLK_RETURN]) {
+	if (!state[SDLK_TAB]) {
 		return;
 	}
 	ext_choose_ext();
@@ -92,6 +124,9 @@ void ext_frame(void)
 
 void ext_gl_frame(void)
 {
+	if (inside_menu) {
+		return;
+	}
 	if (current_state && current_state->render_frame) {
 		current_state->render_frame();
 	}
@@ -99,11 +134,6 @@ void ext_gl_frame(void)
 
 int ext_handle_code_injection(int pc, int op)
 {
-	const Uint8 *state = SDL_GetKeyState(NULL);
-	if (!state[SDLK_LSHIFT]) {
-		return op;
-	}
-
 	if (current_state && current_state->code_injection) {
 		if (code_injection_map_set && !code_injection_map[pc]) {
 			// No need to call

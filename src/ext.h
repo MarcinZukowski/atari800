@@ -1,6 +1,9 @@
 #ifndef EXT_H
 #define EXT_H
 
+// Forward declare
+struct UI_tMenuItem;
+
 typedef struct ext_state {
     // Extension name
     const char* name;
@@ -15,9 +18,9 @@ typedef struct ext_state {
     // Needs to end with -1
     int *injection_list;
     // Add items to config
-    void (*add_to_config)(void);
-    //
-    void (*handle_config)(void);
+    void (*add_to_config)(struct UI_tMenuItem*);
+    // Handle config choice
+    void (*handle_config)(struct UI_tMenuItem*, int);
     // Custom state
     void *custom_state;
 } ext_state;

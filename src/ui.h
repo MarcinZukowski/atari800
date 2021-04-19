@@ -96,7 +96,7 @@ int GetKeyName(void);
 
 /* Structure of menu item. Each menu is just an array of items of this structure
    terminated by UI_MENU_END */
-typedef struct
+typedef struct UI_tMenuItem
 {
 	UWORD flags;   /* Flags, see values below */
 	SWORD retval;  /* Value returned by Select when this item is selected */

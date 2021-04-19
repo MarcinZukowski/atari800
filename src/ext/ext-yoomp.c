@@ -8,10 +8,15 @@
 #include "sdl/video_gl-ext.h"
 
 #include "memory.h"
+#include "ui.h"
 
 static gl_texture glt_background;
 
 static struct gl_obj* glo_ball;
+
+static int config_lua_script_on = 1;
+static int config_background_on = 0;
+static int config_ball_on = 0;
 
 static void xx_load_ball()
 {
@@ -154,15 +159,17 @@ static void lua_draw_background()
 
 static void xx_draw()
 {
-    lua_draw_background();
 
-	const Uint8 *state = SDL_GetKeyState(NULL);
-	if (!state[SDLK_RETURN]) {
-		return;
+	if (config_lua_script_on) {
+		lua_draw_background();
 	}
 
-    xx_draw_background();
-	xx_render_ball();
+	if (config_background_on) {
+		xx_draw_background();
+	}
+	if (config_ball_on) {
+		xx_render_ball();
+	}
 }
 
 static int yoomp_init(void)
@@ -180,6 +187,50 @@ static int yoomp_init(void)
 	return 1;
 }
 
+static UI_tMenuItem configs[] = {
+	UI_MENU_ACTION(1, "Nicer background:"),
+	UI_MENU_ACTION(2, "Nicer ball:"),
+	UI_MENU_END
+};
+
+static void yoomp_refresh_config(struct UI_tMenuItem *menu)
+{
+	menu[1].suffix = config_lua_script_on ? "ON" : "OFF";
+	menu[2].suffix = config_background_on ? "ON" : "OFF";
+	menu[3].suffix = config_ball_on ? "ON" : "OFF";
+}
+
+static void yoomp_add_to_config(struct UI_tMenuItem *menu)
+{
+	static UI_tMenuItem configs[] = {
+		UI_MENU_ACTION(1, "(Lua) Script enabled:"),
+		UI_MENU_ACTION(2, "(C) Nicer background:"),
+		UI_MENU_ACTION(3, "(C) Nicer ball:"),
+		UI_MENU_END
+	};
+	menu[1] = configs[0];
+	menu[2] = configs[1];
+	menu[3] = configs[2];
+	menu[4] = configs[3];
+	yoomp_refresh_config(menu);
+}
+
+static void yoomp_handle_config(struct UI_tMenuItem *menu, int option)
+{
+	switch (option) {
+		case 1:
+			config_lua_script_on ^= 1;
+			break;
+		case 2:
+			config_background_on ^= 1;
+			break;
+		case 3:
+			config_ball_on ^= 1;
+			break;
+	}
+	yoomp_refresh_config(menu);
+}
+
 ext_state* ext_register_yoomp(void)
 {
 	ext_state *s = ext_state_alloc();
@@ -187,6 +238,9 @@ ext_state* ext_register_yoomp(void)
 	s->initialize = yoomp_init;
 	s->code_injection = NULL;
 	s->render_frame = xx_draw;
+
+	s->add_to_config = yoomp_add_to_config;
+	s->handle_config = yoomp_handle_config;
 
 	return s;
 }
