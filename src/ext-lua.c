@@ -21,7 +21,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include "lua-ext.h"
+#include "ext-lua.h"
 #include "ext.h"
 
 #include <stdlib.h>
@@ -128,7 +128,7 @@ static int get_a8_memory (lua_State* L) {
 
 lua_State *L = NULL;
 
-static int lext_eval(const char* str)
+static int ext_lua_eval(const char* str)
 {
 	int res;
 	if ((res = luaL_loadstring(L, str)) == LUA_OK) {
@@ -149,13 +149,13 @@ static int lext_eval(const char* str)
 	}
 }
 
-int lext_run_str(const char *str)
+int ext_lua_run_str(const char *str)
 {
 	printf("\nRUNNING: %s\n", str);
-	return lext_eval(str);
+	return ext_lua_eval(str);
 }
 
-static int lext_run_file(const char *fname)
+static int ext_lua_run_file(const char *fname)
 {
 	FILE *f;
 	int res;
@@ -177,17 +177,17 @@ static int lext_run_file(const char *fname)
 	fclose(f);
 
 	printf("%s: Running from file (%zd bytes)\n", __FUNCTION__, fsize);
-	res = lext_eval(str);
+	res = ext_lua_eval(str);
 	printf("%s: File evaluated, exit code: %d\n", __FUNCTION__, res);
 	return res;
 }
 
-static int lext_antic_dlist(lua_State* L) {
+static int ext_lua_antic_dlist(lua_State* L) {
     lua_pushnumber(L, ANTIC_dlist);
     return 1;
 }
 
-void lua_ext_init()
+void ext_lua_init()
 {
     printf("Initializing Lua\n");
     L = luaL_newstate();
@@ -199,9 +199,9 @@ void lua_ext_init()
 	create_barray_type(L);
     lua_register(L, "a8_memory", get_a8_memory);
 
-	lua_register(L, "antic_dlist", lext_antic_dlist);
+	lua_register(L, "antic_dlist", ext_lua_antic_dlist);
 
-	if(lext_run_file("data/ext/yoomp/script.lua")) {
+	if(ext_lua_run_file("data/ext/yoomp/script.lua")) {
 		printf("exiting\n");
 		exit(1);
 	};
@@ -215,7 +215,7 @@ void lua_ext_init()
 	for (int c = 0; c < sizeof(code) / sizeof(*code); c++) {
 		int res;
 		// Here we load the string and use lua_pcall for run the code
-		if (lext_run_str(code[c])) {
+		if (ext_lua_run_str(code[c])) {
 			printf("exiting\n");
 			exit(1);
 		}

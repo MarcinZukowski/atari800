@@ -1,5 +1,7 @@
 #include "ext.h"
 
+#include "ext-lua.h"
+
 #include <SDL.h>
 #include <assert.h>
 #include <string.h>
@@ -12,12 +14,14 @@ static ext_state* current_state = NULL;
 
 void ext_init()
 {
+	ext_lua_init();
+
 	states[0] = ext_register_yoomp();
 	assert(states[0]);
 	states[1] = ext_register_mercenary();
 	assert(states[1]);
 
-	current_state = states[1];
+	current_state = states[0];
 	printf("csci=%p", current_state->add_to_config);
 }
 

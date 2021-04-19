@@ -4,10 +4,10 @@
 
 struct lua_State;
 
-void lua_ext_init(void);
+void ext_lua_init(void);
 
 struct lua_State* lua_ext_get_state(void);
 
-int lext_run_str(const char *str);
+int ext_lua_run_str(const char *str);
 
 #endif  /* LUA_EXT_H */

@@ -2,7 +2,7 @@
 
 #include <math.h>
 
-#include "lua-ext.h"
+#include "ext-lua.h"
 
 #include "sdl/video_gl-common.h"
 #include "sdl/video_gl-ext.h"
@@ -149,7 +149,7 @@ static void lua_draw_background()
 		return;
 	}
 
-	lext_run_str("yoomp_render_frame()");
+	ext_lua_run_str("yoomp_render_frame()");
 }
 
 void xx_draw()
