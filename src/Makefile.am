@@ -179,6 +179,7 @@ endif
 
 if WITH_LUA_EXT
 atari800_SOURCES += \
+	ext.c ext.h \
 	lua-ext.c lua-ext.h \
 	ext/ext-yoomp.c ext/ext-yoomp.h \
 	ext/ext-mercenary.c ext/ext-mercenary.h

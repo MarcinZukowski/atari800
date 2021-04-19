@@ -81,7 +81,7 @@
 #endif
 
 #ifdef WITH_LUA_EXT
-#include "lua-ext.h"
+#include "ext.h"
 #endif
 
 /* For Atari Basic loader */
@@ -661,7 +661,7 @@ void CPU_GO(int limit)
 
 #ifdef WITH_LUA_EXT
 		UPDATE_GLOBAL_REGS;
-		insn = lua_ext_handle_code_injection(GET_PC() - 1, insn);
+		insn = ext_handle_code_injection(GET_PC() - 1, insn);
 		UPDATE_LOCAL_REGS;
 #endif
 

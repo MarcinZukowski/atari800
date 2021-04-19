@@ -24,7 +24,19 @@
 53b7 - code that sets either ORA or AND inside the line code
 
 
+570e - two-color fill-the-line
+A/07 - switch point
+80 - color left
+81 - color right
+18 - #lines
+7b - positive/negative between-line increment
+06,07 - X switch point lo/hi
+79,7a - X switch delta lo/hi
+5823 - end of loop
+
+
 586f - fill-the-line routine
+
 
 line routines: X, Y input X, Y resp.
 2600 - screen lines LO

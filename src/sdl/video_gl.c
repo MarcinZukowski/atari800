@@ -55,6 +55,10 @@
 #include "sdl/video.h"
 #include "sdl/video_gl.h"
 
+#ifdef WITH_LUA_EXT
+#include "ext.h"
+#endif
+
 static int currently_rotated = FALSE;
 /* If TRUE, then 32 bit, else 16 bit screen. */
 static int bpp_32 = FALSE;
@@ -762,19 +766,12 @@ void SDL_VIDEO_GL_DisplayScreen(void)
 		gl.TexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, VIDEOMODE_actual_width, VIDEOMODE_src_height,
 		                 pixel_formats[SDL_VIDEO_GL_pixel_format].format, pixel_formats[SDL_VIDEO_GL_pixel_format].type,
 		                 screen_texture);
-#if 1
-		unsigned int pixels[4] = {
-			0xff00ffff,
-			0xffff00ff,
-			0xff00ffff,
-			0xffff00ff,
-		};
-		gl.TexSubImage2D(GL_TEXTURE_2D, 0, 330, 30, 2, 2, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-#endif
 	}
 	gl.CallList(screen_dlist);
 
-	xx_draw();
+#ifdef WITH_LUA_EXT
+	ext_gl_frame();
+#endif
 
 	SDL_GL_SwapBuffers();
 }

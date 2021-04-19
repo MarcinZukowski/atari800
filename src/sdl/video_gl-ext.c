@@ -19,18 +19,7 @@ char *dynamic_fgets(char **buf, size_t *size, FILE *file);
 
 /* gl_texture code ******************************************************************* */
 
-typedef struct gl_texture {
-	int width;
-	int height;
-	int num_pixels;
-	size_t num_bytes;
-
-	unsigned char *data;
-
-	GLuint gl_id;
-} gl_texture;
-
-static gl_texture gl_texture_load_rgba(const char* fname, int width, int height)
+gl_texture gl_texture_load_rgba(const char* fname, int width, int height)
 {
 	gl_texture t;
 	FILE *f;
@@ -57,7 +46,7 @@ static gl_texture gl_texture_load_rgba(const char* fname, int width, int height)
 	return t;
 }
 
-static void gl_texture_finalize(gl_texture *t)
+void gl_texture_finalize(gl_texture *t)
 {
 	gl.BindTexture(GL_TEXTURE_2D, t->gl_id);
 	gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, t->width, t->height, /*border=*/0,
@@ -104,11 +93,12 @@ static void gl_obj_load_file(void *ctx, const char * filename, const int is_mtl,
     *len = read_size;
 }
 
-static gl_obj gl_obj_load(const char *path)
+struct gl_obj* gl_obj_load(const char *path)
 {
-    gl_obj o;
+    gl_obj* o = malloc(sizeof(struct gl_obj));
+    assert(o);
 
-    tinyobj_attrib_init(&o.attrib);
+    tinyobj_attrib_init(&o->attrib);
 
     // Enter into the file's directory, as we might need to load additional files from there
     char *olddir = alloca(MAXPATHLEN+1);
@@ -129,20 +119,21 @@ static gl_obj gl_obj_load(const char *path)
 
     chdir(dname);
 
-    int result = tinyobj_parse_obj(&o.attrib, &o.shapes, &o.num_shapes, &o.materials, &o.num_materials,
+    int result = tinyobj_parse_obj(&o->attrib, &o->shapes, &o->num_shapes, &o->materials, &o->num_materials,
             bname, gl_obj_load_file, NULL, TINYOBJ_FLAG_TRIANGULATE);
 	assert(result == TINYOBJ_SUCCESS);
 
 	chdir(olddir);
 
-	printf("%zd shapes, %zd materials\n", o.num_shapes, o.num_materials);
-	printf("shape: %s %d %d\n", o.shapes[0].name, o.shapes[0].length, o.shapes[0].face_offset);
+	printf("%zd shapes, %zd materials\n", o->num_shapes, o->num_materials);
+	printf("shape: %s %d %d\n", o->shapes[0].name, o->shapes[0].length, o->shapes[0].face_offset);
 	printf("attribs: #v:%d #n:%d #tc:%d #f:%d #fnv: %d\n",
-	    o.attrib.num_vertices, o.attrib.num_normals, o.attrib.num_texcoords, o.attrib.num_faces, o.attrib.num_face_num_verts);
+	    o->attrib.num_vertices, o->attrib.num_normals, o->attrib.num_texcoords, o->attrib.num_faces, o->attrib.num_face_num_verts);
 
     return o;
 }
 
+// Helper function
 static void gl_obj_vertex(tinyobj_attrib_t *a, int idx)
 {
 	int v_idx = a->faces[idx].v_idx;
@@ -150,7 +141,7 @@ static void gl_obj_vertex(tinyobj_attrib_t *a, int idx)
 	gl.Vertex3f(a->vertices[3 * v_idx], a->vertices[3 * v_idx + 1], a->vertices[3 * v_idx + 2]);
 }
 
-static void gl_obj_render(gl_obj *o)
+void gl_obj_render(gl_obj *o)
 {
 	tinyobj_attrib_t *a = &o->attrib;
 	int last_matid = -1;
@@ -177,151 +168,7 @@ static void gl_obj_render(gl_obj *o)
 
 /* main code ******************************************************************* */
 
-static gl_texture glt_background;
-static gl_obj glo_ball;
-
-static void xx_load_ball()
-{
-//	const char* filename = "beach-ball.obj";
-	const char* filename = "data/ext/yoomp/ball-yoomp.obj";
-//	const char* filename = "ball-amiga.obj";
-//	const char* filename = "ball-amiga-2.obj";
-
-    glo_ball = gl_obj_load(filename);
-}
-
-static void xx_load_background()
-{
-	glt_background = gl_texture_load_rgba("data/ext/yoomp/rof.rgba", 476, 476);
-
-    gl_texture t = glt_background;
-
-	float xc = t.width / 2.0f + 7;
-	float yc = t.height / 2.0f;
-	float rad = 120.0;
-	float dark = 0.8 * rad;
-
-	// Fix alphas
-	for (int y = 0; y < t.width; y++) {
-		for (int x = 0; x < t.width; x++) {
-			int idx = y * t.width + x;
-			float r = sqrt((x - xc) * (x - xc) + (y - yc) * (y - yc));
-			int alpha = 0;
-			if (r <= dark) {
-				alpha = 255 - 255.0 * r / dark;
-			} else if (r <= rad) {
-				alpha = 0;
-			} else {
-				alpha = 255;
-			}
-			t.data[4 * idx + 3] = alpha;
-		}
-	}
-
-	gl_texture_finalize(&glt_background);
-}
-
-static void xx_draw_background()
-{
-	float L = -0.77;
-	float R = -L;
-	float T = 0.9;
-	float B = -0.75;
-
-	float TL = 0.18;
-	float TR = 0.84;
-	float TT = 0.76;
-	float TB = 0.25;
-
-	gl.BindTexture(GL_TEXTURE_2D, glt_background.gl_id);
-
-	gl.Disable(GL_DEPTH_TEST);
-	gl.Color4f(1.0f, 1.0f, 1.0f, 1.0f);
-	gl.Enable(GL_BLEND);
-	gl.BlendFunc(
-		GL_SRC_ALPHA,
-		GL_ONE_MINUS_SRC_ALPHA
-	);
-
-	gl.Begin(GL_QUADS);
-	gl.TexCoord2f(TL, TB);
-	gl.Vertex3f(L, B, -2.0f);
-	gl.TexCoord2f(TR, TB);
-	gl.Vertex3f(R, B, -2.0f);
-	gl.TexCoord2f(TR, TT);
-	gl.Vertex3f(R, T, -2.0f);
-	gl.TexCoord2f(TL, TT);
-	gl.Vertex3f(L, T, -2.0f);
-	gl.End();
-
-	gl.Disable(GL_BLEND);
-}
-
-static float xx_last = 0;
-
-static void xx_render_ball()
-{
-	gl.Disable(GL_TEXTURE_2D);
-
-	gl.MatrixMode(GL_MODELVIEW);
-	gl.PushMatrix();
-	gl.LoadIdentity();
-
-/*
-	gl.Enable(GL_LIGHTING);
-	gl.Enable(GL_LIGHT0);
-	gl.Enable(GL_COLOR_MATERIAL);
-	GLfloat light_pos[] = {0, 0.2, 2.5, 0};
-	gl.Lightfv(GL_LIGHT0, GL_POSITION, light_pos);
-*/
-	xx_last++;
-
-	const int EQU_BALL_X = 0x0030;
-	const int EQU_BALL_VX = 0x0031;
-	const int EQU_BALL_VY = 0x0032;
-
-	float ball_angle = MEMORY_mem[EQU_BALL_X];
-	float ball_vx = MEMORY_mem[EQU_BALL_VX];
-	float ball_vy = MEMORY_mem[EQU_BALL_VY];
-
-	gl.Translatef(
-		(ball_vx - 128 + 4) / 84,
-		- (ball_vy - 112 - 8) / 120,
-		0);
-	gl.Scalef(0.05, 0.07, 0.07);
-	gl.Rotatef(ball_angle / 256.0 * 360.0, 0, 0, 1);
-	gl.Rotatef(11 * xx_last, 1, 0, 0);
-
-    gl_obj_render(&glo_ball);
-
-	gl.PopMatrix();
-
-	gl.Enable(GL_TEXTURE_2D);
-	gl.Color4f(1, 1, 1, 1);
-	gl.Disable(GL_LIGHTING);
-	gl.Disable(GL_LIGHT0);
-}
-
-void xx_init()
-{
-    xx_load_background();
-	xx_load_ball();
-}
-
 void lua_draw_background(void);
-
-void xx_draw()
-{
-    lua_draw_background();
-
-	const Uint8 *state = SDL_GetKeyState(NULL);
-	if (!state[SDLK_RETURN]) {
-		return;
-	}
-
-    xx_draw_background();
-	xx_render_ball();
-}
 
 /* Lua extensions - texture ******************************************************************* */
 
@@ -430,9 +277,7 @@ static int gl_le_glo_load(lua_State* L) {
     const char* filename = luaL_checkstring(L, 1);
 
     gl_obj** parray = lua_newuserdata(L, sizeof(gl_obj**));
-    gl_obj *glo = malloc(sizeof(gl_obj));
-    assert(glo);
-    *glo = gl_obj_load(filename);
+    gl_obj *glo = gl_obj_load(filename);
     *parray = glo;
     luaL_getmetatable(L, LE_GLO);
     lua_setmetatable(L, -2);
