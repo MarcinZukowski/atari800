@@ -5,7 +5,7 @@
 #include "memory.h"
 #include "cpu.h"
 
-int mercenary_code_injections(int pc, int op)
+static int mercenary_code_injections(int pc, int op)
 {
 	// line drawing - 8 different modes
 	int lines[8][6] = {
@@ -145,9 +145,26 @@ int mercenary_code_injections(int pc, int op)
 	return op;
 }
 
+static int mercenary_init(void)
+{
+	// Some memory fingerprint from 0x4000
+	byte fingerprint_4000[] = {0xA6, 0x65, 0xBC, 0x57, 0x6B};
+
+	if (memcmp(MEMORY_mem + 0x4000, fingerprint_4000, sizeof(fingerprint_4000))) {
+		// No match
+		return 0;
+	}
+
+	// Match
+	return 1;
+}
+
 ext_state* ext_register_mercenary(void)
 {
 	ext_state *s = ext_state_alloc();
+	static char* name  = "MERCENARY HACK by ERU";
+	s->initialize = mercenary_init;
+	s->name = name;
 	s->code_injection = mercenary_code_injections;
 	s->render_frame = NULL;
 

@@ -225,4 +225,6 @@ typedef struct
    specific driver */
 extern UI_tDriver *UI_driver;
 
+extern UI_tMenuItem *FindMenuItem(UI_tMenuItem *mip, int option);
+
 #endif /* UI_H_ */

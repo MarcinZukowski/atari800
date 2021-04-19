@@ -183,7 +183,7 @@ char UI_saved_files_dir[UI_MAX_DIRECTORIES][FILENAME_MAX];
 int UI_n_atari_files_dir = 0;
 int UI_n_saved_files_dir = 0;
 
-static UI_tMenuItem *FindMenuItem(UI_tMenuItem *mip, int option)
+UI_tMenuItem *FindMenuItem(UI_tMenuItem *mip, int option)
 {
 	while (mip->retval != option)
 		mip++;

@@ -32,10 +32,6 @@
 #include <lua/lualib.h>
 #include <lua/lauxlib.h>
 
-// #define TINYOBJ_LOADER_C_IMPLEMENTATION
-char *dynamic_fgets(char **buf, size_t *size, FILE *file);  //  pacify compiler warnings
-#include "tinyobj_loader_c.h"
-
 #include "akey.h"
 #include "memory.h"
 #include "antic.h"

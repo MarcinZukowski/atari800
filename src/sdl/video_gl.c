@@ -412,8 +412,6 @@ static void SetGlDisplayList(void)
 		gl.Disable(GL_BLEND);
 	}
 	gl.EndList();
-
-	xx_init();
 }
 
 /* Resets the screen texture/PBO to all-black. */

@@ -5,6 +5,4 @@
 
 struct ext_state *ext_register_mercenary(void);
 
-int mercenary_code_injections(int pc, int op);
-
 #endif  /* EXT_MERCENARY_H */

@@ -204,6 +204,9 @@ int main(int argc, char **argv)
 #endif
 		SDL_INPUT_Mouse();
 		Atari800_Frame();
+#ifdef WITH_LUA_EXT
+		ext_frame();
+#endif
 		if (Atari800_display_screen)
 			PLATFORM_DisplayScreen();
 	}

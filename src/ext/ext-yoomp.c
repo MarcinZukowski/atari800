@@ -135,7 +135,7 @@ static void xx_render_ball()
 	gl.Disable(GL_LIGHT0);
 }
 
-void xx_init()
+static void xx_init()
 {
     xx_load_background();
 	xx_load_ball();
@@ -152,7 +152,7 @@ static void lua_draw_background()
 	ext_lua_run_str("yoomp_render_frame()");
 }
 
-void xx_draw()
+static void xx_draw()
 {
     lua_draw_background();
 
@@ -165,9 +165,26 @@ void xx_draw()
 	xx_render_ball();
 }
 
+static int yoomp_init(void)
+{
+	// Some memory fingerprint from 0x4000
+	byte fingerprint_3600[] = {0x20, 0x00, 0xB0, 0x20, 0xBC, 0x3D};
+
+	if (memcmp(MEMORY_mem + 0x3600, fingerprint_3600, sizeof(fingerprint_3600))) {
+		// No match
+		return 0;
+	}
+
+	// Match
+	xx_init();
+	return 1;
+}
+
 ext_state* ext_register_yoomp(void)
 {
 	ext_state *s = ext_state_alloc();
+	s->name = "Yoomp! Hack by Eru";
+	s->initialize = yoomp_init;
 	s->code_injection = NULL;
 	s->render_frame = xx_draw;
 

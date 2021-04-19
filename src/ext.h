@@ -4,12 +4,16 @@
 typedef struct ext_state {
     // Extension name
     const char* name;
-    // Test if applicable and initialize
+    // Test if applicable and initialize. Return 1 if matches, 0 if not.
     int (*initialize)(void) ;
     // Called after each frame is rendered
     void (*render_frame)(void);
     // Called when opcode injection is detected, returns the opcode to process
     int (*code_injection)(int pc, int op);
+    // List of addresses where to use code injection.
+    // If not provided, code_injection is called every time.
+    // Needs to end with -1
+    int *injection_list;
     // Add items to config
     void (*add_to_config)(void);
     //
@@ -26,6 +30,7 @@ void ext_init(void);
 void register_ext(struct ext_state *ext_state);
 
 int ext_handle_code_injection(int pc, int op);
+void ext_frame(void);
 void ext_gl_frame(void);
 
 typedef unsigned char byte;
