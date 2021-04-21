@@ -32,7 +32,8 @@ A/07 - switch point
 7b - positive/negative between-line increment
 06,07 - X switch point lo/hi
 79,7a - X switch delta lo/hi
-5823 - end of loop
+7b - delta direction, 0-positive, 1-negative (see 5832)
+5823 - end of drawing loop per single line
 
 
 586f - fill-the-line routine
