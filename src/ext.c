@@ -98,7 +98,6 @@ static void ext_choose_ext()
 	inside_menu = 1;
 	for (;;) {
 		option = UI_driver->fSelect("Extensions", 0, option, menu_array, NULL);
-		printf("Option: %d\n", option);
 		if (option < 0) {
 			break;
 		}
@@ -122,13 +121,23 @@ void ext_frame(void)
 	ext_choose_ext();
 }
 
-void ext_gl_frame(void)
+void ext_pre_gl_frame(void)
 {
 	if (inside_menu) {
 		return;
 	}
-	if (current_state && current_state->render_frame) {
-		current_state->render_frame();
+	if (current_state && current_state->pre_gl_frame) {
+		current_state->pre_gl_frame();
+	}
+}
+
+void ext_post_gl_frame(void)
+{
+	if (inside_menu) {
+		return;
+	}
+	if (current_state && current_state->post_gl_frame) {
+		current_state->post_gl_frame();
 	}
 }
 

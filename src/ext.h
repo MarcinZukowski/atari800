@@ -9,8 +9,10 @@ typedef struct ext_state {
     const char* name;
     // Test if applicable and initialize. Return 1 if matches, 0 if not.
     int (*initialize)(void) ;
-    // Called after each frame is rendered
-    void (*render_frame)(void);
+    // Called before each GL frame is rendered
+    void (*pre_gl_frame)(void);
+    // Called after each GL frame is rendered
+    void (*post_gl_frame)(void);
     // Called when opcode injection is detected, returns the opcode to process
     int (*code_injection)(int pc, int op);
     // List of addresses where to use code injection.
@@ -34,7 +36,8 @@ void register_ext(struct ext_state *ext_state);
 
 int ext_handle_code_injection(int pc, int op);
 void ext_frame(void);
-void ext_gl_frame(void);
+void ext_pre_gl_frame(void);
+void ext_post_gl_frame(void);
 
 typedef unsigned char byte;
 

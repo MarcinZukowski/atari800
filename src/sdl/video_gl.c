@@ -748,6 +748,10 @@ static void DisplayBIT3(GLvoid *dest)
 
 void SDL_VIDEO_GL_DisplayScreen(void)
 {
+#ifdef WITH_LUA_EXT
+	ext_pre_gl_frame();
+#endif
+
 	gl.BindTexture(GL_TEXTURE_2D, textures[0]);
 	if (SDL_VIDEO_GL_pbo) {
 		GLvoid *ptr;
@@ -768,7 +772,7 @@ void SDL_VIDEO_GL_DisplayScreen(void)
 	gl.CallList(screen_dlist);
 
 #ifdef WITH_LUA_EXT
-	ext_gl_frame();
+	ext_post_gl_frame();
 #endif
 
 	SDL_GL_SwapBuffers();

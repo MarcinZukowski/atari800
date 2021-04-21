@@ -237,7 +237,7 @@ ext_state* ext_register_yoomp(void)
 	s->name = "Yoomp! Hack by Eru";
 	s->initialize = yoomp_init;
 	s->code_injection = NULL;
-	s->render_frame = xx_draw;
+	s->post_gl_frame = xx_draw;
 
 	s->add_to_config = yoomp_add_to_config;
 	s->handle_config = yoomp_handle_config;

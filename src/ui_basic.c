@@ -179,7 +179,7 @@ void SetMouseIndex(int x, int y)
 }
 #endif
 
-static void Plot(int fg, int bg, int ch, int x, int y)
+void Plot(int fg, int bg, int ch, int x, int y)
 {
 #ifdef USE_CURSES
 	curses_putch(x, y, ch, (UBYTE) fg, (UBYTE) bg);
@@ -204,7 +204,7 @@ static void Plot(int fg, int bg, int ch, int x, int y)
 #endif /* USE_CURSES */
 }
 
-static void Print(int fg, int bg, const char *string, int x, int y, int maxwidth)
+void Print(int fg, int bg, const char *string, int x, int y, int maxwidth)
 {
 	char tmpbuf[40];
 	if ((int) strlen(string) > maxwidth) {

@@ -7,7 +7,9 @@
 #include "cpu.h"
 #include "memory.h"
 #include "ui.h"
+#include "ui_basic.h"
 
+static int config_display_fps = 1;
 static int config_control_to_accelerate = 1;
 static int config_accel_lines = 0;
 static int config_accel_background = 0;
@@ -182,24 +184,24 @@ static int mercenary_init(void)
 
 static void mercenary_refresh_config(struct UI_tMenuItem *menu)
 {
-	menu[1].suffix = config_control_to_accelerate ? "ON" : "OFF";
-	menu[2].suffix = config_accel_lines ? "ON" : "OFF";
-	menu[3].suffix = config_accel_background ? "ON" : "OFF";
+	menu[1].suffix = config_display_fps ? "ON" : "OFF";
+	menu[2].suffix = config_control_to_accelerate ? "ON" : "OFF";
+	menu[3].suffix = config_accel_lines ? "ON" : "OFF";
+	menu[4].suffix = config_accel_background ? "ON" : "OFF";
 }
-
 
 static void mercenary_add_to_config(struct UI_tMenuItem *menu)
 {
 	static UI_tMenuItem configs[] = {
-		UI_MENU_ACTION(1, "CONTROL to accelerate:"),
-		UI_MENU_ACTION(2, "Accelerate lines:"),
-		UI_MENU_ACTION(3, "Accelerate background:"),
+		UI_MENU_ACTION(1, "Display FPS:"),
+		UI_MENU_ACTION(2, "CONTROL to accelerate:"),
+		UI_MENU_ACTION(3, "Accelerate lines:"),
+		UI_MENU_ACTION(4, "Accelerate background:"),
 		UI_MENU_END
 	};
-	menu[1] = configs[0];
-	menu[2] = configs[1];
-	menu[3] = configs[2];
-	menu[4] = configs[3];
+	for (int i = 0; i  < 5; i++) {
+		menu[1 + i] = configs[i];
+	}
 	mercenary_refresh_config(menu);
 }
 
@@ -207,18 +209,46 @@ static void mercenary_handle_config(struct UI_tMenuItem *menu, int option)
 {
 	switch (option) {
 		case 1:
-			config_control_to_accelerate ^= 1;
+			config_display_fps ^= 1;
 			break;
 		case 2:
-			config_accel_lines ^= 1;
+			config_control_to_accelerate ^= 1;
 			break;
 		case 3:
+			config_accel_lines ^= 1;
+			break;
+		case 4:
 			config_accel_background ^= 1;
 			break;
 	}
 	mercenary_refresh_config(menu);
 }
 
+static int last_dl_value = 0;
+static int frames = 0;
+static int last_frames = 0;
+
+static void mercenary_pre_gl_frame()
+{
+	if (!config_display_fps) {
+		return;
+	}
+
+	// Display FPS (well, really vblanks-per-frame)
+	// A change in 0x2805 is a new frame
+	char buf[20];
+	frames++;
+	int dl_value = MEMORY_dGetByte(0x2805);
+	if (dl_value != last_dl_value) {
+		last_frames = frames;
+		frames = 0;
+		last_dl_value = dl_value;
+	}
+
+	snprintf(buf, 20, "FRAMES: %d ", last_frames);
+
+	Print(0x9f, 0x90, buf, 0, -1, 20);
+}
 
 ext_state* ext_register_mercenary(void)
 {
@@ -227,7 +257,7 @@ ext_state* ext_register_mercenary(void)
 	s->initialize = mercenary_init;
 	s->name = name;
 	s->code_injection = mercenary_code_injections;
-	s->render_frame = NULL;
+	s->pre_gl_frame = mercenary_pre_gl_frame;
 
 	s->add_to_config = mercenary_add_to_config;
 	s->handle_config = mercenary_handle_config;
