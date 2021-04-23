@@ -7,12 +7,13 @@
 #include <assert.h>
 #include <string.h>
 
-#include "ext/ext-yoomp.h"
 #include "ext/ext-mercenary.h"
+#include "ext/ext-yoomp.h"
+#include "ext/ext-zybex.h"
 
 #include "ui.h"
 
-#define NUM_STATES 2
+#define NUM_STATES 3
 static ext_state* states[NUM_STATES];
 static ext_state* current_state = NULL;
 
@@ -55,8 +56,10 @@ void ext_init()
 	assert(states[0]);
 	states[1] = ext_register_mercenary();
 	assert(states[1]);
+	states[2] = ext_register_zybex();
+	assert(states[2]);
 
-//	set_state(states[0]);
+//	set_current_state(states[2]);
 }
 
 static void ext_choose_ext()

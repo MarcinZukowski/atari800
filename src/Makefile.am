@@ -182,7 +182,8 @@ atari800_SOURCES += \
 	ext.c ext.h \
 	ext-lua.c ext-lua.h \
 	ext/ext-yoomp.c ext/ext-yoomp.h \
-	ext/ext-mercenary.c ext/ext-mercenary.h
+	ext/ext-mercenary.c ext/ext-mercenary.h \
+	ext/ext-zybex.c ext/ext-zybex.h
 endif
 
 if WITH_VIDEO_DOSVGA
