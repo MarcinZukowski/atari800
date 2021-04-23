@@ -9,7 +9,8 @@ function bootstrap()
     -Wno-gcc-compat -Wno-long-long -Wno-comment" \
     ../configure --prefix $PWD/../local \
     --with-video=sdl --with-opengl --enable-opengl-by-default \
-    --enable-monitorbreakpoints --enable-seriosound \
+    --enable-monitorbreakpoints --enable-monitorprofile --enable-monitortrace \
+    --enable-seriosound \
     --with-sound=sdl --with-lua-ext
   cd -
 }
