@@ -10,6 +10,7 @@
 #include "ui_basic.h"
 
 static int config_display_fps = 1;
+static int config_accelerate = 1;
 
 static int faking_cpu = 0;
 
@@ -78,11 +79,24 @@ static int fakecpu_until(int end_pc)
 	return OP_NOP;
 }
 
+static int last_dl_value = 0;
+static int frames = 0;
+static int last_frames = 0;
+// Seems calling here is once per frame
+static int calls_7856 = 0;
 
 static int code_injections(const int pc, int op)
 {
 	if (faking_cpu) {
 //		printf("Faking, return\n");
+		return op;
+	}
+
+	if (pc == 0x7856) { // Moving into font memory?
+		calls_7856++;
+	}
+
+	if (!config_accelerate) {
 		return op;
 	}
 
@@ -98,7 +112,7 @@ static int code_injections(const int pc, int op)
 		return fakecpu_until(0x38CE);
 	}
 
-	if (1 && pc == 0x7858) { // Something with drawing?
+	if (1 && pc == 0x7858) { // Moving into font memory?
 		return fakecpu_until(0x7887);
 	}
 
@@ -115,12 +129,10 @@ static int code_injections(const int pc, int op)
 
 static int init(void)
 {
-	return 1;
+	// Some memory fingerprint from 0x29A4
+	byte fingerprint_29B6[] = {0x44, 0x75, 0x6E, 0x67, 0x65, 0x6F, 0x6E};
 
-	// Some memory fingerprint from 0x4000
-	byte fingerprint_4000[] = {0xA6, 0x65, 0xBC, 0x57, 0x6B};
-
-	if (memcmp(MEMORY_mem + 0x4000, fingerprint_4000, sizeof(fingerprint_4000))) {
+	if (memcmp(MEMORY_mem + 0x29B6, fingerprint_29B6, sizeof(fingerprint_29B6))) {
 		// No match
 		return 0;
 	}
@@ -132,15 +144,17 @@ static int init(void)
 static void refresh_config(struct UI_tMenuItem *menu)
 {
 	menu[1].suffix = config_display_fps ? "ON" : "OFF";
+	menu[2].suffix = config_accelerate ? "ON" : "OFF";
 }
 
 static void add_to_config(struct UI_tMenuItem *menu)
 {
 	static UI_tMenuItem configs[] = {
 		UI_MENU_ACTION(1, "Display FPS:"),
+		UI_MENU_ACTION(2, "Accelerate:"),
 		UI_MENU_END
 	};
-	for (int i = 0; i  < 2; i++) {
+	for (int i = 0; i  < sizeof(configs)/sizeof(*configs); i++) {
 		menu[1 + i] = configs[i];
 	}
 	refresh_config(menu);
@@ -152,13 +166,12 @@ static void handle_config(struct UI_tMenuItem *menu, int option)
 		case 1:
 			config_display_fps ^= 1;
 			break;
+		case 2:
+			config_accelerate ^= 1;
+			break;
 	}
 	refresh_config(menu);
 }
-
-static int last_dl_value = 0;
-static int frames = 0;
-static int last_frames = 0;
 
 static void pre_gl_frame()
 {
@@ -170,7 +183,7 @@ static void pre_gl_frame()
 	// A change in 0x2805 is a new frame
 	char buf[20];
 	frames++;
-	int dl_value = MEMORY_dGetByte(0x2805);
+	int dl_value = calls_7856;
 	if (dl_value != last_dl_value) {
 		last_frames = frames;
 		frames = 0;
