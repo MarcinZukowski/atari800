@@ -10,10 +10,11 @@
 #include "ext/ext-mercenary.h"
 #include "ext/ext-yoomp.h"
 #include "ext/ext-zybex.h"
+#include "ext/ext-altreal.h"
 
 #include "ui.h"
 
-#define NUM_STATES 3
+#define NUM_STATES 4
 static ext_state* states[NUM_STATES];
 static ext_state* current_state = NULL;
 
@@ -58,8 +59,10 @@ void ext_init()
 	assert(states[1]);
 	states[2] = ext_register_zybex();
 	assert(states[2]);
+	states[3] = ext_register_altreal();
+	assert(states[3]);
 
-//	set_current_state(states[2]);
+//	set_current_state(states[3]);
 }
 
 static void ext_choose_ext()

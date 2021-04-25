@@ -161,7 +161,7 @@ static int mercenary_code_injections(int pc, int op)
 			}
 			// Jump ahead of this line, as we don't implement that logic
 			CPU_regPC = 0x5823;
-			return OP_NOP;;
+			return OP_NOP;
 		}
 	}
 
