@@ -32,10 +32,10 @@ pcfreqs = [[i, counts[i]] for i in range(0, RANGE) if counts[i] > 0]
 
 print("Sorting")
 
-# Sort by frequencies desc, and then by PC asc
+# Sort by frequencies asc, and then by PC asc
 
 def comparator(x, y):
-    if x[1] > y[1]:
+    if x[1] < y[1]:
         return -1
     if x[1] == y[1]:
         return x[0] - y[0]
