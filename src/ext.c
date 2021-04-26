@@ -12,6 +12,10 @@
 #include "ext/ext-zybex.h"
 #include "ext/ext-altreal.h"
 
+#include "antic.h"
+#include "cpu.h"
+#include "memory.h"
+#include "monitor.h"
 #include "ui.h"
 
 #define NUM_STATES 4
@@ -24,6 +28,8 @@ static byte code_injection_map[RAM_SIZE];
 static int code_injection_map_set = 0;
 
 static int inside_menu = 0;
+
+static int faking_cpu = 0;
 
 static void set_current_state(ext_state *state)
 {
@@ -149,6 +155,9 @@ void ext_post_gl_frame(void)
 
 int ext_handle_code_injection(int pc, int op)
 {
+	if (faking_cpu) {
+		return op;
+	}
 	if (current_state && current_state->code_injection) {
 		if (code_injection_map_set && !code_injection_map[pc]) {
 			// No need to call
@@ -158,9 +167,6 @@ int ext_handle_code_injection(int pc, int op)
 	}
 
 	return op;
-
-#if 0
-#endif
 }
 
 ext_state* ext_state_alloc(void)
@@ -170,4 +176,89 @@ ext_state* ext_state_alloc(void)
 	memset(s, 0, sizeof(*s));
 
 	return s;
+}
+
+/* =========================================== FAKE CPU =========================== */
+
+static int prev_CPU_IRQ;
+static int prev_ANTIC_wsync_halt;
+static int prev_ANTIC_cur_screen_pos;
+static int prev_ANTIC_xpos;
+static int prev_ANTIC_xpos_limit;
+static int prev_ANTIC_delayed_wsync;
+static FILE *prev_MONITOR_trace_file;
+
+
+static void ext_fakecpu_init()
+{
+	assert(!faking_cpu);
+	faking_cpu = 1;
+
+	prev_CPU_IRQ = CPU_IRQ;
+	prev_ANTIC_wsync_halt = ANTIC_wsync_halt;
+	prev_ANTIC_cur_screen_pos = ANTIC_cur_screen_pos;
+	prev_ANTIC_xpos = ANTIC_xpos;
+	prev_ANTIC_xpos_limit = ANTIC_xpos_limit;
+	prev_ANTIC_delayed_wsync = ANTIC_delayed_wsync;
+	prev_MONITOR_trace_file = MONITOR_trace_file;
+}
+
+static void ext_fakecpu_do_one()
+{
+	assert(faking_cpu);
+
+	CPU_IRQ = 0;
+	ANTIC_wsync_halt = 0;
+	ANTIC_cur_screen_pos = ANTIC_NOT_DRAWING;
+	ANTIC_xpos = 0;
+	ANTIC_xpos_limit = 1;
+	MONITOR_trace_file = NULL;
+
+	CPU_GO(1);
+}
+
+static void ext_fakecpu_finish()
+{
+	ANTIC_wsync_halt = prev_ANTIC_wsync_halt;
+	CPU_IRQ = prev_CPU_IRQ;
+	ANTIC_cur_screen_pos = prev_ANTIC_cur_screen_pos;
+	ANTIC_xpos = prev_ANTIC_xpos;
+	ANTIC_xpos_limit = prev_ANTIC_xpos_limit;
+	ANTIC_delayed_wsync = prev_ANTIC_delayed_wsync;
+	MONITOR_trace_file = prev_MONITOR_trace_file;
+
+	assert(faking_cpu);
+	faking_cpu = 0;
+}
+
+static int ext_fakecpu_until(int end_pc, int end_op)
+{
+	// Save state
+	ext_fakecpu_init();
+
+	// Re-execute this instruction
+	CPU_regPC--;
+
+	do {
+		ext_fakecpu_do_one();
+		if (end_pc && CPU_regPC == end_pc) {
+			break;
+		}
+		if (end_op && MEMORY_mem[CPU_regPC] == end_op) {
+			break;
+		}
+	} while (TRUE);
+
+	ext_fakecpu_finish();
+	return OP_NOP;
+}
+
+int ext_fakecpu_until_pc(int end_pc)
+{
+	return ext_fakecpu_until(end_pc, /*end_op=*/ 0);
+}
+
+int ext_fakecpu_until_op(int end_op)
+{
+	return ext_fakecpu_until(/*end_pc=*/0, end_op);
 }

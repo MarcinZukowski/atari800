@@ -44,4 +44,9 @@ typedef unsigned char byte;
 #define OP_RTS 0x60
 #define OP_NOP 0xEA
 
+// Helper tools
+int ext_fakecpu_until_pc(int end_pc);
+int ext_fakecpu_until_op(int end_op);
+
+
 #endif   /* EXT_H */
