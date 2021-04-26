@@ -63,36 +63,35 @@ static int init(void)
 	return 1;
 }
 
-static void refresh_config(struct UI_tMenuItem *menu)
+static UI_tMenuItem menu[] = {
+	UI_MENU_ACTION(0, "Display FPS:"),
+	UI_MENU_ACTION(1, "Accelerate:"),
+	UI_MENU_END
+};
+
+static void refresh_config()
 {
-	menu[1].suffix = config_display_fps ? "ON" : "OFF";
-	menu[2].suffix = config_accelerate ? "ON" : "OFF";
+	menu[0].suffix = config_display_fps ? "ON" : "OFF";
+	menu[1].suffix = config_accelerate ? "ON" : "OFF";
 }
 
-static void add_to_config(struct UI_tMenuItem *menu)
+static struct UI_tMenuItem* get_config()
 {
-	static UI_tMenuItem configs[] = {
-		UI_MENU_ACTION(1, "Display FPS:"),
-		UI_MENU_ACTION(2, "Accelerate:"),
-		UI_MENU_END
-	};
-	for (int i = 0; i  < sizeof(configs)/sizeof(*configs); i++) {
-		menu[1 + i] = configs[i];
-	}
-	refresh_config(menu);
+	refresh_config();
+	return menu;
 }
 
-static void handle_config(struct UI_tMenuItem *menu, int option)
+static void handle_config(int option)
 {
 	switch (option) {
-		case 1:
+		case 0:
 			config_display_fps ^= 1;
 			break;
-		case 2:
+		case 1:
 			config_accelerate ^= 1;
 			break;
 	}
-	refresh_config(menu);
+	refresh_config();
 }
 
 static void pre_gl_frame()
@@ -114,7 +113,7 @@ ext_state* ext_register_altreal(void)
 	s->code_injection = code_injections;
 	s->pre_gl_frame = pre_gl_frame;
 
-	s->add_to_config = add_to_config;
+	s->get_config = get_config;
 	s->handle_config = handle_config;
 
 	return s;

@@ -88,37 +88,46 @@ static void ext_choose_ext()
 	}
 
 	static UI_tMenuItem menu_array_template[] = {
-		UI_MENU_ACTION(0, "Found extension:"),
-//		UI_MENU_SUBMENU_SUFFIX(1, "Frequency:", freq_string),
+		UI_MENU_ACTION(100, "Found extension:"),
+		// We'll include here the additional entries
+		UI_MENU_ACTION(101, "EXIT"),
 		UI_MENU_END
 	};
 
 	#define MAX_CONFIG_ITEMS 10
-	UI_tMenuItem *menu_array = malloc(sizeof(UI_tMenuItem) * MAX_CONFIG_ITEMS);
-
-	menu_array[0] = menu_array_template[0];
-	menu_array[1] = menu_array_template[1];
-
-	menu_array[0].suffix = current_state ? current_state->name : "-UNKNOWN-";
-
-	if (current_state && current_state->add_to_config) {
-		current_state->add_to_config(menu_array);
-	}
+	UI_tMenuItem *menu_array = alloca(sizeof(UI_tMenuItem) * MAX_CONFIG_ITEMS);
 
 	int option = 0;
 	UI_driver->fInit();
 	inside_menu = 1;
 	for (;;) {
+		// Prepare menu including the extension's menu
+		UI_tMenuItem* ext_config = (current_state && current_state->get_config) ? current_state->get_config() : NULL;
+
+		menu_array[0] = menu_array_template[0];
+		menu_array[0].suffix = current_state ? current_state->name : "-UNKNOWN-";
+
+		int idx = 1;
+		if (ext_config) {
+			for (int i = 0; ext_config[i].flags != UI_ITEM_END; i++, idx++) {
+				menu_array[idx] = ext_config[i];
+			}
+		}
+
+		// Add EXIT
+		menu_array[idx++] = menu_array_template[1];
+		menu_array[idx] = menu_array_template[2];
+
+		// Run the menu
 		option = UI_driver->fSelect("Extensions", 0, option, menu_array, NULL);
-		if (option < 0) {
+		if (option < 0 || option == 101) {
 			break;
 		}
 		if (current_state && current_state->handle_config) {
-			current_state->handle_config(menu_array, option);
+			current_state->handle_config(option);
 		}
 	}
 	inside_menu = 0;
-
 }
 
 void ext_frame(void)

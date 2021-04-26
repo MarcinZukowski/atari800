@@ -19,10 +19,10 @@ typedef struct ext_state {
     // If not provided, code_injection is called every time.
     // Needs to end with -1
     int *injection_list;
-    // Add items to config
-    void (*add_to_config)(struct UI_tMenuItem*);
+    // Return config items
+    struct UI_tMenuItem* (*get_config)(void);
     // Handle config choice
-    void (*handle_config)(struct UI_tMenuItem*, int);
+    void (*handle_config)(int);
     // Custom state
     void *custom_state;
 } ext_state;

@@ -185,43 +185,41 @@ static int mercenary_init(void)
 	return 1;
 }
 
-static void mercenary_refresh_config(struct UI_tMenuItem *menu)
+static UI_tMenuItem menu[] = {
+	UI_MENU_ACTION(0, "Display FPS:"),
+	UI_MENU_ACTION(1, "Accelerate:"),
+	UI_MENU_ACTION(2, "CONTROL flips acceleration:"),
+	UI_MENU_END
+};
+
+static void refresh_config()
 {
-	menu[1].suffix = config_display_fps ? "ON" : "OFF";
-	menu[2].suffix = config_accelerate ? "ON" : "OFF";
-	menu[3].suffix = config_control_flips ? "ON" : "OFF";
+	menu[0].suffix = config_display_fps ? "ON" : "OFF";
+	menu[1].suffix = config_accelerate ? "ON" : "OFF";
+	menu[2].suffix = config_control_flips ? "ON" : "OFF";
 }
 
-static void mercenary_add_to_config(struct UI_tMenuItem *menu)
+static struct UI_tMenuItem* get_config()
 {
-	static UI_tMenuItem configs[] = {
-		UI_MENU_ACTION(1, "Display FPS:"),
-		UI_MENU_ACTION(2, "Accelerate:"),
-		UI_MENU_ACTION(3, "CONTROL flips acceleration:"),
-		UI_MENU_END
-	};
-	for (int i = 0; i  < sizeof(configs)/sizeof(*configs); i++) {
-		menu[1 + i] = configs[i];
-	}
-	mercenary_refresh_config(menu);
+	refresh_config();
+	return menu;
 }
 
-static void mercenary_handle_config(struct UI_tMenuItem *menu, int option)
+static void handle_config(int option)
 {
 	switch (option) {
-		case 1:
+		case 0:
 			config_display_fps ^= 1;
 			break;
-		case 2:
+		case 1:
 			config_accelerate ^= 1;
 			break;
-		case 3:
+		case 2:
 			config_control_flips ^= 1;
 			break;
 	}
-	mercenary_refresh_config(menu);
+	refresh_config();
 }
-
 
 static void mercenary_pre_gl_frame()
 {
@@ -243,8 +241,8 @@ ext_state* ext_register_mercenary(void)
 	s->code_injection = mercenary_code_injections;
 	s->pre_gl_frame = mercenary_pre_gl_frame;
 
-	s->add_to_config = mercenary_add_to_config;
-	s->handle_config = mercenary_handle_config;
+	s->get_config = get_config;
+	s->handle_config = handle_config;
 
 	return s;
 }

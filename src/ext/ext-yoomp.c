@@ -187,48 +187,40 @@ static int yoomp_init(void)
 	return 1;
 }
 
-static UI_tMenuItem configs[] = {
+static UI_tMenuItem menu[] = {
+	UI_MENU_ACTION(0, "(Lua) Script enabled:"),
 	UI_MENU_ACTION(1, "Nicer background:"),
 	UI_MENU_ACTION(2, "Nicer ball:"),
 	UI_MENU_END
 };
 
-static void yoomp_refresh_config(struct UI_tMenuItem *menu)
+static void refresh_config()
 {
-	menu[1].suffix = config_lua_script_on ? "ON" : "OFF";
-	menu[2].suffix = config_background_on ? "ON" : "OFF";
-	menu[3].suffix = config_ball_on ? "ON" : "OFF";
+	menu[0].suffix = config_lua_script_on ? "ON" : "OFF";
+	menu[1].suffix = config_background_on ? "ON" : "OFF";
+	menu[2].suffix = config_ball_on ? "ON" : "OFF";
 }
 
-static void yoomp_add_to_config(struct UI_tMenuItem *menu)
+static struct UI_tMenuItem* get_config()
 {
-	static UI_tMenuItem configs[] = {
-		UI_MENU_ACTION(1, "(Lua) Script enabled:"),
-		UI_MENU_ACTION(2, "(C) Nicer background:"),
-		UI_MENU_ACTION(3, "(C) Nicer ball:"),
-		UI_MENU_END
-	};
-	menu[1] = configs[0];
-	menu[2] = configs[1];
-	menu[3] = configs[2];
-	menu[4] = configs[3];
-	yoomp_refresh_config(menu);
+	refresh_config();
+	return menu;
 }
 
-static void yoomp_handle_config(struct UI_tMenuItem *menu, int option)
+static void handle_config(int option)
 {
 	switch (option) {
-		case 1:
+		case 0:
 			config_lua_script_on ^= 1;
 			break;
-		case 2:
+		case 1:
 			config_background_on ^= 1;
 			break;
-		case 3:
+		case 2:
 			config_ball_on ^= 1;
 			break;
 	}
-	yoomp_refresh_config(menu);
+	refresh_config();
 }
 
 ext_state* ext_register_yoomp(void)
@@ -239,8 +231,8 @@ ext_state* ext_register_yoomp(void)
 	s->code_injection = NULL;
 	s->post_gl_frame = xx_draw;
 
-	s->add_to_config = yoomp_add_to_config;
-	s->handle_config = yoomp_handle_config;
+	s->get_config = get_config;
+	s->handle_config = handle_config;
 
 	return s;
 }
