@@ -24,6 +24,7 @@ void gl_texture_finalize(gl_texture *t);
 struct gl_obj;
 struct gl_obj* gl_obj_load(const char *path);
 void gl_obj_render(struct gl_obj *o);
+void gl_obj_render_colorized(struct gl_obj *o, float multR, float multG, float multB);
 
 void gl_lua_ext_init(struct lua_State *L);
 

@@ -69,6 +69,9 @@ void ext_init()
 	assert(states[3]);
 
 //	set_current_state(states[1]);
+	if (current_state) {
+		current_state->initialize();
+	}
 }
 
 static void ext_choose_ext()

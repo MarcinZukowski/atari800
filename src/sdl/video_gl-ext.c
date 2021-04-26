@@ -141,7 +141,7 @@ static void gl_obj_vertex(tinyobj_attrib_t *a, int idx)
 	gl.Vertex3f(a->vertices[3 * v_idx], a->vertices[3 * v_idx + 1], a->vertices[3 * v_idx + 2]);
 }
 
-void gl_obj_render(gl_obj *o)
+void gl_obj_render_colorized(gl_obj *o, float multR, float multG, float multB)
 {
 	tinyobj_attrib_t *a = &o->attrib;
 	int last_matid = -1;
@@ -155,7 +155,7 @@ void gl_obj_render(gl_obj *o)
 			}
 			last_matid = matid;
 			tinyobj_material_t mat = o->materials[matid];
-			gl.Color4f(mat.diffuse[0], mat.diffuse[1], mat.diffuse[2], 1);
+			gl.Color4f(mat.diffuse[0] * multR, mat.diffuse[1] * multG, mat.diffuse[2] * multB, 1);
 			gl.Begin(GL_TRIANGLES);
 		}
 		gl_obj_vertex(a, 3 * f + 0);
@@ -163,8 +163,13 @@ void gl_obj_render(gl_obj *o)
 		gl_obj_vertex(a, 3 * f + 2);
 	}
 	gl.End();
-
 }
+
+void gl_obj_render(gl_obj *o)
+{
+    gl_obj_render_colorized(o, 1.0f, 1.0f, 1.0f);
+}
+
 
 /* main code ******************************************************************* */
 

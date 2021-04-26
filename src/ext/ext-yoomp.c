@@ -7,29 +7,32 @@
 #include "sdl/video_gl-common.h"
 #include "sdl/video_gl-ext.h"
 
+#include "colours.h"
 #include "memory.h"
 #include "ui.h"
 
 static gl_texture glt_background;
 
-#define NUM_BALLS 5
+#define NUM_BALLS 6
 typedef struct yoomp_ball {
 	const char *fname;
 	const char *name;
 	struct gl_obj* glo_ball;
+	int colorize;
 } yoomp_ball;
 
 static yoomp_ball yoomp_balls[NUM_BALLS] = {
-	NULL, "ORIGINAL", NULL,
-	"data/ext/yoomp/ball-yoomp.obj", "Yoomp-like", NULL,
-	"data/ext/yoomp/ball-amiga.obj", "Amiga V1", NULL,
-	"data/ext/yoomp/ball-amiga-2.obj", "Amiga V2", NULL,
-	"data/ext/yoomp/beach-ball.obj", "Beach Ball", NULL,
+	NULL, "ORIGINAL", NULL, 0,
+	"data/ext/yoomp/ball-yoomp-bw.obj", "Yoomp-like-colorized", NULL, 1,
+	"data/ext/yoomp/ball-yoomp.obj", "Yoomp-like-green", NULL, 0,
+	"data/ext/yoomp/ball-amiga.obj", "Amiga V1", NULL, 0,
+	"data/ext/yoomp/ball-amiga-2.obj", "Amiga V2", NULL, 0,
+	"data/ext/yoomp/beach-ball.obj", "Beach Ball", NULL, 0,
 };
 
-static int config_lua_script_on = 1;
-static int config_background_on = 0;
-static int config_ball_nr = 0;
+static int config_lua_script_on = 0;
+static int config_background_on = 1;
+static int config_ball_nr = 1;
 
 static void xx_load_ball()
 {
@@ -40,7 +43,7 @@ static void xx_load_ball()
 
 static void xx_load_background()
 {
-	glt_background = gl_texture_load_rgba("data/ext/yoomp/rof.rgba", 476, 476);
+	glt_background = gl_texture_load_rgba("data/ext/yoomp/rof-gray.rgba", 476, 476);
 
     gl_texture t = glt_background;
 
@@ -83,8 +86,14 @@ static void xx_draw_background()
 
 	gl.BindTexture(GL_TEXTURE_2D, glt_background.gl_id);
 
+	// 4F60 has background color
+	int color = MEMORY_mem[0x4F60] | 0x0F;  // brightest
+	float colR = Colours_GetR(color) / 255.0;
+	float colG = Colours_GetG(color) / 255.0;
+	float colB = Colours_GetB(color) / 255.0;
+
 	gl.Disable(GL_DEPTH_TEST);
-	gl.Color4f(1.0f, 1.0f, 1.0f, 1.0f);
+	gl.Color4f(colR, colG, colB, 1.0f);
 	gl.Enable(GL_BLEND);
 	gl.BlendFunc(
 		GL_SRC_ALPHA,
@@ -102,6 +111,7 @@ static void xx_draw_background()
 	gl.Vertex3f(L, T, -2.0f);
 	gl.End();
 
+	gl.Color4f(1.0f, 1.0f, 1.0f, 1.0f);
 	gl.Disable(GL_BLEND);
 }
 
@@ -140,7 +150,18 @@ static void xx_render_ball()
 	gl.Rotatef(ball_angle / 256.0 * 360.0, 0, 0, 1);
 	gl.Rotatef(11 * xx_last, 1, 0, 0);
 
-    gl_obj_render(yoomp_balls[config_ball_nr].glo_ball);
+	float colR, colG, colB;
+	if (yoomp_balls[config_ball_nr].colorize) {
+		// 4F5c has ball color
+		int color = MEMORY_mem[0x4F5c] | 0x0c;  // brightness
+		colR = Colours_GetR(color) / 255.0;
+		colG = Colours_GetG(color) / 255.0;
+		colB = Colours_GetB(color) / 255.0;
+	} else {
+		colR = colG = colB = 1.0;
+	}
+
+    gl_obj_render_colorized(yoomp_balls[config_ball_nr].glo_ball, colR, colG, colB);
 
 	gl.PopMatrix();
 
