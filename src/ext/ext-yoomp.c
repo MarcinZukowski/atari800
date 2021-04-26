@@ -12,20 +12,30 @@
 
 static gl_texture glt_background;
 
-static struct gl_obj* glo_ball;
+#define NUM_BALLS 5
+typedef struct yoomp_ball {
+	const char *fname;
+	const char *name;
+	struct gl_obj* glo_ball;
+} yoomp_ball;
+
+static yoomp_ball yoomp_balls[NUM_BALLS] = {
+	NULL, "ORIGINAL", NULL,
+	"data/ext/yoomp/ball-yoomp.obj", "Yoomp-like", NULL,
+	"data/ext/yoomp/ball-amiga.obj", "Amiga V1", NULL,
+	"data/ext/yoomp/ball-amiga-2.obj", "Amiga V2", NULL,
+	"data/ext/yoomp/beach-ball.obj", "Beach Ball", NULL,
+};
 
 static int config_lua_script_on = 1;
 static int config_background_on = 0;
-static int config_ball_on = 0;
+static int config_ball_nr = 0;
 
 static void xx_load_ball()
 {
-//	const char* filename = "beach-ball.obj";
-	const char* filename = "data/ext/yoomp/ball-yoomp.obj";
-//	const char* filename = "ball-amiga.obj";
-//	const char* filename = "ball-amiga-2.obj";
-
-    glo_ball = gl_obj_load(filename);
+	for (int i = 1; i < NUM_BALLS; i++) {
+		yoomp_balls[i].glo_ball = gl_obj_load(yoomp_balls[i].fname);
+	}
 }
 
 static void xx_load_background()
@@ -130,7 +140,7 @@ static void xx_render_ball()
 	gl.Rotatef(ball_angle / 256.0 * 360.0, 0, 0, 1);
 	gl.Rotatef(11 * xx_last, 1, 0, 0);
 
-    gl_obj_render(glo_ball);
+    gl_obj_render(yoomp_balls[config_ball_nr].glo_ball);
 
 	gl.PopMatrix();
 
@@ -167,7 +177,7 @@ static void xx_draw()
 	if (config_background_on) {
 		xx_draw_background();
 	}
-	if (config_ball_on) {
+	if (config_ball_nr > 0) {
 		xx_render_ball();
 	}
 }
@@ -190,7 +200,7 @@ static int yoomp_init(void)
 static UI_tMenuItem menu[] = {
 	UI_MENU_ACTION(0, "(Lua) Script enabled:"),
 	UI_MENU_ACTION(1, "Nicer background:"),
-	UI_MENU_ACTION(2, "Nicer ball:"),
+	UI_MENU_ACTION(2, "Ball type:"),
 	UI_MENU_END
 };
 
@@ -198,7 +208,7 @@ static void refresh_config()
 {
 	menu[0].suffix = config_lua_script_on ? "ON" : "OFF";
 	menu[1].suffix = config_background_on ? "ON" : "OFF";
-	menu[2].suffix = config_ball_on ? "ON" : "OFF";
+	menu[2].suffix = yoomp_balls[config_ball_nr].name;
 }
 
 static struct UI_tMenuItem* get_config()
@@ -217,7 +227,7 @@ static void handle_config(int option)
 			config_background_on ^= 1;
 			break;
 		case 2:
-			config_ball_on ^= 1;
+			config_ball_nr = (config_ball_nr + 1) % NUM_BALLS;
 			break;
 	}
 	refresh_config();
