@@ -222,9 +222,6 @@ static void mercenary_handle_config(struct UI_tMenuItem *menu, int option)
 	mercenary_refresh_config(menu);
 }
 
-static int last_dl_value = 0;
-static int frames = 0;
-static int last_frames = 0;
 
 static void mercenary_pre_gl_frame()
 {
@@ -232,20 +229,9 @@ static void mercenary_pre_gl_frame()
 		return;
 	}
 
-	// Display FPS (well, really vblanks-per-frame)
 	// A change in 0x2805 is a new frame
-	char buf[20];
-	frames++;
-	int dl_value = MEMORY_dGetByte(0x2805);
-	if (dl_value != last_dl_value) {
-		last_frames = frames;
-		frames = 0;
-		last_dl_value = dl_value;
-	}
-
-	snprintf(buf, 20, "FRAMES: %d ", last_frames);
-
-	Print(0x9f, 0x90, buf, 0, -1, 20);
+	const char *fps_str = ext_fps_str(MEMORY_dGetByte(0x2805));
+	Print(0x9f, 0x90, fps_str, 0, -1, 20);
 }
 
 ext_state* ext_register_mercenary(void)

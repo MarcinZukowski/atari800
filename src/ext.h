@@ -49,5 +49,6 @@ int ext_fakecpu_until_pc(int end_pc);
 int ext_fakecpu_until_op(int end_op);
 int ext_fakecpu_until_after_op(int end_op);
 
+char *ext_fps_str(int previous_value);
 
 #endif   /* EXT_H */

@@ -2,19 +2,13 @@
 
 #include <assert.h>
 
-#include "cpu.h"
-#include "antic.h"
 #include "memory.h"
-#include "monitor.h"
 #include "ui.h"
 #include "ui_basic.h"
 
 static int config_display_fps = 1;
 static int config_accelerate = 1;
 
-static int last_dl_value = 0;
-static int frames = 0;
-static int last_frames = 0;
 // Seems calling here is once per frame
 static int calls_7856 = 0;
 
@@ -107,20 +101,8 @@ static void pre_gl_frame()
 		return;
 	}
 
-	// Display FPS (well, really vblanks-per-frame)
-	// A change in 0x2805 is a new frame
-	char buf[20];
-	frames++;
-	int dl_value = calls_7856;
-	if (dl_value != last_dl_value) {
-		last_frames = frames;
-		frames = 0;
-		last_dl_value = dl_value;
-	}
-
-	snprintf(buf, 20, "FRAMES: %d ", last_frames);
-
-	Print(0x9f, 0x90, buf, 0, -1, 20);
+	const char *fps_str = ext_fps_str(calls_7856);
+	Print(0x9f, 0x90, fps_str, 0, -1, 20);
 }
 
 ext_state* ext_register_altreal(void)

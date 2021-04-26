@@ -54,27 +54,14 @@ static void handle_config(struct UI_tMenuItem *menu, int option)
 	refresh_config(menu);
 }
 
-static int last_dl_value = 0;
-static int frames = 0;
-static int last_frames = 0;
-
 static void pre_gl_frame()
 {
 	if (!config_display_fps) {
 		return;
 	}
 
-	// Display FPS (well, really vblanks-per-frame)
-	char buf[20];
-	frames++;
-	int dl_value = ANTIC_dlist;
-	if (dl_value != last_dl_value) {
-		last_frames = frames;
-		frames = 0;
-		last_dl_value = dl_value;
-	}
-
-	snprintf(buf, 20, "FRAMES: %d ", last_frames);
+	const char *fps_str = ext_fps_str(ANTIC_dlist);
+	Print(0x9f, 0x90, fps_str, 0, -1, 20);
 
 	int x, y;
 	int ymin = 0;
@@ -92,7 +79,6 @@ static void pre_gl_frame()
 		}
 	}
 
-	Print(0x9f, 0x90, buf, 0, -1, 20);
 }
 
 

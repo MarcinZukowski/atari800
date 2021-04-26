@@ -178,6 +178,25 @@ ext_state* ext_state_alloc(void)
 	return s;
 }
 
+/* =========================================== FPS ===========================  */
+static int fps_last_value = 0;
+static int fps_frames = 0;
+static int fps_last_frames = 0;
+static char fps_buf[20];
+
+char *ext_fps_str(int current_value)
+{
+	fps_frames++;
+	if (current_value != fps_last_value) {
+		fps_last_frames = fps_frames;
+		fps_frames = 0;
+		fps_last_value = current_value;
+	}
+
+	snprintf(fps_buf, 20, "FRAMES: %d ", fps_last_frames);
+	return fps_buf;
+}
+
 /* =========================================== FAKE CPU =========================== */
 
 static int prev_CPU_IRQ;
