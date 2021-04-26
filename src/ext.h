@@ -47,6 +47,7 @@ typedef unsigned char byte;
 // Helper tools
 int ext_fakecpu_until_pc(int end_pc);
 int ext_fakecpu_until_op(int end_op);
+int ext_fakecpu_until_after_op(int end_op);
 
 
 #endif   /* EXT_H */

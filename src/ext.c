@@ -68,7 +68,7 @@ void ext_init()
 	states[3] = ext_register_altreal();
 	assert(states[3]);
 
-//	set_current_state(states[3]);
+//	set_current_state(states[1]);
 }
 
 static void ext_choose_ext()
@@ -231,7 +231,7 @@ static void ext_fakecpu_finish()
 	faking_cpu = 0;
 }
 
-static int ext_fakecpu_until(int end_pc, int end_op)
+static int ext_fakecpu_until(int end_pc, int end_op, int after)
 {
 	// Save state
 	ext_fakecpu_init();
@@ -249,16 +249,25 @@ static int ext_fakecpu_until(int end_pc, int end_op)
 		}
 	} while (TRUE);
 
+	if (after) {
+		ext_fakecpu_do_one();
+	}
+
 	ext_fakecpu_finish();
 	return OP_NOP;
 }
 
 int ext_fakecpu_until_pc(int end_pc)
 {
-	return ext_fakecpu_until(end_pc, /*end_op=*/ 0);
+	return ext_fakecpu_until(end_pc, /*end_op=*/ 0, /*after=*/ 0);
 }
 
 int ext_fakecpu_until_op(int end_op)
 {
-	return ext_fakecpu_until(/*end_pc=*/0, end_op);
+	return ext_fakecpu_until(/*end_pc=*/ 0, end_op, /*afger=*/ 0);
+}
+
+int ext_fakecpu_until_after_op(int end_op)
+{
+	return ext_fakecpu_until(/*end_pc=*/ 0, end_op, /*after=*/ 1);
 }

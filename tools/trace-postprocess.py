@@ -27,7 +27,6 @@ for l in lines:
     if op2:
         counts[pc + 2] += 1
 
-
 pcfreqs = [[i, counts[i]] for i in range(0, RANGE) if counts[i] > 0]
 
 print("Sorting")

@@ -1,5 +1,10 @@
 # Interesting addresses
 
+4dd8 - ??? but takes a while, and is called often
+4fde - ??? but expensive
+4e59 - ditto
+342c - ditto
+
 4185 - calls the actual line routine
 
 
@@ -37,7 +42,6 @@ A/07 - switch point
 
 
 586f - fill-the-line routine
-
 
 line routines: X, Y input X, Y resp.
 2600 - screen lines LO
