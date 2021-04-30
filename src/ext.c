@@ -11,6 +11,7 @@
 #include "ext/ext-yoomp.h"
 #include "ext/ext-zybex.h"
 #include "ext/ext-altreal.h"
+#include "ext/ext-bjl.h"
 
 #include "antic.h"
 #include "cpu.h"
@@ -18,7 +19,7 @@
 #include "monitor.h"
 #include "ui.h"
 
-#define NUM_STATES 4
+#define NUM_STATES 5
 static ext_state* states[NUM_STATES];
 static ext_state* current_state = NULL;
 
@@ -67,6 +68,8 @@ void ext_init()
 	assert(states[2]);
 	states[3] = ext_register_altreal();
 	assert(states[3]);
+	states[4] = ext_register_bjl();
+	assert(states[4]);
 
 //	set_current_state(states[1]);
 	if (current_state) {
