@@ -2,8 +2,9 @@
 
 4dd8 - ??? but takes a while, and is called often
 4fde - ??? but expensive
-4e59 - ditto
 342c - ditto
+4e59 - ditto
+4e12 - ditto (overlaps)
 
 4185 - calls the actual line routine
 
