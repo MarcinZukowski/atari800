@@ -7,6 +7,7 @@
 #include "sdl/video_gl-common.h"
 #include "sdl/video_gl-ext.h"
 
+#include "antic.h"
 #include "colours.h"
 #include "memory.h"
 #include "ui.h"
@@ -193,6 +194,11 @@ static void xx_draw()
 
 	if (config_lua_script_on) {
 		lua_draw_background();
+	}
+
+	if (ANTIC_dlist != 0xCA00) {
+		// Not in-game
+		return;
 	}
 
 	if (config_background_on) {
