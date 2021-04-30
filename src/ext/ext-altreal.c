@@ -7,7 +7,11 @@
 #include "ui_basic.h"
 
 static int config_display_fps = 1;
-static int config_accelerate = 1;
+#define ACC_NONE 0
+#define ACC_LOW 1
+#define ACC_HIGH  2
+#define ACC_COUNT 3
+static int config_accelerate = ACC_LOW;
 
 // Seems calling here is once per frame
 static int calls_7856 = 0;
@@ -18,31 +22,35 @@ static int code_injections(const int pc, int op)
 		calls_7856++;
 	}
 
-	if (!config_accelerate) {
+	if (config_accelerate == ACC_NONE) {
 		return op;
 	}
 
-	if (1 && pc == 0x90) {  // Drawing?
+	if (pc == 0x90) {  // Drawing?
 		return ext_fakecpu_until_pc(0x00D5);
 	}
 
-	if (1 && pc == 0x4A69) { // ??
+	if (config_accelerate == ACC_LOW) {
+		return op;
+	}
+
+	if (pc == 0x4A69) { // ??
 		return ext_fakecpu_until_pc(0x4A82);
 	}
 
-	if (1 && pc == 0x3884) {  // ??
+	if (pc == 0x3884) {  // ??
 		return ext_fakecpu_until_pc(0x38CE);
 	}
 
-	if (1 && pc == 0x7858) { // Moving into font memory?
+	if (pc == 0x7858) { // Moving into font memory?
 		return ext_fakecpu_until_pc(0x7887);
 	}
 
-	if (1 && pc == 0x7A1F) { // ??
+	if (pc == 0x7A1F) { // ??
 		return ext_fakecpu_until_pc(0x7A36);
 	}
 
-	if (1 && pc == 0x7F1B) { // ??
+	if (pc == 0x7F1B) { // ??
 		return ext_fakecpu_until_pc(0x7F4A);
 	}
 
@@ -65,14 +73,15 @@ static int init(void)
 
 static UI_tMenuItem menu[] = {
 	UI_MENU_ACTION(0, "Display FPS:"),
-	UI_MENU_ACTION(1, "Accelerate:"),
+	UI_MENU_ACTION(1, "Acceleration:"),
 	UI_MENU_END
 };
 
 static void refresh_config()
 {
+	const char* config_accelerate_strings[ACC_COUNT] = { "OFF", "LOW", "HIGH" };
 	menu[0].suffix = config_display_fps ? "ON" : "OFF";
-	menu[1].suffix = config_accelerate ? "ON" : "OFF";
+	menu[1].suffix = config_accelerate_strings[config_accelerate];
 }
 
 static struct UI_tMenuItem* get_config()
@@ -88,7 +97,7 @@ static void handle_config(int option)
 			config_display_fps ^= 1;
 			break;
 		case 1:
-			config_accelerate ^= 1;
+			config_accelerate = (config_accelerate + 1) % ACC_COUNT;
 			break;
 	}
 	refresh_config();
