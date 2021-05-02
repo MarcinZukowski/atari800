@@ -35,3 +35,7 @@ autom4te.cache/
 stamp-*
 *~
 configure-20*
+*.a8s
+*.atr
+*.xex
+.DS_Store
