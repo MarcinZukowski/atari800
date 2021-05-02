@@ -7,6 +7,8 @@
 #include "sdl/video_gl-ext.h"
 
 #include "cpu.h"
+#include "gtia.h"
+#include "colours.h"
 #include "memory.h"
 #include "ui.h"
 #include "ui_basic.h"
@@ -329,11 +331,9 @@ static void mercenary_post_gl_frame()
 	gl.LineWidth(4);
 	for (int i = 0 ; i < shown_state->drawn_lines_count; i++) {
 		drawn_line *line = &shown_state->drawn_lines[i];
-		if (line->color) {
-			gl.Color4f(1, 1, 1, 1);
-		} else {
-			gl.Color4f(0.5, 0.5, 0.5, 1);
-		}
+		// Current drawn color is in 0xA1 and 0xA4, or so it seems
+		int color = line->color ? MEMORY_mem[0xA1] : MEMORY_mem[0xA4];
+		gl.Color4f(Colours_GetR(color) / 255.0f, Colours_GetG(color) / 255.0f, Colours_GetB(color) / 255.0f, 1);
 		float startX = adjustX(line->startX);
 		float endX = adjustX(line->endX);
 		float startY = adjustY(line->startY);
