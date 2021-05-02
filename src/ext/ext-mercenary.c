@@ -3,6 +3,8 @@
 #include <assert.h>
 
 #include <SDL.h>
+#include "sdl/video_gl-common.h"
+#include "sdl/video_gl-ext.h"
 
 #include "cpu.h"
 #include "memory.h"
@@ -12,6 +14,42 @@
 static int config_display_fps = 1;
 static int config_accelerate = 1;
 static int config_control_flips = 1;
+#define CONFIG_LINE_MODE_A8 0
+#define CONFIG_LINE_MODE_GL 1
+#define CONFIG_LINE_MODE_BOTH 2
+#define CONFIG_LINE_MODE_COUNT 3
+static int config_line_mode = CONFIG_LINE_MODE_GL;
+static char* config_line_modes[CONFIG_LINE_MODE_COUNT] = {
+	"Atari native",
+	"OpenGL",
+	"Both"
+};
+
+// Info about a single drawn line
+typedef struct drawn_line {
+	int startX, startY;
+	int endX, endY;
+	int color;
+} drawn_line;
+
+#define MAX_LINES 100
+// Holds info about all lines drawn in one frame
+typedef struct drawing_state {
+	drawn_line drawn_lines[MAX_LINES];
+	int drawn_lines_count;
+} drawing_state;
+
+// Two states, we'll alternate between them as the screen changes
+static drawing_state state1;
+static drawing_state state2;
+static drawing_state *shown_state = &state1;
+static drawing_state *prepared_state = &state2;
+static int shown_dl;
+
+// A change in 0x2805 is a new frame
+static int current_dl_byte() {
+	return MEMORY_dGetByte(0x2805);
+}
 
 static int mercenary_code_injections(int pc, int op)
 {
@@ -67,11 +105,19 @@ static int mercenary_code_injections(int pc, int op)
 
 			int colorAnd = MEMORY_GetByte(0x5243) == 0x3D;
 
-			while (1) {
-				byte curX = Xmajor ? majorCur : minorCur;
-				byte curY = Xmajor ? minorCur : majorCur;
+			byte curX, curY;
+			byte startX = 0xFF, startY = 0xFF;
 
-				MEMORY_PutByte(0x04, curY);
+			while (1) {
+				curX = Xmajor ? majorCur : minorCur;
+				curY = Xmajor ? minorCur : majorCur;
+
+				if (startX == 0xFF) {
+					startX = curX;
+					startY = curY;
+				}
+
+					MEMORY_PutByte(0x04, curY);
 
 				int adr = screen + 40 * curY + (curX / 4);
 				int mask = 0x03 << 2 * (3 - curX % 4);
@@ -83,7 +129,10 @@ static int mercenary_code_injections(int pc, int op)
 					// Seems we're only ORing odd bits here, this prevents lines from getting onto the sky
 					newByte = oldByte | (mask & 0x55);
 				}
-				MEMORY_PutByte(adr, newByte);
+				// Draw pixel, if needed
+				if (config_line_mode != CONFIG_LINE_MODE_GL) {
+					MEMORY_PutByte(adr, newByte);
+				}
 
 				if (majorCur == majorLimit) {
 					break;
@@ -106,6 +155,10 @@ static int mercenary_code_injections(int pc, int op)
 					break;
 				}
 			};
+
+			assert(prepared_state->drawn_lines_count < MAX_LINES);
+			prepared_state->drawn_lines[prepared_state->drawn_lines_count++] =
+					(drawn_line){startX, startY, curX, curY, colorAnd};
 
 			MEMORY_PutByte(0x06, fracCur);
 			CPU_regX = Xmajor ? majorCur : minorCur;
@@ -181,6 +234,9 @@ static int mercenary_init(void)
 		return 0;
 	}
 
+	state1.drawn_lines_count = 0;
+	state2.drawn_lines_count = 0;
+
 	// Match
 	return 1;
 }
@@ -189,6 +245,7 @@ static UI_tMenuItem menu[] = {
 	UI_MENU_ACTION(0, "Display FPS:"),
 	UI_MENU_ACTION(1, "Accelerate:"),
 	UI_MENU_ACTION(2, "CONTROL flips acceleration:"),
+	UI_MENU_ACTION(3, "Line drawing mode:"),
 	UI_MENU_END
 };
 
@@ -197,6 +254,7 @@ static void refresh_config()
 	menu[0].suffix = config_display_fps ? "ON" : "OFF";
 	menu[1].suffix = config_accelerate ? "ON" : "OFF";
 	menu[2].suffix = config_control_flips ? "ON" : "OFF";
+	menu[3].suffix = config_line_modes[config_line_mode];
 }
 
 static struct UI_tMenuItem* get_config()
@@ -217,6 +275,9 @@ static void handle_config(int option)
 		case 2:
 			config_control_flips ^= 1;
 			break;
+		case 3:
+			config_line_mode = (config_line_mode + 1) % CONFIG_LINE_MODE_COUNT;
+			break;
 	}
 	refresh_config();
 }
@@ -227,9 +288,65 @@ static void mercenary_pre_gl_frame()
 		return;
 	}
 
-	// A change in 0x2805 is a new frame
-	const char *fps_str = ext_fps_str(MEMORY_dGetByte(0x2805));
+	const char *fps_str = ext_fps_str(current_dl_byte());
 	Print(0x9f, 0x90, fps_str, 0, -1, 20);
+}
+
+static float adjustX(int x)
+{
+	float div = 336 / 2 / 2;
+	return ((x - 80) / div) ;
+}
+static float adjustY(int y)
+{
+	return -1 * (2  * (y /239.0f) - 1) - 0.2;
+}
+
+static void mercenary_post_gl_frame()
+{
+	int dl = current_dl_byte();
+	if (dl != shown_dl) {
+		// DL change, flip prepared/shown states
+		drawing_state *prev = shown_state;
+		shown_state = prepared_state;
+		prepared_state = prev;
+		prev->drawn_lines_count = 0;
+		shown_dl = dl;
+	}
+
+	if (config_line_mode == CONFIG_LINE_MODE_A8) {
+		return;
+	}
+
+	// Draw lines with GL
+
+	// Remember state
+	gl.PushAttrib(GL_ENABLE_BIT);
+
+	gl.Disable(GL_TEXTURE_2D);
+	gl.Disable(GL_BLEND);
+
+	gl.LineWidth(4);
+	for (int i = 0 ; i < shown_state->drawn_lines_count; i++) {
+		drawn_line *line = &shown_state->drawn_lines[i];
+		if (line->color) {
+			gl.Color4f(1, 1, 1, 1);
+		} else {
+			gl.Color4f(0.5, 0.5, 0.5, 1);
+		}
+		float startX = adjustX(line->startX);
+		float endX = adjustX(line->endX);
+		float startY = adjustY(line->startY);
+		float endY = adjustY(line->endY);
+		gl.Begin(GL_LINES);
+		gl.Vertex3f(startX, startY, -2.0);
+		gl.Vertex3f(endX, endY, -2.0);
+		gl.End();
+	}
+
+	// Restore state
+	gl.PopAttrib();
+	gl.Color4f(1.0f, 1.0f, 1.0f, 1.0f);
 }
 
 ext_state* ext_register_mercenary(void)
@@ -240,9 +357,12 @@ ext_state* ext_register_mercenary(void)
 	s->name = name;
 	s->code_injection = mercenary_code_injections;
 	s->pre_gl_frame = mercenary_pre_gl_frame;
+	s->post_gl_frame = mercenary_post_gl_frame;
 
 	s->get_config = get_config;
 	s->handle_config = handle_config;
+
+	mercenary_init();
 
 	return s;
 }

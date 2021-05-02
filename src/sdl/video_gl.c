@@ -476,10 +476,13 @@ static int InitGlFunctions(void)
 	    (gl.End = (void(APIENTRY*)(void))GetGlFunc("glEnd")) == NULL ||
 	    (gl.PushMatrix = (void(APIENTRY*)(void))GetGlFunc("glPushMatrix")) == NULL ||
 	    (gl.PopMatrix = (void(APIENTRY*)(void))GetGlFunc("glPopMatrix")) == NULL ||
+	    (gl.PushAttrib = (void(APIENTRY*)(GLbitfield))GetGlFunc("glPushAttrib")) == NULL ||
+	    (gl.PopAttrib = (void(APIENTRY*)(void))GetGlFunc("glPopAttrib")) == NULL ||
 	    (gl.Rotatef = (void(APIENTRY*)(GLfloat, GLfloat, GLfloat, GLfloat))GetGlFunc("glRotatef")) == NULL ||
 	    (gl.Translatef = (void(APIENTRY*)(GLfloat, GLfloat, GLfloat))GetGlFunc("glTranslatef")) == NULL ||
 	    (gl.Scalef = (void(APIENTRY*)(GLfloat, GLfloat, GLfloat))GetGlFunc("glScalef")) == NULL ||
 	    (gl.Lightfv = (void(APIENTRY*)(GLenum, GLenum, const GLfloat*))GetGlFunc("glLightfv")) == NULL ||
+	    (gl.LineWidth = (void(APIENTRY*)(GLfloat))GetGlFunc("glLineWidth")) == NULL ||
 	    (gl.GetIntegerv = (void(APIENTRY*)(GLenum, GLint*))GetGlFunc("glGetIntegerv")) == NULL ||
 	    (gl.GetString = (const GLubyte*(APIENTRY*)(GLenum))GetGlFunc("glGetString")) == NULL ||
 	    (gl.GenLists = (GLuint(APIENTRY*)(GLsizei))GetGlFunc("glGenLists")) == NULL ||

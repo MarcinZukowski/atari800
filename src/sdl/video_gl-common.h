@@ -30,10 +30,13 @@ struct glapi
 	void(APIENTRY*End)(void);
 	void(APIENTRY*PushMatrix)(void);
 	void(APIENTRY*PopMatrix)(void);
+	void(APIENTRY*PushAttrib)(GLbitfield);
+	void(APIENTRY*PopAttrib)(void);
 	void(APIENTRY*Rotatef)(GLfloat, GLfloat, GLfloat, GLfloat);
 	void(APIENTRY*Translatef)(GLfloat, GLfloat, GLfloat);
 	void(APIENTRY*Scalef)(GLfloat, GLfloat, GLfloat);
 	void(APIENTRY*Lightfv)(GLenum, GLenum, const GLfloat*);
+	void(APIENTRY*LineWidth)(GLfloat);
 	void(APIENTRY*GetIntegerv)(GLenum, GLint*);
 	const GLubyte*(APIENTRY*GetString)(GLenum);
 	GLuint(APIENTRY*GenLists)(GLsizei);
