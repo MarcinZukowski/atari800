@@ -296,12 +296,17 @@ static void mercenary_pre_gl_frame()
 
 static float adjustX(int x)
 {
-	float div = 336 / 2 / 2;
-	return ((x - 80) / div) ;
+	static const float div = 336 / 2 / 2;
+	static const float half = 80;
+	static const float halfPixel = 2 / 336 / 2;
+	return ((x - half) / div + halfPixel);
 }
 static float adjustY(int y)
 {
-	return -1 * (2  * (y /239.0f) - 1) - 0.2;
+	static const float div = 240 / 2;
+	static const float half = 120;
+	static const float halfPixel = 2 / 240;
+	return - ((y + 24 - half) / div + halfPixel);
 }
 
 static void mercenary_post_gl_frame()
