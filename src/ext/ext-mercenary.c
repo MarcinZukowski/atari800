@@ -27,6 +27,18 @@ static char* config_line_modes[CONFIG_LINE_MODE_COUNT] = {
 	"Both"
 };
 
+#define CONFIG_GL_LINE_TYPE_LINE 0
+#define CONFIG_GL_LINE_TYPE_POLYGON_LINE 1
+#define CONFIG_GL_LINE_TYPE_POLYGON_FILL 2
+#define CONFIG_GL_LINE_TYPE_COUNT 3
+static int config_gl_line_type = CONFIG_GL_LINE_TYPE_LINE;
+static char* config_gl_line_types[CONFIG_GL_LINE_TYPE_COUNT] = {
+	"Line",
+	"Polygon-Line",
+	"Polygon-Fill"
+};
+
+
 // Info about a single drawn line
 typedef struct drawn_line {
 	int startX, startY;
@@ -248,6 +260,7 @@ static UI_tMenuItem menu[] = {
 	UI_MENU_ACTION(1, "Accelerate:"),
 	UI_MENU_ACTION(2, "CONTROL flips acceleration:"),
 	UI_MENU_ACTION(3, "Line drawing mode:"),
+	UI_MENU_ACTION(4, "GL line type:"),
 	UI_MENU_END
 };
 
@@ -257,6 +270,7 @@ static void refresh_config()
 	menu[1].suffix = config_accelerate ? "ON" : "OFF";
 	menu[2].suffix = config_control_flips ? "ON" : "OFF";
 	menu[3].suffix = config_line_modes[config_line_mode];
+	menu[4].suffix = config_gl_line_types[config_gl_line_type];
 }
 
 static struct UI_tMenuItem* get_config()
@@ -280,6 +294,9 @@ static void handle_config(int option)
 		case 3:
 			config_line_mode = (config_line_mode + 1) % CONFIG_LINE_MODE_COUNT;
 			break;
+		case 4:
+			config_gl_line_type = (config_gl_line_type + 1) % CONFIG_GL_LINE_TYPE_COUNT;
+			break;
 	}
 	refresh_config();
 }
@@ -294,23 +311,24 @@ static void mercenary_pre_gl_frame()
 	Print(0x9f, 0x90, fps_str, 0, -1, 20);
 }
 
+static const float halfPixelX = 2.0f / 336.0f / 2.0f * 2;
+static const float halfPixelY = 2.0f / 240.0f / 2.0f;
 static float adjustX(int x)
 {
 	static const float div = 336 / 2 / 2;
 	static const float half = 80;
-	static const float halfPixel = 2 / 336 / 2;
-	return ((x - half) / div + halfPixel);
+	return ((x - half) / div + halfPixelX);
 }
 static float adjustY(int y)
 {
 	static const float div = 240 / 2;
 	static const float half = 120;
-	static const float halfPixel = 2 / 240;
-	return - ((y + 24 - half) / div + halfPixel);
+	return - ((y + 24 - half) / div + halfPixelY);
 }
 
 static void mercenary_post_gl_frame()
 {
+	int i;
 	int dl = current_dl_byte();
 	if (dl != shown_dl) {
 		// DL change, flip prepared/shown states
@@ -329,12 +347,13 @@ static void mercenary_post_gl_frame()
 
 	// Remember state
 	gl.PushAttrib(GL_ENABLE_BIT);
+	gl.PushAttrib(GL_POLYGON_BIT);
+	gl.PushAttrib(GL_LINE_BIT);
 
 	gl.Disable(GL_TEXTURE_2D);
 	gl.Disable(GL_BLEND);
 
-	gl.LineWidth(4);
-	for (int i = 0 ; i < shown_state->drawn_lines_count; i++) {
+	for (i = 0 ; i < shown_state->drawn_lines_count; i++) {
 		drawn_line *line = &shown_state->drawn_lines[i];
 		// Current drawn color is in 0xA1 and 0xA4, or so it seems
 		int color = line->color ? MEMORY_mem[0xA1] : MEMORY_mem[0xA4];
@@ -343,13 +362,64 @@ static void mercenary_post_gl_frame()
 		float endX = adjustX(line->endX);
 		float startY = adjustY(line->startY);
 		float endY = adjustY(line->endY);
-		gl.Begin(GL_LINES);
-		gl.Vertex3f(startX, startY, -2.0);
-		gl.Vertex3f(endX, endY, -2.0);
-		gl.End();
+
+		if (config_gl_line_type == CONFIG_GL_LINE_TYPE_LINE) {
+			// Draw lines as GL lines
+			gl.LineWidth(4);
+			gl.Begin(GL_LINES);
+			gl.Vertex3f(startX, startY, -2.0);
+			gl.Vertex3f(endX, endY, -2.0);
+			gl.End();
+		} else {
+			// Draw lines as Polygon lines
+
+			// Draw left-to-right always
+			if (startX > endX) {
+#define flt_swap(a,b) { float tmp = (a); (a) = (b); (b) = tmp; }
+				flt_swap(startX, endX);
+				flt_swap(startY, endY);
+			}
+			int down = endY < startY;
+
+			gl.LineWidth(1);
+			gl.Disable(GL_CULL_FACE);
+			gl.PolygonMode(GL_FRONT_AND_BACK,
+					config_gl_line_type == CONFIG_GL_LINE_TYPE_POLYGON_LINE ? GL_LINE : GL_FILL);
+
+			gl.Begin(GL_POLYGON);
+			// Start (left) pixel
+			// If we're going down, do top-right corner
+			if (down) {
+				gl.Vertex3f(startX + halfPixelX, startY + halfPixelY, -2.0);
+			}
+			// top-left corner and bottom-left corner
+			gl.Vertex3f(startX - halfPixelX, startY + halfPixelY, -2.0);
+			gl.Vertex3f(startX - halfPixelX, startY - halfPixelY, -2.0);
+			// Then, if we're going up, bottom-right corner
+			if (!down) {
+				gl.Vertex3f(startX + halfPixelX, startY - halfPixelY, -2.0);
+			}
+			// End (rigth) pixel
+			// If we're going down, draw bottom-left corner
+			if (down) {
+				gl.Vertex3f(endX - halfPixelX, endY - halfPixelY, -2.0);
+			}
+			// Always bottom-right and top-right
+			gl.Vertex3f(endX + halfPixelX, endY - halfPixelY, -2.0);
+			gl.Vertex3f(endX + halfPixelX, endY + halfPixelY, -2.0);
+			// If up, top-left
+			if (!down) {
+				gl.Vertex3f(endX - halfPixelX, endY + halfPixelY, -2.0);
+			}
+			gl.End();
+
+
+		}
 	}
 
 	// Restore state
+	gl.PopAttrib();
+	gl.PopAttrib();
 	gl.PopAttrib();
 	gl.Color4f(1.0f, 1.0f, 1.0f, 1.0f);
 }
