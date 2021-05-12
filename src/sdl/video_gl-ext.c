@@ -19,11 +19,10 @@ char *dynamic_fgets(char **buf, size_t *size, FILE *file);
 
 /* gl_texture code ******************************************************************* */
 
-gl_texture gl_texture_load_rgba(const char* fname, int width, int height)
+
+gl_texture gl_texture_new(int width, int height)
 {
 	gl_texture t;
-	FILE *f;
-	size_t res;
 
 	t.width = width;
 	t.height = height;
@@ -31,6 +30,19 @@ gl_texture gl_texture_load_rgba(const char* fname, int width, int height)
 	t.num_bytes = t.num_pixels * 4;
 
 	t.data = malloc(t.num_bytes);
+    assert(t.data);
+
+	gl.GenTextures(1, &t.gl_id);
+
+    return t;
+}
+
+gl_texture gl_texture_load_rgba(const char* fname, int width, int height)
+{
+	FILE *f;
+	size_t res;
+
+    gl_texture t = gl_texture_new(width, height);
 
 	printf("Loading: %s (%d x %d)\n", fname, width, height);
 	f = fopen(fname, "rb");
@@ -38,8 +50,6 @@ gl_texture gl_texture_load_rgba(const char* fname, int width, int height)
 	res = fread(t.data, 1, t.num_bytes, f);
 	assert(res == t.num_bytes);
 	fclose(f);
-
-	gl.GenTextures(1, &t.gl_id);
 
 	printf("Texture %s loaded, id=%d\n", fname, t.gl_id);
 
@@ -58,6 +68,27 @@ void gl_texture_finalize(gl_texture *t)
 	gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
 	gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 }
+
+void gl_texture_draw(gl_texture *t,
+        float tex_l, float tex_r, float tex_t, float tex_b,
+        float scr_l, float scr_r, float scr_t, float scr_b)
+{
+    float z = -2.0f;
+
+	gl.BindTexture(GL_TEXTURE_2D, t->gl_id);
+
+	gl.Begin(GL_QUADS);
+	gl.TexCoord2f(tex_l, tex_b);
+	gl.Vertex3f(scr_l, scr_b, z);
+	gl.TexCoord2f(tex_r, tex_b);
+	gl.Vertex3f(scr_r, scr_b, z);
+	gl.TexCoord2f(tex_r, tex_t);
+	gl.Vertex3f(scr_r, scr_t, z);
+	gl.TexCoord2f(tex_l, tex_t);
+	gl.Vertex3f(scr_l, scr_t, z);
+	gl.End();
+}
+
 
 /* gl_obj code ******************************************************************* */
 

@@ -85,8 +85,6 @@ static void xx_draw_background()
 	float TT = 0.76;
 	float TB = 0.25;
 
-	gl.BindTexture(GL_TEXTURE_2D, glt_background.gl_id);
-
 	// 4F60 has background color
 	int color = MEMORY_mem[0x4F60] | 0x0F;  // brightest
 	float colR = Colours_GetR(color) / 255.0;
@@ -101,16 +99,7 @@ static void xx_draw_background()
 		GL_ONE_MINUS_SRC_ALPHA
 	);
 
-	gl.Begin(GL_QUADS);
-	gl.TexCoord2f(TL, TB);
-	gl.Vertex3f(L, B, -2.0f);
-	gl.TexCoord2f(TR, TB);
-	gl.Vertex3f(R, B, -2.0f);
-	gl.TexCoord2f(TR, TT);
-	gl.Vertex3f(R, T, -2.0f);
-	gl.TexCoord2f(TL, TT);
-	gl.Vertex3f(L, T, -2.0f);
-	gl.End();
+	gl_texture_draw(&glt_background, TL, TR, TT, TB, L, R, T, B);
 
 	gl.Color4f(1.0f, 1.0f, 1.0f, 1.0f);
 	gl.Disable(GL_BLEND);

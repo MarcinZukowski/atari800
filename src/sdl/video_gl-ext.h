@@ -18,8 +18,12 @@ typedef struct gl_texture {
 	GLuint gl_id;
 } gl_texture;
 
+gl_texture gl_texture_new(int width, int height);
 gl_texture gl_texture_load_rgba(const char* fname, int width, int height);
 void gl_texture_finalize(gl_texture *t);
+void gl_texture_draw(gl_texture *t,
+        float tex_l, float tex_r, float tex_t, float tex_b,
+        float scr_l, float scr_r, float scr_t, float scr_b);
 
 struct gl_obj;
 struct gl_obj* gl_obj_load(const char *path);

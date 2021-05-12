@@ -7,11 +7,12 @@
 #include <assert.h>
 #include <string.h>
 
-#include "ext/ext-mercenary.h"
-#include "ext/ext-yoomp.h"
-#include "ext/ext-zybex.h"
 #include "ext/ext-altreal.h"
 #include "ext/ext-bjl.h"
+#include "ext/ext-mercenary.h"
+#include "ext/ext-river-raid.h"
+#include "ext/ext-yoomp.h"
+#include "ext/ext-zybex.h"
 
 #include "antic.h"
 #include "cpu.h"
@@ -19,7 +20,7 @@
 #include "monitor.h"
 #include "ui.h"
 
-#define NUM_STATES 5
+#define NUM_STATES 6
 static ext_state* states[NUM_STATES];
 static ext_state* current_state = NULL;
 
@@ -53,7 +54,7 @@ static void set_current_state(ext_state *state)
 		code_injection_map_set = 1;
 	}
 
-	printf("State set, %d code injections", i);
+	printf("State set, %d code injections\n", i);
 }
 
 void ext_init()
@@ -70,6 +71,8 @@ void ext_init()
 	assert(states[3]);
 	states[4] = ext_register_bjl();
 	assert(states[4]);
+	states[5] = ext_register_river_raid();
+	assert(states[5]);
 
 //	set_current_state(states[1]);
 	if (current_state) {
