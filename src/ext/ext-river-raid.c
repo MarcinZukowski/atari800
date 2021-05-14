@@ -22,6 +22,8 @@
 #define Y_ADJUSTMENT 0x5D  // adjustment in the Y positions
 #define Y_BLANKS 20   // empty lines on top of the screen
 
+int use_perspective = 1;
+
 /******************************************* OBJECTS *************************************/
 
 typedef struct rr_object {
@@ -106,7 +108,7 @@ static void render_objects()
 		if (idx >= 11) {
 			break;
 		}
-		int y = MEMORY_mem[0x000c + idx] - Y_ADJUSTMENT + Y_BLANKS;
+		int y = MEMORY_mem[0x000c + idx] - Y_ADJUSTMENT;
 		int gfx_id = MEMORY_mem[0x0500 + idx];
 		int color_id = MEMORY_mem[0x050b + idx];
 		int flags = MEMORY_mem[0x0042 + idx];
@@ -122,13 +124,30 @@ static void render_objects()
 			EXT_ASSERT(color_id >= OBJECTS_OFFSET && color_id <= 15, "Unexpected color_id=%d, idx=%d", color_id, idx);
 			rr_object *o = &objects[color_id - OBJECTS_OFFSET];
 
-			float sy = 1.0 - 2 * (y / 240.0);
-			float sh = 2.0 * o->normal.height / 240.0;
-			float sw = 2.0 * w / 336.0;
-			float sx = 4.0 * (x - 128) / 336.0;
+			float sy, sh, sw, sx, z;
+			if (use_perspective) {
+				// In 3D coords
+				sy = -80;
+				sh = 2.0 * o->normal.height;
+				sy += sh;
+				sx = 2 * (x - 128);
+				sw = 2.0 * w;
+				z = 120 + y;
+
+//				sy = sx = 0;
+//				sw = sh = 10;
+				z = - (100 + 160 - y);
+			} else {
+				// In 2D screen coords
+				y += Y_BLANKS;
+				sy = 1.0 - 2 * (y / 240.0);
+				sh = 2.0 * o->normal.height / 240.0;
+				sw = 2.0 * w / 336.0;
+				sx = 4.0 * (x - 128) / 336.0;
+				z = Z_VALUE_2D;
+			}
 
 			gl_texture *t;
-
 			if (gfx_id <= 6) {
 				// Explosion
 				static int id_to_explosion_index[7] = {-1, -1, 2, 1, 0, 1, 2};
@@ -145,7 +164,7 @@ static void render_objects()
 			gl_texture_draw(t,
 				0, 1, 0, 1,
 				sx, sx + sw, sy, sy - sh,
-				Z_VALUE_2D);
+				z);
 		}
 
 		idx++;
@@ -276,11 +295,24 @@ static void render_lines()
 
 	for (int y = 0; y < RR_LINE_COUNT; y++) {
 		int line_nr = (cur_line_nr + y) % RR_LINE_COUNT;
-		float sy = 1.0 - 2.0 * ((Y_BLANKS + y) / 240.0);
-		float sh = 2.0 * 1 / 240.0;
-		gl_texture_draw(&lines[line_nr], 0.0 + margin, 1.0 - margin, 0, 1, -1, 1,
-			// -1, 1, Z_VALUE_2D);
-			sy, sy - sh, Z_VALUE_2D);
+		if (use_perspective) {
+			float sy = -80;
+			float sh = 2;
+			float sx = -192;
+			float sw = 384;
+			float z = -(260 - y);
+			gl_texture_draw(&lines[line_nr],
+				0.0, 1.0, 0, 1,
+				sx, sx + sw, sy, sy - sh,
+				z);
+		} else {
+			float sy = 1.0 - 2.0 * ((Y_BLANKS + y) / 240.0);
+			float sh = 2.0 * 1 / 240.0;
+			gl_texture_draw(&lines[line_nr],
+				0.0 + margin, 1.0 - margin, 0, 1,
+				-1, 1, sy, sy - sh,
+				Z_VALUE_2D);
+		}
 	}
 
 }
@@ -298,7 +330,6 @@ static void init_lines()
 
 /******************************************* MAIN *************************************/
 
-
 static void post_gl_frame()
 {
 	gl.Disable(GL_DEPTH_TEST);
@@ -312,21 +343,36 @@ static void post_gl_frame()
 //	gl.PushMatrix();
 	GLint old_viewport[4];
 	gl.GetIntegerv(GL_VIEWPORT, old_viewport);
-	gl.Viewport(0, 0, 320, 200);
+	gl.Viewport(0, 0, 336, 240);
 	gl.MatrixMode(GL_MODELVIEW);
 	gl.PushMatrix();
 	gl.MatrixMode(GL_PROJECTION);
 	gl.PushMatrix();
 
-
-	gl.MatrixMode(GL_PROJECTION);
-
-	gl.Scissor(0, 0, 320, 200);
+	gl.Scissor(0, 0, 336, 240);
 	gl.Enable(GL_SCISSOR_TEST);
 	gl.Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	gl.Disable(GL_SCISSOR_TEST);
 
-	// gl.LoadIdentity();
+	if (use_perspective) {
+		gl.MatrixMode(GL_PROJECTION);
+		gl.LoadIdentity();
+		gl.Frustum(
+			// left/right
+			-160,+160,
+			// bottom/top
+			-100, 100,
+			// near/far
+			100, 260);
+		gl.MatrixMode(GL_MODELVIEW);
+		gl.LoadIdentity();
+
+		float player_x = MEMORY_mem[0x0057];
+		player_x -= 128;
+		printf("Player X: %d\n", player_x);
+		gl.Translatef(-2.0 * player_x + 16, 0, 30);
+	}
+
 
 	render_lines();
 	render_objects();

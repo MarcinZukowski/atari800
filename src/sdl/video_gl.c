@@ -472,6 +472,7 @@ static int InitGlFunctions(void)
 	    (gl.BlendFunc = (void(APIENTRY*)(GLenum,GLenum))GetGlFunc("glBlendFunc")) == NULL ||
 	    (gl.MatrixMode = (void(APIENTRY*)(GLenum))GetGlFunc("glMatrixMode")) == NULL ||
 	    (gl.Ortho = (void(APIENTRY*)(GLdouble,GLdouble,GLdouble,GLdouble,GLdouble,GLdouble))GetGlFunc("glOrtho")) == NULL ||
+	    (gl.Frustum = (void(APIENTRY*)(GLdouble,GLdouble,GLdouble,GLdouble,GLdouble,GLdouble))GetGlFunc("glFrustum")) == NULL ||
 	    (gl.LoadIdentity = (void(APIENTRY*)(void))GetGlFunc("glLoadIdentity")) == NULL ||
 	    (gl.Begin = (void(APIENTRY*)(GLenum))GetGlFunc("glBegin")) == NULL ||
 	    (gl.End = (void(APIENTRY*)(void))GetGlFunc("glEnd")) == NULL ||

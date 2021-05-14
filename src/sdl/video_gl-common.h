@@ -26,6 +26,7 @@ struct glapi
 	void(APIENTRY*BlendFunc)(GLenum,GLenum);
 	void(APIENTRY*MatrixMode)(GLenum);
 	void(APIENTRY*Ortho)(GLdouble,GLdouble,GLdouble,GLdouble,GLdouble,GLdouble);
+	void(APIENTRY*Frustum)(GLdouble,GLdouble,GLdouble,GLdouble,GLdouble,GLdouble);
 	void(APIENTRY*LoadIdentity)(void);
 	void(APIENTRY*Begin)(GLenum);
 	void(APIENTRY*End)(void);
