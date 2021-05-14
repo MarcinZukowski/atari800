@@ -8,6 +8,7 @@
 struct glapi
 {
 	void(APIENTRY*Viewport)(GLint,GLint,GLsizei,GLsizei);
+	void(APIENTRY*Scissor)(GLint,GLint,GLsizei,GLsizei);
 	void(APIENTRY*ClearColor)(GLfloat, GLfloat, GLfloat, GLfloat);
 	void(APIENTRY*Clear)(GLbitfield);
 	void(APIENTRY*Enable)(GLenum);

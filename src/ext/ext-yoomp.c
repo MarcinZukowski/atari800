@@ -99,7 +99,7 @@ static void xx_draw_background()
 		GL_ONE_MINUS_SRC_ALPHA
 	);
 
-	gl_texture_draw(&glt_background, TL, TR, TT, TB, L, R, T, B);
+	gl_texture_draw(&glt_background, TL, TR, TT, TB, L, R, T, B, Z_VALUE_2D);
 
 	gl.Color4f(1.0f, 1.0f, 1.0f, 1.0f);
 	gl.Disable(GL_BLEND);

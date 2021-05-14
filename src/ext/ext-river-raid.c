@@ -1,4 +1,4 @@
-#include "ext-yoomp.h"
+#include "ext-river-raid.h"
 
 #include <math.h>
 #include <assert.h>
@@ -87,7 +87,7 @@ static rr_object gen_object(int object_id)
 	return o;
 }
 
-static void init()
+static void init_objects()
 {
 	for (int i = 0; i < NUM_OBJECTS; i++) {
 		objects[i] = gen_object(OBJECTS_OFFSET + i);
@@ -105,12 +105,37 @@ static int river_raid_init(void)
 		return 0;
 	}
 
+	init_objects();
+
 	// Match
 	return 1;
 }
 
 static void post_gl_frame()
 {
+	// Print DL
+	int last = -1;
+	int cnt = 0;
+	printf("DL: ");
+	for (int i = 0x3f03; i <= 0x3fa9; i++ ) {
+		int b = MEMORY_mem[i];
+		if (b != last) {
+			if (last >= 0) {
+				printf(" %02x", last);
+				if (cnt > 1) {
+					printf("*%02x", cnt);
+				}
+			}
+			cnt = 0;
+			last = b;
+		}
+		if (i == 0x3fa9) {
+			break;
+		}
+		cnt++;
+	}
+	printf("\n");
+
 	gl.Disable(GL_DEPTH_TEST);
 	gl.Color4f(1.0f, 1.0f, 1.0f, 1.0f);
 	gl.Enable(GL_BLEND);
@@ -119,24 +144,49 @@ static void post_gl_frame()
 		GL_ONE_MINUS_SRC_ALPHA
 	);
 
+//	gl.PushMatrix();
+	GLint old_viewport[4];
+	gl.GetIntegerv(GL_VIEWPORT, old_viewport);
+	gl.Viewport(0, 0, 320, 200);
+	gl.MatrixMode(GL_MODELVIEW);
+	gl.PushMatrix();
+	gl.MatrixMode(GL_PROJECTION);
+	gl.PushMatrix();
+
+	gl.MatrixMode(GL_PROJECTION);
+
+	gl.Scissor(0, 0, 320, 200);
+	gl.Enable(GL_SCISSOR_TEST);
+	gl.Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	gl.Disable(GL_SCISSOR_TEST);
+
+	// gl.LoadIdentity();
+
 	int idx = MEMORY_mem[0x004d];
 	for (;;) {
+		if (idx >= 11) {
+			break;
+		}
 		int y = MEMORY_mem[0x000c + idx] - Y_ADJUSTMENT + Y_BLANKS;
 		int gfx_id = MEMORY_mem[0x0500 + idx];
 		int color_id = MEMORY_mem[0x050b + idx];
 		int flags = MEMORY_mem[0x0042 + idx];
 		int h = MEMORY_mem[RR_HEIGHTS + color_id];
 		int w = 2 * (8 + 8 * MEMORY_mem[RR_WIDTHS + idx]);
+		int x = MEMORY_mem[0x516 + idx];
+
+		// Fix X for now
+		// x = 48;
 
 		if (gfx_id >= 2) {
 			// Only then render
-
-			assert(color_id >= OBJECTS_OFFSET && color_id <= 15);
+			EXT_ASSERT(color_id >= OBJECTS_OFFSET && color_id <= 15, "Unexpected color_id=%d, idx=%d", color_id, idx);
 			rr_object *o = &objects[color_id - OBJECTS_OFFSET];
 
 			float sy = 1.0 - 2 * (y / 240.0);
 			float sh = 2.0 * o->normal.height / 240.0;
 			float sw = 2.0 * w / 336.0;
+			float sx = 4.0 * (x - 128) / 336.0;
 
 			gl_texture *t;
 
@@ -155,27 +205,39 @@ static void post_gl_frame()
 			}
 			gl_texture_draw(t,
 				0, 1, 0, 1,
-				-0.9, -0.9 + sw, sy, sy - sh);
+				sx, sx + sw, sy, sy - sh,
+				Z_VALUE_2D);
 		}
+
+		idx++;
 
 		if (y + h > 160) {
 			break;
 		}
-		idx++;
 	}
 
 	for (int t = 0; t < NUM_OBJECTS; t++) {
 		float x = -0.8 + t * 0.1;
 		gl_texture_draw(&objects[t].normal,
 			0, 1, 0, 1,
-			x, x + 0.1, -0.8, -1);
+			x, x + 0.1, -0.8, -1,
+			Z_VALUE_2D);
 		gl_texture_draw(&objects[t].mirror,
 			0, 1, 0, 1,
-			x, x + 0.1, -0.6, -0.8);
+			x, x + 0.1, -0.6, -0.8,
+			Z_VALUE_2D);
 	}
 
+//	printf("%d %d %d %d\n", old_viewport[0], old_viewport[01, old_viewport[2], old_viewport[3]);
+	gl.Viewport(old_viewport[0], old_viewport[1], (GLsizei)old_viewport[2], (GLsizei) old_viewport[3]);
+
+//	gl.PopMatrix();
 	gl.Color4f(1.0f, 1.0f, 1.0f, 1.0f);
 	gl.Disable(GL_BLEND);
+	gl.MatrixMode(GL_PROJECTION);
+	gl.PopMatrix();
+	gl.MatrixMode(GL_MODELVIEW);
+	gl.PopMatrix();
 
 }
 
@@ -204,7 +266,7 @@ ext_state* ext_register_river_raid(void)
 {
 	ext_state *s = ext_state_alloc();
 	s->name = "River Raid Hack by Eru";
-	s->initialize = init;
+	s->initialize = river_raid_init;
 	s->code_injection = NULL;
 	s->post_gl_frame = post_gl_frame;
 

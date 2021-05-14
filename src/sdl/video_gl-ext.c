@@ -71,10 +71,9 @@ void gl_texture_finalize(gl_texture *t)
 
 void gl_texture_draw(gl_texture *t,
         float tex_l, float tex_r, float tex_t, float tex_b,
-        float scr_l, float scr_r, float scr_t, float scr_b)
+        float scr_l, float scr_r, float scr_t, float scr_b,
+        float z)
 {
-    float z = -2.0f;
-
 	gl.BindTexture(GL_TEXTURE_2D, t->gl_id);
 
 	gl.Begin(GL_QUADS);

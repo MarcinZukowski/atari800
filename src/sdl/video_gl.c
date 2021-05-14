@@ -454,7 +454,8 @@ static void CleanDisplayTexture(void)
 static int InitGlFunctions(void)
 {
 	if ((gl.Viewport = (void(APIENTRY*)(GLint,GLint,GLsizei,GLsizei))GetGlFunc("glViewport")) == NULL ||
-	    (gl.ClearColor = (void(APIENTRY*)(GLfloat, GLfloat, GLfloat, GLfloat))GetGlFunc("glClearColor")) == NULL ||
+	    (gl.Scissor = (void(APIENTRY*)(GLint,GLint,GLsizei,GLsizei))GetGlFunc("glScissor")) == NULL ||
+		(gl.ClearColor = (void(APIENTRY*)(GLfloat, GLfloat, GLfloat, GLfloat))GetGlFunc("glClearColor")) == NULL ||
 	    (gl.Clear = (void(APIENTRY*)(GLbitfield))GetGlFunc("glClear")) == NULL ||
 	    (gl.Enable = (void(APIENTRY*)(GLenum))GetGlFunc("glEnable")) == NULL ||
 	    (gl.Disable = (void(APIENTRY*)(GLenum))GetGlFunc("glDisable")) == NULL ||

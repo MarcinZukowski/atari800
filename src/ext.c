@@ -74,7 +74,7 @@ void ext_init()
 	states[5] = ext_register_river_raid();
 	assert(states[5]);
 
-//	set_current_state(states[1]);
+	set_current_state(states[5]);
 	if (current_state) {
 		current_state->initialize();
 	}
