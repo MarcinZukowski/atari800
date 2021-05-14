@@ -8,8 +8,21 @@
 
 #include "antic.h"
 #include "colours.h"
+#include "gtia.h"
 #include "memory.h"
 #include "ui.h"
+
+#define RR_COLOR_LOS 0xBB30
+#define RR_COLOR_DATA 0xB700
+#define RR_GFX_LOS 0xBB40
+#define RR_GFX_DATA 0xB900
+#define RR_HEIGHTS 0xBB60
+#define RR_WIDTHS 0x0521
+
+#define Y_ADJUSTMENT 0x5D  // adjustment in the Y positions
+#define Y_BLANKS 20   // empty lines on top of the screen
+
+/******************************************* OBJECTS *************************************/
 
 typedef struct rr_object {
 	gl_texture normal;
@@ -25,16 +38,6 @@ typedef struct rr_object {
 #define OBJECTS_OFFSET 7
 #define NUM_OBJECTS 9
 rr_object objects[NUM_OBJECTS];
-
-#define RR_COLOR_LOS 0xBB30
-#define RR_COLOR_DATA 0xB700
-#define RR_GFX_LOS 0xBB40
-#define RR_GFX_DATA 0xB900
-#define RR_HEIGHTS 0xBB60
-#define RR_WIDTHS 0x0521
-
-#define Y_ADJUSTMENT 0x5D  // adjustment in the Y positions
-#define Y_BLANKS 20   // empty lines on top of the screen
 
 static gl_texture gen_texture(int height, int color_ptr, int gfx_ptr)
 {
@@ -94,73 +97,9 @@ static void init_objects()
 	}
 }
 
-static int river_raid_init(void)
+
+static void render_objects()
 {
-	// Some memory fingerprint
-	int address = 0xb55c;
-	byte fingerprint[] = {0xA4, 0x4D, 0xA2, 0x5D, 0xD0, 0x03};
-
-	if (memcmp(MEMORY_mem + address, fingerprint, sizeof(fingerprint))) {
-		// No match
-		return 0;
-	}
-
-	init_objects();
-
-	// Match
-	return 1;
-}
-
-static void post_gl_frame()
-{
-	// Print DL
-	int last = -1;
-	int cnt = 0;
-	printf("DL: ");
-	for (int i = 0x3f03; i <= 0x3fa9; i++ ) {
-		int b = MEMORY_mem[i];
-		if (b != last) {
-			if (last >= 0) {
-				printf(" %02x", last);
-				if (cnt > 1) {
-					printf("*%02x", cnt);
-				}
-			}
-			cnt = 0;
-			last = b;
-		}
-		if (i == 0x3fa9) {
-			break;
-		}
-		cnt++;
-	}
-	printf("\n");
-
-	gl.Disable(GL_DEPTH_TEST);
-	gl.Color4f(1.0f, 1.0f, 1.0f, 1.0f);
-	gl.Enable(GL_BLEND);
-	gl.BlendFunc(
-		GL_SRC_ALPHA,
-		GL_ONE_MINUS_SRC_ALPHA
-	);
-
-//	gl.PushMatrix();
-	GLint old_viewport[4];
-	gl.GetIntegerv(GL_VIEWPORT, old_viewport);
-	gl.Viewport(0, 0, 320, 200);
-	gl.MatrixMode(GL_MODELVIEW);
-	gl.PushMatrix();
-	gl.MatrixMode(GL_PROJECTION);
-	gl.PushMatrix();
-
-	gl.MatrixMode(GL_PROJECTION);
-
-	gl.Scissor(0, 0, 320, 200);
-	gl.Enable(GL_SCISSOR_TEST);
-	gl.Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	gl.Disable(GL_SCISSOR_TEST);
-
-	// gl.LoadIdentity();
 
 	int idx = MEMORY_mem[0x004d];
 	for (;;) {
@@ -227,6 +166,170 @@ static void post_gl_frame()
 			x, x + 0.1, -0.6, -0.8,
 			Z_VALUE_2D);
 	}
+}
+
+/******************************************* LINES *************************************/
+#define RR_LINE_WIDTH 48
+#define RR_LINE_COUNT 160
+
+gl_texture lines[RR_LINE_COUNT];  // Ordering the same as in Atari memory, 80 lines from 0x2000 and 80 from 0x3000
+
+int last_active = 0;
+int last_line_nr = 0;
+
+static int addr_to_line(int addr)
+{
+	int line;
+	if (addr < 0x3000) {
+		line = (addr - 0x2000) / RR_LINE_WIDTH;
+	} else {
+		line = 80 + (addr - 0x3000) / RR_LINE_WIDTH;
+	}
+	EXT_ASSERT_BETWEEN(line, 0, 159);
+	return line;
+}
+
+static int line_to_addr(int line)
+{
+	EXT_ASSERT_BETWEEN(line, 0, 159);
+	int addr ;
+	if (line < 80) {
+		addr  = 0x2000 + line * RR_LINE_WIDTH;
+	} else {
+		addr = 0x3000 + (line - 80) * RR_LINE_WIDTH;
+	}
+	return addr;
+}
+
+// Render one atari line to a GL texture
+static void render_line(int line_nr)
+{
+	int addr = line_to_addr(line_nr);
+	gl_texture *line = &lines[line_nr];
+
+	int colors[4] = { GTIA_COLBK, GTIA_COLPF0, GTIA_COLPF1, GTIA_COLPF2 };
+
+	for (int xb = 0; xb < RR_LINE_WIDTH; xb++) {
+		int byte = MEMORY_mem[addr + xb];
+		for (int xp = 0; xp < 4; xp++) {
+			int pixel = byte >> (2 * (3 - xp)) & 0x03;
+			EXT_ASSERT_BETWEEN(pixel, 0, 3);
+			int color = colors[pixel];
+
+			line->data[4 * (4 * xb + xp) + 0] = Colours_GetR(color);
+			line->data[4 * (4 * xb + xp) + 1] = Colours_GetG(color);
+			line->data[4 * (4 * xb + xp) + 2] = Colours_GetB(color);
+			line->data[4 * (4 * xb + xp) + 3] = 0xff;
+		}
+	}
+
+	gl_texture_finalize(line);
+}
+
+static void render_lines()
+{
+	// Print DL
+	int last = -1;
+	int cnt = 0;
+	printf("DL: ");
+	for (int i = 0x3f03; i <= 0x3fa9; i++ ) {
+		int b = MEMORY_mem[i];
+		if (b != last) {
+			if (last >= 0) {
+				printf(" %02x", last);
+				if (cnt > 1) {
+					printf("*%02x", cnt);
+				}
+			}
+			cnt = 0;
+			last = b;
+		}
+		if (i == 0x3fa9) {
+			break;
+		}
+		cnt++;
+	}
+
+	int cur_line_addr = MEMORY_dGetWord(0x3f04);
+	int cur_line_nr = addr_to_line(cur_line_addr);
+	printf("  #%d\n", cur_line_nr);
+
+	// Memory at 0x3eff is reset
+	int active = MEMORY_mem[0x3eff] != 0;
+	if (active && ! last_active) {
+		// Re-render all lines
+		for (int i = 0; i < RR_LINE_COUNT; i++) {
+			render_line(i);
+		}
+		last_line_nr = cur_line_nr;
+	} else {
+		while (last_line_nr != cur_line_nr) {
+			last_line_nr = (last_line_nr + RR_LINE_COUNT - 1) % RR_LINE_COUNT;
+			render_line(last_line_nr);
+		}
+	}
+	last_active = active;
+
+	// Texture is 48 bytes -> 384 atari pixels
+	// Screen is really 336 pixels, which is 0.875 of the width
+	float margin = (1.0 - 0.875) / 2;
+
+	for (int y = 0; y < RR_LINE_COUNT; y++) {
+		int line_nr = (cur_line_nr + y) % RR_LINE_COUNT;
+		float sy = 1.0 - 2.0 * ((Y_BLANKS + y) / 240.0);
+		float sh = 2.0 * 1 / 240.0;
+		gl_texture_draw(&lines[line_nr], 0.0 + margin, 1.0 - margin, 0, 1, -1, 1,
+			// -1, 1, Z_VALUE_2D);
+			sy, sy - sh, Z_VALUE_2D);
+	}
+
+}
+
+static void init_lines()
+{
+	for (int i = 0; i < RR_LINE_COUNT; i++) {
+		lines[i] = gl_texture_new(RR_LINE_WIDTH * 4, 1);
+		memset(lines[i].data, 0, RR_LINE_WIDTH);
+		gl_texture_finalize(&lines[i]);
+	}
+
+	last_active = -1;
+}
+
+/******************************************* MAIN *************************************/
+
+
+static void post_gl_frame()
+{
+	gl.Disable(GL_DEPTH_TEST);
+	gl.Color4f(1.0f, 1.0f, 1.0f, 1.0f);
+	gl.Enable(GL_BLEND);
+	gl.BlendFunc(
+		GL_SRC_ALPHA,
+		GL_ONE_MINUS_SRC_ALPHA
+	);
+
+//	gl.PushMatrix();
+	GLint old_viewport[4];
+	gl.GetIntegerv(GL_VIEWPORT, old_viewport);
+	gl.Viewport(0, 0, 320, 200);
+	gl.MatrixMode(GL_MODELVIEW);
+	gl.PushMatrix();
+	gl.MatrixMode(GL_PROJECTION);
+	gl.PushMatrix();
+
+
+	gl.MatrixMode(GL_PROJECTION);
+
+	gl.Scissor(0, 0, 320, 200);
+	gl.Enable(GL_SCISSOR_TEST);
+	gl.Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	gl.Disable(GL_SCISSOR_TEST);
+
+	// gl.LoadIdentity();
+
+	render_lines();
+	render_objects();
 
 //	printf("%d %d %d %d\n", old_viewport[0], old_viewport[01, old_viewport[2], old_viewport[3]);
 	gl.Viewport(old_viewport[0], old_viewport[1], (GLsizei)old_viewport[2], (GLsizei) old_viewport[3]);
@@ -239,6 +342,27 @@ static void post_gl_frame()
 	gl.MatrixMode(GL_MODELVIEW);
 	gl.PopMatrix();
 
+}
+
+static int river_raid_init(void)
+{
+	// Some memory fingerprint
+	int address = 0xb55c;
+	byte fingerprint[] = {0xA4, 0x4D, 0xA2, 0x5D, 0xD0, 0x03};
+
+	if (memcmp(MEMORY_mem + address, fingerprint, sizeof(fingerprint))) {
+		// No match
+		printf("RIVER RAID not detected\n");
+		return 0;
+	}
+
+	printf("RIVER RAID detected\n");
+
+	init_lines();
+	init_objects();
+
+	// Match
+	return 1;
 }
 
 static UI_tMenuItem menu[] = {
