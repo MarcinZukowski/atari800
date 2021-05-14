@@ -52,4 +52,6 @@ int ext_fakecpu_until_after_op(int end_op);
 char *ext_fps_str(int previous_value);
 
 #define EXT_ASSERT(cond, fmt, args...) if (!(cond)) {printf("ASSERTION FAILED: %s\nLOCATION: %s %d\nMSG: " fmt "\n", #cond, __FILE__, __LINE__, args); exit(-1);}
+#define EXT_ASSERT_BETWEEN(val, lo, hi) EXT_ASSERT(val >= lo && val <= hi, "Value of %s=%g", #val, (float)val)
+
 #endif   /* EXT_H */
