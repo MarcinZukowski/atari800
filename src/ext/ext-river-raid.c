@@ -127,11 +127,11 @@ static void render_objects()
 			float sy, sh, sw, sx, z;
 			if (use_perspective) {
 				// In 3D coords
-				sy = -80;
-				sh = 2.0 * o->normal.height;
-				sy += sh;
+				sy = 0;
+				sh = 1.0 * o->normal.height;
+				sy += sh / 2;
 				sx = 2 * (x - 128);
-				sw = 2.0 * w;
+				sw = 1.0 * w;
 				z = 120 + y;
 
 //				sy = sx = 0;
@@ -296,7 +296,7 @@ static void render_lines()
 	for (int y = 0; y < RR_LINE_COUNT; y++) {
 		int line_nr = (cur_line_nr + y) % RR_LINE_COUNT;
 		if (use_perspective) {
-			float sy = -80;
+			float sy = 0;
 			float sh = 2;
 			float sx = -192;
 			float sw = 384;
@@ -363,14 +363,15 @@ static void post_gl_frame()
 			// bottom/top
 			-100, 100,
 			// near/far
-			100, 260);
+			120, 260);
 		gl.MatrixMode(GL_MODELVIEW);
 		gl.LoadIdentity();
 
 		float player_x = MEMORY_mem[0x0057];
-		player_x -= 128;
-		printf("Player X: %d\n", player_x);
-		gl.Translatef(-2.0 * player_x + 16, 0, 30);
+		printf("Player X: %d\n", (int)player_x);
+		player_x -= 128 - 9;
+		gl.Translatef(-4.0 * player_x, 0, 8);
+		gl.Translatef(0, -80.0f, 0);
 	}
 
 
