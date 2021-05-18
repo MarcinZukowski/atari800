@@ -27,7 +27,7 @@
 #define Y_ADJUSTMENT 0x5D  // adjustment in the Y positions
 #define Y_BLANKS 20   // empty lines on top of the screen
 
-int use_perspective = 0;
+int use_perspective = 1;
 
 /******************************************* OBJECTS *************************************/
 
@@ -198,13 +198,15 @@ static void render_objects()
 		EXT_ASSERT_BETWEEN(plane_idx, 0, 9);
 		gl_texture *t = &plane_textures[plane_idx];
 		float sy, sh, sw, sx, z;
+		sh = 14;
+		sx = 2 * (MEMORY_mem[0x57] - 128);
+		sw = 2 * 8;
 		if (use_perspective) {
-
+			sy = - sh / 2;
+			z = - (Z_FAR - 0xAA + 20);
+			sx -= 4;
 		} else {
-			sh = 14;
 			sy = 120 - 0xAA - 6;
-			sw = 2 * 8;
-			sx = 2 * (MEMORY_mem[0x57] - 128);
 			z = Z_VALUE_2D;
 
 		}
@@ -217,13 +219,15 @@ static void render_objects()
 		int missile_y = MEMORY_mem[0x56];
 		if (missile_y > 1) {
 			float sy, sh, sw, sx, z;
+			sh = 8;
+			sw = 2 * 8;
+			sx = 2 * (MEMORY_mem[0x57] - 128);
 			if (use_perspective) {
-
+				sy = - sh / 2;
+				z = - (Z_FAR - missile_y);
 			} else {
-				sh = 8;
+				sx += 4;
 				sy = 120 - missile_y;
-				sw = 2 * 8;
-				sx = 2 * (MEMORY_mem[0x57] - 128 + 2);
 				z = Z_VALUE_2D;
 			}
 			gl_texture_draw(&missile_texture, 0, 1, 0, 1,
