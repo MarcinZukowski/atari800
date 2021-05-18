@@ -621,6 +621,8 @@ int SDL_VIDEO_GL_SetVideoMode(VIDEOMODE_resolution_t const *res, int windowed, V
 			blit_funcs[0] = &DisplayNormal;
 	}
 
+	Log_print("Setting viewport: x=%d y=%d w=%d h=%d",
+			VIDEOMODE_dest_offset_left, VIDEOMODE_dest_offset_top, VIDEOMODE_dest_width, VIDEOMODE_dest_height);
 	gl.Viewport(VIDEOMODE_dest_offset_left, VIDEOMODE_dest_offset_top, VIDEOMODE_dest_width, VIDEOMODE_dest_height);
 	SetSubpixelShifts();
 	SetGlDisplayList();
