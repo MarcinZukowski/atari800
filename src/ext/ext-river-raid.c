@@ -19,10 +19,15 @@
 #define RR_HEIGHTS 0xBB60
 #define RR_WIDTHS 0x0521
 
+#define RR_LINE_COUNT 160
+
+#define Z_NEAR 200
+#define Z_FAR ((Z_NEAR) + (RR_LINE_COUNT))
+
 #define Y_ADJUSTMENT 0x5D  // adjustment in the Y positions
 #define Y_BLANKS 20   // empty lines on top of the screen
 
-int use_perspective = 1;
+int use_perspective = 0;
 
 /******************************************* OBJECTS *************************************/
 
@@ -33,6 +38,7 @@ typedef struct rr_object {
 	gl_texture explosions[3];
 } rr_object;
 
+
 // Object IDs:
 // 0, 1 - nothing
 // 2..6 - explosions
@@ -41,7 +47,13 @@ typedef struct rr_object {
 #define NUM_OBJECTS 9
 rr_object objects[NUM_OBJECTS];
 
-static gl_texture gen_texture(int height, int color_ptr, int gfx_ptr)
+#define NUM_PLANE_TEXTURES 10
+gl_texture plane_textures[NUM_PLANE_TEXTURES];  // left, right, straight
+
+gl_texture missile_texture;
+
+// If color_or_ptr < 256, it's color. Otherwise it's a pointer to a color bitmap
+static gl_texture gen_texture(int height, int color_or_ptr, int gfx_ptr)
 {
 	static const int width = 8;
 
@@ -51,7 +63,7 @@ static gl_texture gen_texture(int height, int color_ptr, int gfx_ptr)
 		// We're upside down
 		int idx = height - y - 1;
 		// Take color, we're upside down
-		byte color = MEMORY_mem[color_ptr + idx];
+		byte color = color_or_ptr < 256 ? color_or_ptr : MEMORY_mem[color_or_ptr + idx];
 		byte colR = Colours_GetR(color);
 		byte colG = Colours_GetG(color);
 		byte colB = Colours_GetB(color);
@@ -94,9 +106,19 @@ static rr_object gen_object(int object_id)
 
 static void init_objects()
 {
-	for (int i = 0; i < NUM_OBJECTS; i++) {
+	int i;
+	for (i = 0; i < NUM_OBJECTS; i++) {
 		objects[i] = gen_object(OBJECTS_OFFSET + i);
 	}
+
+	// Generate plane textures based on addresses from BACD pointers
+	for (i = 0; i < NUM_PLANE_TEXTURES; i++) {
+		plane_textures[i] = gen_texture(14, GTIA_COLPM1, MEMORY_dGetWord(0xBACD + 2 * i));
+	}
+
+	// Missile is 8 lines with 0x20.
+	// a5b3 has 0x20
+	missile_texture = gen_texture(1, GTIA_COLPM1, 0xa5b3);
 }
 
 
@@ -132,18 +154,14 @@ static void render_objects()
 				sy += sh / 2;
 				sx = 2 * (x - 128);
 				sw = 1.0 * w;
-				z = 120 + y;
-
-//				sy = sx = 0;
-//				sw = sh = 10;
-				z = - (100 + 160 - y);
+				z = - (Z_FAR - y);
 			} else {
-				// In 2D screen coords
 				y += Y_BLANKS;
-				sy = 1.0 - 2 * (y / 240.0);
-				sh = 2.0 * o->normal.height / 240.0;
-				sw = 2.0 * w / 336.0;
-				sx = 4.0 * (x - 128) / 336.0;
+				// In 2D screen coords
+				sy = 120 - y;
+				sh = o->normal.height;
+				sw = w;
+				sx = 2 * (x - 128);
 				z = Z_VALUE_2D;
 			}
 
@@ -169,11 +187,51 @@ static void render_objects()
 
 		idx++;
 
-		if (y + h > 160) {
+		if (y + h > RR_LINE_COUNT) {
 			break;
 		}
 	}
 
+	// Show plane
+	{
+		int plane_idx = MEMORY_mem[0x5e];
+		EXT_ASSERT_BETWEEN(plane_idx, 0, 9);
+		gl_texture *t = &plane_textures[plane_idx];
+		float sy, sh, sw, sx, z;
+		if (use_perspective) {
+
+		} else {
+			sh = 14;
+			sy = 120 - 0xAA - 6;
+			sw = 2 * 8;
+			sx = 2 * (MEMORY_mem[0x57] - 128);
+			z = Z_VALUE_2D;
+
+		}
+		gl_texture_draw(t, 0, 1, 0, 1,
+			sx, sx + sw, sy, sy + sh, z);
+	}
+
+	// Show missile
+	{
+		int missile_y = MEMORY_mem[0x56];
+		if (missile_y > 1) {
+			float sy, sh, sw, sx, z;
+			if (use_perspective) {
+
+			} else {
+				sh = 8;
+				sy = 120 - missile_y;
+				sw = 2 * 8;
+				sx = 2 * (MEMORY_mem[0x57] - 128 + 2);
+				z = Z_VALUE_2D;
+			}
+			gl_texture_draw(&missile_texture, 0, 1, 0, 1,
+				sx, sx + sw, sy, sy + sh, z);
+		}
+	}
+
+	// Showcase all objects
 	for (int t = 0; t < NUM_OBJECTS; t++) {
 		float x = -0.8 + t * 0.1;
 		gl_texture_draw(&objects[t].normal,
@@ -189,7 +247,6 @@ static void render_objects()
 
 /******************************************* LINES *************************************/
 #define RR_LINE_WIDTH 48
-#define RR_LINE_COUNT 160
 
 gl_texture lines[RR_LINE_COUNT];  // Ordering the same as in Atari memory, 80 lines from 0x2000 and 80 from 0x3000
 
@@ -245,9 +302,8 @@ static void render_line(int line_nr)
 	gl_texture_finalize(line);
 }
 
-static void render_lines()
+static void print_dl()
 {
-	// Print DL
 	int last = -1;
 	int cnt = 0;
 	printf("DL: ");
@@ -268,10 +324,16 @@ static void render_lines()
 		}
 		cnt++;
 	}
+	printf("\n");
+}
+
+static void render_lines()
+{
+//	print_dl();
 
 	int cur_line_addr = MEMORY_dGetWord(0x3f04);
 	int cur_line_nr = addr_to_line(cur_line_addr);
-	printf("  #%d\n", cur_line_nr);
+//	printf("  #%d\n", cur_line_nr);
 
 	// Memory at 0x3eff is reset
 	int active = MEMORY_mem[0x3eff] != 0;
@@ -300,17 +362,17 @@ static void render_lines()
 			float sh = 2;
 			float sx = -192;
 			float sw = 384;
-			float z = -(260 - y);
+			float z = -(Z_FAR - y);
 			gl_texture_draw(&lines[line_nr],
 				0.0, 1.0, 0, 1,
 				sx, sx + sw, sy, sy - sh,
 				z);
 		} else {
-			float sy = 1.0 - 2.0 * ((Y_BLANKS + y) / 240.0);
-			float sh = 2.0 * 1 / 240.0;
+			float sy = 120 - (Y_BLANKS + y);
+			float sh = 1;
 			gl_texture_draw(&lines[line_nr],
 				0.0 + margin, 1.0 - margin, 0, 1,
-				-1, 1, sy, sy - sh,
+				-168, 168, sy, sy + sh,
 				Z_VALUE_2D);
 		}
 	}
@@ -325,7 +387,7 @@ static void init_lines()
 		gl_texture_finalize(&lines[i]);
 	}
 
-	last_active = -1;
+	last_active = 0;
 }
 
 /******************************************* MAIN *************************************/
@@ -351,29 +413,32 @@ static void post_gl_frame()
 
 	gl.Scissor(0, 0, 336, 240);
 	gl.Enable(GL_SCISSOR_TEST);
+	gl.ClearColor(0.0f, 0.0, 0.2, 0.0f);
 	gl.Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	gl.Disable(GL_SCISSOR_TEST);
 
+	gl.MatrixMode(GL_PROJECTION);
+	gl.LoadIdentity();
 	if (use_perspective) {
-		gl.MatrixMode(GL_PROJECTION);
-		gl.LoadIdentity();
 		gl.Frustum(
 			// left/right
-			-160,+160,
+			-168,+168,
 			// bottom/top
-			-100, 100,
+			-120, 40,
 			// near/far
-			120, 260);
+			Z_NEAR, Z_FAR  + 1600);
 		gl.MatrixMode(GL_MODELVIEW);
 		gl.LoadIdentity();
 
 		float player_x = MEMORY_mem[0x0057];
-		printf("Player X: %d\n", (int)player_x);
-		player_x -= 128 - 9;
-		gl.Translatef(-4.0 * player_x, 0, 8);
-		gl.Translatef(0, -80.0f, 0);
+//		printf("Player X: %d\n", (int)player_x);
+		player_x -= 128;
+		gl.Translatef(-4.0 * player_x, 0, 0);
+		gl.Translatef(0, -90.0f, 0);
+		gl.Rotatef(10, 1, 0, 0);
+	} else {
+		gl.Ortho(-168, 168, -120, 120, 0, 10);
 	}
-
 
 	render_lines();
 	render_objects();
