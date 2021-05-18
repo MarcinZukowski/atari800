@@ -27,7 +27,7 @@
 #define Y_ADJUSTMENT 0x5D  // adjustment in the Y positions
 #define Y_BLANKS 20   // empty lines on top of the screen
 
-int use_perspective = 1;
+int use_perspective = 0;
 
 /******************************************* OBJECTS *************************************/
 
@@ -121,7 +121,6 @@ static void init_objects()
 	missile_texture = gen_texture(1, GTIA_COLPM1, 0xa5b3);
 }
 
-
 static void render_objects()
 {
 
@@ -189,49 +188,6 @@ static void render_objects()
 
 		if (y + h > RR_LINE_COUNT) {
 			break;
-		}
-	}
-
-	// Show plane
-	{
-		int plane_idx = MEMORY_mem[0x5e];
-		EXT_ASSERT_BETWEEN(plane_idx, 0, 9);
-		gl_texture *t = &plane_textures[plane_idx];
-		float sy, sh, sw, sx, z;
-		sh = 14;
-		sx = 2 * (MEMORY_mem[0x57] - 128);
-		sw = 2 * 8;
-		if (use_perspective) {
-			sy = - sh / 2;
-			z = - (Z_FAR - 0xAA + 20);
-			sx -= 4;
-		} else {
-			sy = 120 - 0xAA - 6;
-			z = Z_VALUE_2D;
-
-		}
-		gl_texture_draw(t, 0, 1, 0, 1,
-			sx, sx + sw, sy, sy + sh, z);
-	}
-
-	// Show missile
-	{
-		int missile_y = MEMORY_mem[0x56];
-		if (missile_y > 1) {
-			float sy, sh, sw, sx, z;
-			sh = 8;
-			sw = 2 * 8;
-			sx = 2 * (MEMORY_mem[0x57] - 128);
-			if (use_perspective) {
-				sy = - sh / 2;
-				z = - (Z_FAR - missile_y);
-			} else {
-				sx += 4;
-				sy = 120 - missile_y;
-				z = Z_VALUE_2D;
-			}
-			gl_texture_draw(&missile_texture, 0, 1, 0, 1,
-				sx, sx + sw, sy, sy + sh, z);
 		}
 	}
 
@@ -396,26 +352,59 @@ static void init_lines()
 
 /******************************************* MAIN *************************************/
 
-static void post_gl_frame()
+static void show_plane_and_missile()
 {
-	gl.Disable(GL_DEPTH_TEST);
-	gl.Color4f(1.0f, 1.0f, 1.0f, 1.0f);
-	gl.Enable(GL_BLEND);
-	gl.BlendFunc(
-		GL_SRC_ALPHA,
-		GL_ONE_MINUS_SRC_ALPHA
-	);
+	// Show plane
+	{
+		int plane_idx = MEMORY_mem[0x5e];
+		EXT_ASSERT_BETWEEN(plane_idx, 0, 9);
+		gl_texture *t = &plane_textures[plane_idx];
+		float sy, sh, sw, sx, z;
+		sh = 14;
+		sx = 2 * (MEMORY_mem[0x57] - 128);
+		sw = 2 * 8;
+		if (use_perspective) {
+			sy = - 60 - sh/2;
+			z = - Z_NEAR - 14;
+			sx = -4;
+		} else {
+			sy = 120 - 0xAA - 6;
+			z = Z_VALUE_2D;
 
-//	gl.PushMatrix();
-	GLint old_viewport[4];
-	gl.GetIntegerv(GL_VIEWPORT, old_viewport);
-	gl.Viewport(0, 0, 336, 240);
-	gl.MatrixMode(GL_MODELVIEW);
-	gl.PushMatrix();
-	gl.MatrixMode(GL_PROJECTION);
-	gl.PushMatrix();
+		}
+		gl_texture_draw(t, 0, 1, 0, 1,
+			sx, sx + sw, sy, sy + sh, z);
+	}
 
-	gl.Scissor(0, 0, 336, 240);
+	// Show missile
+	{
+		int missile_y = MEMORY_mem[0x56];
+		if (missile_y > 1) {
+			float sy, sh, sw, sx, z;
+			sh = 8;
+			sw = 2 * 8;
+			sx = 2 * (MEMORY_mem[0x57] - 128);
+			if (use_perspective) {
+				sy = - 60 - sh / 2;
+				sx = 0;
+				z = - (Z_FAR - missile_y);
+			} else {
+				sx += 4;
+				sy = 120 - missile_y;
+				z = Z_VALUE_2D;
+			}
+			gl_texture_draw(&missile_texture, 0, 1, 0, 1,
+				sx, sx + sw, sy, sy + sh, z);
+		}
+	}
+}
+
+static void render_subwindow(int x, int y, int with_perspective)
+{
+	use_perspective = with_perspective;
+
+	gl.Viewport(x, y, 336, 240);
+	gl.Scissor(x, y, 336, 240);
 	gl.Enable(GL_SCISSOR_TEST);
 	gl.ClearColor(0.0f, 0.0, 0.2, 0.0f);
 	gl.Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -430,22 +419,50 @@ static void post_gl_frame()
 			// bottom/top
 			-120, 40,
 			// near/far
-			Z_NEAR, Z_FAR  + 1600);
+			Z_NEAR, Z_FAR  + 160);
 		gl.MatrixMode(GL_MODELVIEW);
 		gl.LoadIdentity();
 
 		float player_x = MEMORY_mem[0x0057];
 //		printf("Player X: %d\n", (int)player_x);
 		player_x -= 128;
-		gl.Translatef(-4.0 * player_x, 0, 0);
+		gl.Translatef(-2.0 * player_x, 0, 0);
 		gl.Translatef(0, -90.0f, 0);
 		gl.Rotatef(10, 1, 0, 0);
+
+		render_lines();
+		render_objects();
+
+		gl.LoadIdentity();
+		show_plane_and_missile();
 	} else {
 		gl.Ortho(-168, 168, -120, 120, 0, 10);
+		render_lines();
+		render_objects();
+		show_plane_and_missile();
 	}
+}
 
-	render_lines();
-	render_objects();
+static void post_gl_frame()
+{
+	gl.Disable(GL_DEPTH_TEST);
+	gl.Color4f(1.0f, 1.0f, 1.0f, 1.0f);
+	gl.Enable(GL_BLEND);
+	gl.BlendFunc(
+		GL_SRC_ALPHA,
+		GL_ONE_MINUS_SRC_ALPHA
+	);
+
+//	gl.PushMatrix();
+	GLint old_viewport[4];
+	gl.GetIntegerv(GL_VIEWPORT, old_viewport);
+	gl.MatrixMode(GL_MODELVIEW);
+	gl.PushMatrix();
+	gl.MatrixMode(GL_PROJECTION);
+	gl.PushMatrix();
+
+	render_subwindow(0, 0, 0);
+	render_subwindow(336 * 2, 0, 1);
 
 //	printf("%d %d %d %d\n", old_viewport[0], old_viewport[01, old_viewport[2], old_viewport[3]);
 	gl.Viewport(old_viewport[0], old_viewport[1], (GLsizei)old_viewport[2], (GLsizei) old_viewport[3]);
