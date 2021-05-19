@@ -171,12 +171,9 @@ static void render_objects()
 				int explosion_index = id_to_explosion_index[gfx_id];
 				assert(explosion_index >= 0 && explosion_index <= 2);
 				t = &o->explosions[explosion_index];
-			} else if (flags & 8) {
-				// Mirror
-				t = &o->mirror;
 			} else {
-				// Normal
-				t = &o->normal;
+				o = &objects[gfx_id - OBJECTS_OFFSET];
+				t = (flags & 8) ? &o->mirror : &o->normal;
 			}
 			gl_texture_draw(t,
 				0, 1, 0, 1,
