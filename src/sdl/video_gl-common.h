@@ -38,6 +38,8 @@ struct glapi
 	void(APIENTRY*Translatef)(GLfloat, GLfloat, GLfloat);
 	void(APIENTRY*Scalef)(GLfloat, GLfloat, GLfloat);
 	void(APIENTRY*Lightfv)(GLenum, GLenum, const GLfloat*);
+	void(APIENTRY*Fogf)(GLenum, GLfloat);
+	void(APIENTRY*Fogfv)(GLenum, const GLfloat*);
 	void(APIENTRY*PolygonMode)(GLenum, GLenum);
 	void(APIENTRY*LineWidth)(GLfloat);
 	void(APIENTRY*GetIntegerv)(GLenum, GLint*);

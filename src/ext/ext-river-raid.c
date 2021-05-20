@@ -360,12 +360,13 @@ static void show_plane_and_missile()
 		EXT_ASSERT_BETWEEN(plane_idx, 0, 9);
 		gl_texture *t = &plane_textures[plane_idx];
 		float sy, sh, sw, sx, z;
-		sh = 14 / 2;
+		sh = 14;
 		sx = 2 * (MEMORY_mem[0x57] - 128);
 		sw = 2 * 8;
 		if (use_perspective) {
+			sh = sh / 2;
 			sy = - 25 - sh;
-			z = - Z_NEAR - 34;
+			z = - Z_NEAR - 24;
 			sx = -4;
 		} else {
 			sy = 120 - 0xAA - 6;
@@ -381,10 +382,11 @@ static void show_plane_and_missile()
 		int missile_y = MEMORY_mem[0x56];
 		if (missile_y > 1) {
 			float sy, sh, sw, sx, z;
-			sh = 1;
+			sh = 8;
 			sw = 2 * 8;
 			sx = 2 * (MEMORY_mem[0x57] - 128);
 			if (use_perspective) {
+				sh = 2;
 				sy = - 25 - sh / 2;
 				sx = 0;
 				z = - (Z_FAR - missile_y);
@@ -430,8 +432,17 @@ static void render_subwindow(int x, int y, int with_perspective)
 		gl.Translatef(0, -25.0f, 0);
 //		gl.Rotatef(10, 1, 0, 0);
 
+		gl.Enable(GL_FOG);
+		GLfloat fog_color[4] = {0.0, 0.1, 0.3, 1.0};
+		gl.Fogf(GL_FOG_MODE, GL_LINEAR);
+		gl.Fogf(GL_FOG_START, Z_FAR - 50);
+		gl.Fogf(GL_FOG_END, Z_FAR + 50);
+		gl.Fogfv(GL_FOG_COLOR, fog_color);
+
 		render_lines();
 		render_objects();
+
+		gl.Disable(GL_FOG);
 
 		gl.LoadIdentity();
 		show_plane_and_missile();
