@@ -364,8 +364,8 @@ static void show_plane_and_missile()
 		sx = 2 * (MEMORY_mem[0x57] - 128);
 		sw = 2 * 8;
 		if (use_perspective) {
-			sh = sh / 2;
-			sy = - 25 - sh;
+			sh = sh / 4;
+			sy = - 25 - 1 - sh;
 			z = - Z_NEAR - 24;
 			sx = -4;
 		} else {
@@ -472,9 +472,9 @@ static void post_gl_frame()
 	gl.MatrixMode(GL_PROJECTION);
 	gl.PushMatrix();
 
-	render_subwindow(0, 0, 336, 240, 0);
-	render_subwindow(336 * 2, 0, 336, 240, 1);
-//	render_subwindow(0, 180, 1008, 720, 1);
+//	render_subwindow(0, 0, 336, 240, 0);
+//	render_subwindow(336 * 2, 0, 336, 240, 1);
+	render_subwindow(0, 180, 1008, 720, 1);
 
 //	printf("%d %d %d %d\n", old_viewport[0], old_viewport[01, old_viewport[2], old_viewport[3]);
 	gl.Viewport(old_viewport[0], old_viewport[1], (GLsizei)old_viewport[2], (GLsizei) old_viewport[3]);
