@@ -401,12 +401,12 @@ static void show_plane_and_missile()
 	}
 }
 
-static void render_subwindow(int x, int y, int with_perspective)
+static void render_subwindow(int x, int y, int w, int h, int with_perspective)
 {
 	use_perspective = with_perspective;
 
-	gl.Viewport(x, y, 336, 240);
-	gl.Scissor(x, y, 336, 240);
+	gl.Viewport(x, y, w, h);
+	gl.Scissor(x, y, w, h);
 	gl.Enable(GL_SCISSOR_TEST);
 	gl.ClearColor(0.0f, 0.0, 0.2, 0.0f);
 	gl.Clear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -472,8 +472,9 @@ static void post_gl_frame()
 	gl.MatrixMode(GL_PROJECTION);
 	gl.PushMatrix();
 
-	render_subwindow(0, 0, 0);
-	render_subwindow(336 * 2, 0, 1);
+	render_subwindow(0, 0, 336, 240, 0);
+	render_subwindow(336 * 2, 0, 336, 240, 1);
+//	render_subwindow(0, 180, 1008, 720, 1);
 
 //	printf("%d %d %d %d\n", old_viewport[0], old_viewport[01, old_viewport[2], old_viewport[3]);
 	gl.Viewport(old_viewport[0], old_viewport[1], (GLsizei)old_viewport[2], (GLsizei) old_viewport[3]);
