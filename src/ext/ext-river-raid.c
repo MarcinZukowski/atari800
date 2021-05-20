@@ -149,7 +149,7 @@ static void render_objects()
 			if (use_perspective) {
 				// In 3D coords
 				sy = 0;
-				sh = 1.0 * o->normal.height;
+				sh = 0.25 * o->normal.height;
 				sy += sh / 2;
 				sx = 2 * (x - 128);
 				sw = 1.0 * w;
@@ -257,6 +257,9 @@ static void render_line(int line_nr)
 	}
 
 	gl_texture_finalize(line);
+	gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
 }
 
 static void print_dl()
@@ -321,8 +324,8 @@ static void render_lines()
 			float sw = 384;
 			float z = -(Z_FAR - y);
 			gl_texture_draw(&lines[line_nr],
-				0.0, 1.0, 0, 1,
-				sx, sx + sw, sy, sy - sh,
+				0.0 - (168.0 / 384), 1.0 + (168.0 / 384), 0, 1,
+				sx - 168, sx + sw + 168, sy, sy - sh,
 				z);
 		} else {
 			float sy = 120 - (Y_BLANKS + y);
@@ -357,12 +360,12 @@ static void show_plane_and_missile()
 		EXT_ASSERT_BETWEEN(plane_idx, 0, 9);
 		gl_texture *t = &plane_textures[plane_idx];
 		float sy, sh, sw, sx, z;
-		sh = 14;
+		sh = 14 / 2;
 		sx = 2 * (MEMORY_mem[0x57] - 128);
 		sw = 2 * 8;
 		if (use_perspective) {
-			sy = - 60 - sh/2;
-			z = - Z_NEAR - 14;
+			sy = - 25 - sh;
+			z = - Z_NEAR - 34;
 			sx = -4;
 		} else {
 			sy = 120 - 0xAA - 6;
@@ -378,11 +381,11 @@ static void show_plane_and_missile()
 		int missile_y = MEMORY_mem[0x56];
 		if (missile_y > 1) {
 			float sy, sh, sw, sx, z;
-			sh = 8;
+			sh = 1;
 			sw = 2 * 8;
 			sx = 2 * (MEMORY_mem[0x57] - 128);
 			if (use_perspective) {
-				sy = - 60 - sh / 2;
+				sy = - 25 - sh / 2;
 				sx = 0;
 				z = - (Z_FAR - missile_y);
 			} else {
@@ -414,7 +417,7 @@ static void render_subwindow(int x, int y, int with_perspective)
 			// left/right
 			-168,+168,
 			// bottom/top
-			-120, 40,
+			-25, 5,
 			// near/far
 			Z_NEAR, Z_FAR  + 160);
 		gl.MatrixMode(GL_MODELVIEW);
@@ -424,8 +427,8 @@ static void render_subwindow(int x, int y, int with_perspective)
 //		printf("Player X: %d\n", (int)player_x);
 		player_x -= 128;
 		gl.Translatef(-2.0 * player_x, 0, 0);
-		gl.Translatef(0, -90.0f, 0);
-		gl.Rotatef(10, 1, 0, 0);
+		gl.Translatef(0, -25.0f, 0);
+//		gl.Rotatef(10, 1, 0, 0);
 
 		render_lines();
 		render_objects();
