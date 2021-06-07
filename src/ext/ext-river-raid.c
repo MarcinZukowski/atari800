@@ -27,7 +27,20 @@
 #define Y_ADJUSTMENT 0x5D  // adjustment in the Y positions
 #define Y_BLANKS 20   // empty lines on top of the screen
 
-int use_perspective = 0;
+#define CONFIG_SCREEN_MODE_A8 0
+#define CONFIG_SCREEN_MODE_GL_2D 1
+#define CONFIG_SCREEN_MODE_GL_3D 2
+#define CONFIG_SCREEN_MODE_PIP 3
+#define CONFIG_SCREEN_MODE_COUNT 4
+static int config_screen_mode = CONFIG_SCREEN_MODE_GL_3D;
+static char* config_screen_modes[CONFIG_SCREEN_MODE_COUNT] = {
+	"Atari native",
+	"OpenGL - 2D",
+	"OpenGL - 3D",
+	"Picture-in-picture"
+};
+
+static int use_perspective = 1;
 
 /******************************************* OBJECTS *************************************/
 
@@ -428,7 +441,7 @@ static void render_subwindow(int x, int y, int w, int h, int with_perspective)
 		float player_x = MEMORY_mem[0x0057];
 //		printf("Player X: %d\n", (int)player_x);
 		player_x -= 128;
-		gl.Translatef(-2.0 * player_x, 0, 0);
+		gl.Translatef(-2.0 * (player_x + 2), 0, 0);
 		gl.Translatef(0, -25.0f, 0);
 //		gl.Rotatef(10, 1, 0, 0);
 
@@ -456,6 +469,10 @@ static void render_subwindow(int x, int y, int w, int h, int with_perspective)
 
 static void post_gl_frame()
 {
+	if (config_screen_mode == CONFIG_SCREEN_MODE_A8) {
+		return;
+	}
+
 	gl.Disable(GL_DEPTH_TEST);
 	gl.Color4f(1.0f, 1.0f, 1.0f, 1.0f);
 	gl.Enable(GL_BLEND);
@@ -472,9 +489,15 @@ static void post_gl_frame()
 	gl.MatrixMode(GL_PROJECTION);
 	gl.PushMatrix();
 
-//	render_subwindow(0, 0, 336, 240, 0);
-//	render_subwindow(336 * 2, 0, 336, 240, 1);
-	render_subwindow(0, 180, 1008, 720, 1);
+	if (config_screen_mode == CONFIG_SCREEN_MODE_PIP) {
+		// Render 2 windows in corners, one with perspective, one without
+		render_subwindow(0, 0, 336, 240, 0);
+		render_subwindow(336 * 2, 0, 336, 240, 1);
+	} else {
+		// Render over the main window, in 2D or 3D
+		int persp = (config_screen_mode == CONFIG_SCREEN_MODE_GL_3D);
+		render_subwindow(0, 180, 1008, 720, persp);
+	}
 
 //	printf("%d %d %d %d\n", old_viewport[0], old_viewport[01, old_viewport[2], old_viewport[3]);
 	gl.Viewport(old_viewport[0], old_viewport[1], (GLsizei)old_viewport[2], (GLsizei) old_viewport[3]);
@@ -511,11 +534,13 @@ static int river_raid_init(void)
 }
 
 static UI_tMenuItem menu[] = {
+	UI_MENU_ACTION(0, "Screen drawing mode:"),
 	UI_MENU_END
 };
 
 static void refresh_config()
 {
+	menu[0].suffix = config_screen_modes[config_screen_mode];
 }
 
 static struct UI_tMenuItem* get_config()
@@ -527,6 +552,9 @@ static struct UI_tMenuItem* get_config()
 static void handle_config(int option)
 {
 	switch (option) {
+		case 0:
+			config_screen_mode = (config_screen_mode + 1) % CONFIG_SCREEN_MODE_COUNT;
+			break;
 	}
 	refresh_config();
 }
