@@ -6,7 +6,7 @@ function bootstrap()
   cd build
   CC="ccache clang" CFLAGS="-fsanitize=address -g -Wno-c99-extensions \
     -Wno-declaration-after-statement -Wno-missing-prototypes \
-    -Wno-gcc-compat -Wno-long-long -Wno-comment" \
+    -Wno-gcc-compat -Wno-long-long -Wno-comment -Wno-variadic-macros" \
     ../configure --prefix $PWD/../local \
     --with-video=sdl --with-opengl --enable-opengl-by-default \
     --enable-monitorbreakpoints --enable-monitorprofile --enable-monitortrace \
