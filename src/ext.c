@@ -33,6 +33,12 @@ static int inside_menu = 0;
 
 static int faking_cpu = 0;
 
+static int disabled()
+{
+	const Uint8 *state = SDL_GetKeyState(NULL);
+	return (state[SDLK_LALT] || state[SDLK_RALT]);
+}
+
 static void set_current_state(ext_state *state)
 {
 	current_state = state;
@@ -82,7 +88,7 @@ void ext_init()
 
 static void ext_choose_ext()
 {
-	if (inside_menu) {
+	if (inside_menu || disabled()) {
 		return;
 	}
 
@@ -141,7 +147,7 @@ static void ext_choose_ext()
 
 void ext_frame(void)
 {
-	if (inside_menu) {
+	if (inside_menu || disabled()) {
 		return;
 	}
 	const Uint8 *state = SDL_GetKeyState(NULL);
@@ -153,7 +159,7 @@ void ext_frame(void)
 
 void ext_pre_gl_frame(void)
 {
-	if (inside_menu) {
+	if (inside_menu || disabled()) {
 		return;
 	}
 	if (current_state && current_state->pre_gl_frame) {
@@ -163,7 +169,7 @@ void ext_pre_gl_frame(void)
 
 void ext_post_gl_frame(void)
 {
-	if (inside_menu) {
+	if (inside_menu || disabled()) {
 		return;
 	}
 	if (current_state && current_state->post_gl_frame) {
