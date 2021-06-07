@@ -33,10 +33,17 @@ static int inside_menu = 0;
 
 static int faking_cpu = 0;
 
-static int disabled()
+static int state_disabled;
+static int state_acceleration_disabled;
+
+static int disabled(void)
 {
-	const Uint8 *state = SDL_GetKeyState(NULL);
-	return (state[SDLK_LALT] || state[SDLK_RALT]);
+	return state_disabled;
+}
+
+int ext_acceleration_disabled(void)
+{
+	return state_disabled || state_acceleration_disabled;
 }
 
 static void set_current_state(ext_state *state)
@@ -80,7 +87,7 @@ void ext_init()
 	states[5] = ext_register_river_raid();
 	assert(states[5]);
 
-	set_current_state(states[5]);
+//	set_current_state(states[5]);
 	if (current_state) {
 		current_state->initialize();
 	}
@@ -147,10 +154,13 @@ static void ext_choose_ext()
 
 void ext_frame(void)
 {
+	const Uint8 *state = SDL_GetKeyState(NULL);
+	state_disabled = (state[SDLK_LALT] || state[SDLK_RALT]);
+	state_acceleration_disabled = (state[SDLK_LCTRL] || state[SDLK_RCTRL]);
+
 	if (inside_menu || disabled()) {
 		return;
 	}
-	const Uint8 *state = SDL_GetKeyState(NULL);
 	if (!state[SDLK_TAB]) {
 		return;
 	}

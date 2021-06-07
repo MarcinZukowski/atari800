@@ -19,7 +19,7 @@ static int calls_7856 = 0;
 
 static int code_injections(const int pc, int op)
 {
-	if (config_accelerate == ACC_NONE) {
+	if (config_accelerate == ACC_NONE || ext_acceleration_disabled()) {
 		return op;
 	}
 

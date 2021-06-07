@@ -52,7 +52,12 @@ int ext_fakecpu_until_after_op(int end_op);
 char *ext_fps_str(int previous_value);
 
 #define EXT_ASSERT(cond, fmt, args...) if (!(cond)) {printf("ASSERTION FAILED: %s\nLOCATION: %s %d\nMSG: " fmt "\n", #cond, __FILE__, __LINE__, args); exit(-1);}
-#define EXT_ASSERT_BETWEEN(val, lo, hi) EXT_ASSERT(val >= lo && val <= hi, "Value of %s=%g", #val, (float)val)
-#define EXT_ASSERT_EQ(val, exp) EXT_ASSERT(val == lo, "Value of %s=%g", #val, (float)val)
+#define EXT_ASSERT_BETWEEN(val, lo, hi) EXT_ASSERT(val >= lo && val <= hi, "Value of %s=%g not between %g and %g", \
+        #val, (float)val, (float) lo, (float)hi)
+#define EXT_ASSERT_EQ(val, exp) EXT_ASSERT(val == exp, "Value of %s=%g not equal to %g", #val, (float)val, (float) exp)
+#define EXT_ASSERT_LT(val, exp) EXT_ASSERT(val < exp, "Value of %s=%g not lower than %g", #val, (float)val, (float) exp)
+
+// Acceleration is disabled on CTRL, can be used by extensions
+int ext_acceleration_disabled(void);
 
 #endif   /* EXT_H */

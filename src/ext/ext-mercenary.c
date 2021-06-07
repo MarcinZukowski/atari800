@@ -15,7 +15,6 @@
 
 static int config_display_fps = 1;
 static int config_accelerate = 1;
-static int config_control_flips = 1;
 #define CONFIG_LINE_MODE_A8 0
 #define CONFIG_LINE_MODE_GL 1
 #define CONFIG_LINE_MODE_BOTH 2
@@ -67,15 +66,7 @@ static int current_dl_byte() {
 
 static int mercenary_code_injections(int pc, int op)
 {
-	int accel = config_accelerate;
-	if (config_control_flips) {
-		const Uint8 *state = SDL_GetKeyState(NULL);
-		if (state[SDLK_LCTRL] || state[SDLK_RCTRL]) {
-			accel ^= 1;
-		}
-	}
-
-	if (!accel) {
+	if (!config_accelerate || ext_acceleration_disabled()) {
 		return op;
 	}
 
@@ -170,7 +161,7 @@ static int mercenary_code_injections(int pc, int op)
 				}
 			};
 
-			assert(prepared_state->drawn_lines_count < MAX_LINES);
+			EXT_ASSERT_LT(prepared_state->drawn_lines_count, MAX_LINES);
 			prepared_state->drawn_lines[prepared_state->drawn_lines_count++] =
 					(drawn_line){startX, startY, curX, curY, colorAnd};
 
@@ -258,9 +249,8 @@ static int mercenary_init(void)
 static UI_tMenuItem menu[] = {
 	UI_MENU_ACTION(0, "Display FPS:"),
 	UI_MENU_ACTION(1, "Accelerate:"),
-	UI_MENU_ACTION(2, "CONTROL flips acceleration:"),
-	UI_MENU_ACTION(3, "Line drawing mode:"),
-	UI_MENU_ACTION(4, "GL line type:"),
+	UI_MENU_ACTION(2, "Line drawing mode:"),
+	UI_MENU_ACTION(3, "GL line type:"),
 	UI_MENU_END
 };
 
@@ -268,9 +258,8 @@ static void refresh_config()
 {
 	menu[0].suffix = config_display_fps ? "ON" : "OFF";
 	menu[1].suffix = config_accelerate ? "ON" : "OFF";
-	menu[2].suffix = config_control_flips ? "ON" : "OFF";
-	menu[3].suffix = config_line_modes[config_line_mode];
-	menu[4].suffix = config_gl_line_types[config_gl_line_type];
+	menu[2].suffix = config_line_modes[config_line_mode];
+	menu[3].suffix = config_gl_line_types[config_gl_line_type];
 }
 
 static struct UI_tMenuItem* get_config()
@@ -289,12 +278,9 @@ static void handle_config(int option)
 			config_accelerate ^= 1;
 			break;
 		case 2:
-			config_control_flips ^= 1;
-			break;
-		case 3:
 			config_line_mode = (config_line_mode + 1) % CONFIG_LINE_MODE_COUNT;
 			break;
-		case 4:
+		case 3:
 			config_gl_line_type = (config_gl_line_type + 1) % CONFIG_GL_LINE_TYPE_COUNT;
 			break;
 	}
@@ -337,6 +323,10 @@ static void mercenary_post_gl_frame()
 		prepared_state = prev;
 		prev->drawn_lines_count = 0;
 		shown_dl = dl;
+	}
+
+	if (ext_acceleration_disabled()) {
+		return;
 	}
 
 	if (config_line_mode == CONFIG_LINE_MODE_A8) {

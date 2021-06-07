@@ -22,7 +22,7 @@ static int code_injections(const int pc, int op)
 		calls_7856++;
 	}
 
-	if (config_accelerate == ACC_NONE) {
+	if (config_accelerate == ACC_NONE || ext_acceleration_disabled()) {
 		return op;
 	}
 
