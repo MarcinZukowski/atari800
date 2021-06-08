@@ -1,23 +1,22 @@
-#
+# Zybex notes
 
-3582 start
-3584 - looks like drawing to screen, byte by byte, also saves the previous data (to restore)
-3e - data to draw
-3a - screen
-3c - screen backup ?
-43 - num lines
-351f - calling it - always 10 bytes high
-always 3 bytes wide (?) and 10 bytes high (?)
-4300 - and masks for any set bit in what is being drawn
+* 3582 start
+* 3584 - looks like drawing to screen, byte by byte, also saves the previous data (to restore)
+  * 3e - data to draw
+  * 3a - screen
+  * 3c - screen backup ?
+  * 43 - num lines
+* 351f - calling it - always 10 bytes high
+* always 3 bytes wide (?) and 10 bytes high (?)
+* 4300 - and masks for any set bit in what is being drawn
 
-3635 - start
-3652 - restore screen content
+* 3635 - start
+* 3652 - restore screen content
 
 # Time profile for a short run
 The data below is in the format:
 ```
 <number_of_executions> <memory_start>..<memory_end>
-
 ```
 
 Here's the data for a quick Zybex run:

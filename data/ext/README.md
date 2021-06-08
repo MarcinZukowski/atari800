@@ -1,61 +1,107 @@
 # atari800 extensibility ideas
 
-A while ago
+A while ago I saw this [thread on AtariArea](http://www.atari.org.pl/forum/viewtopic.php?id=17319).
 
+It gave me an idea to add a generic extension mechanism to atari800.
+I started playing, and over a course of a few weeks, an hour here, an hour there, I wrote a bunch
+of code and extensions for some Atari games.
 
+## Framework capabilities
 
+Framework is composed of two main parts.
+Generic functionality, and program-specific extension implementation.
 
-# River Raid notes
+Generic functionality (`ext.c`):
 
-* wide screen, 48 bytes/line
-* 160 lines, no double buffering
-* screen mostly 55 (land) and ff (water)
-* PM2 is the plane (HPOSP2, COLPM2)
-* PM3 is the enemies (HPOSP3 etc)
+* extension library
+* shared key handling (ALT to disable extensions, CTRL to disable acceleration only)
+* FPS helpers
+* menu helpers
+* code-injection / "fake CPU" helpers
 
-* b00f - helper "move" from (a1) to (a3)
-* b55c - drawing of enemies, synced with vpos
-*   b57d - sets the X position of the enemies
-*   b5da - draws the bridge color
-* b223 - drawing missile
+Extension-specific (`ext/*.c`) functionality and hooks (see `ext_state`  in `ext.h`):
 
-* #5D - minimal Y index = 256 - 160 (-3)
+* inject code _before_ an Atari frame is rendered (`pre_gl_frame`).
 
-* enemies graphics: 0f00..0fff
-* 0000 - * to enemy graphics, per line
-* 0002 - * to enemy color, per line
-* 0005 - (temp) current enemy Y position
-* 0006 - (temp) currently drawn enemy
-* 0007 - (temp) Y where we started drawing the enemy
-* 000c - [] Y starts of enemies
-* 0039 - tank X
-* 0042 - [] ? flags of enemies? - if 08 set, it's reversed (index + 0x10)
-* 004d - initial enemy #
-* 0056 - missile Y pos
-* 0057 - plane X pos
-* 005e - plane shape index  - points to gfx addresses at BACD
-         07 -left, 08 - right, 09 - straight,
-* 0500 - [] of enemy IDs for texture (can have +0x10 if reversed)
-* 050b - [] of enemy IDs for color and height - can be different than 0500
-* 0516 - [] X positions of enemies
-* 0521 - [] H sizes (width) of enemies - 0 normal, 1 double, 3 quadruple
-* 0800 - pmbase
-* 0b00 - missiles of helicopters etc
-* 0c00 - tank fires PM
-* 0d00 - tank PM gfx
-* 0e00 - player PM gfx
-* 0f00 - enemy PM gfx
-* 2000..2eff, 3000.3eff - 2 * 80 wide lines
-* 3f00 - dlist
-* b4d1 - some graphic positions (2-byte addresses)
-* b700 - enemy colors
-* b900 - enemy gfx
-* ba00 - more gfx (tank, tank's fire)
-* bacd - some graphics positions (2-byte addresses) - e.g. plane shape (from 5e)
-* bb30 - lo-address of each enemy color, indexed by 050b
-* bb40 - lo-address of each enemy gfx (inside b900), indexed by 0500 (+0x10 for reversed)
-* bb60 - ? height of each enemy, indexed by 050b
+  This allows e.g. modifying Atari memory and screen, such that the changes there are reflected.
 
-b91c - 3 * 0x18 bytes of frame of explosion (b91c, b934, b94cq)
-bb40 - explosion indices: 02->4c, 03->34, 04->1c, 05->34, 06->4c
-grm b904 01 18
+* inject code _after_ a frame is rendered (`post_gl_frame`).
+
+  This allows e.g. rendering additional content with OpenGL.
+
+* inject code based on an the executed instruction (or actually,
+  PC address).
+
+  This allows e.g. detecting when a particular code is executed, and then:
+
+  * executing it in a "fake CPU" mode,
+    (where instructions are executed but don't impact Atari state, so are effectively zero-cost).
+  * skipping the execution, and instead doing something in C
+
+Additionally, I had plans of providing scripting support:
+
+*  There's a skeleton of Lua scripting support, allowing most of this functionality from external scripts.
+* Alas, after playing with Lua for a while, I'm not in love with the language nor the embedding mechanisms, and I gave up on it for now.
+* I might come back to Lua, or try V8 for example.
+
+## Technicalities
+
+This work was a quick hack, without paying much respect to things like
+maintainability, portability etc.
+
+Some notes:
+* It was designed to work only with the SDL/OpenGL backend.
+  * A lot of functionality had to be added there
+* A bunch of small injections had to be made in multiple places.
+* I used more modern C functionality, so it might not work on some platforms.
+  See `src/ext/helper` for compiler flags I changed.
+* Developed, and only tested on MacOSX.
+  * A `src/ext/helper` tool exists for simplifying compilation, very specific to my setup
+    ```
+    src/ext/helper bootstrap
+    src/ext/helper install
+    ```
+
+# Games extended (in order of creation)
+
+* Yoomp: [ext-yoomp.c](../../src/ext/ext-yoomp.c)
+  * various 3D balls
+  * one high-res background
+* Mercenary: [ext-mercenary.c](../../src/ext/ext-mercenary.c), [mercenary.md](mercenary.md)
+  * accelerated Atari-like line drawing
+  * OpenGL-based line drawing (3 types)
+* Zybex: [ext-zybex.c](../../src/ext/ext-zybex.c)], [zybex.md](zybex/zybex.md)
+  * scrolling background (grayscale and color modes)
+* Behind Jaggi Lines: [ext-bjl.c](../../src/ext/ext-bjl.c)]
+  * faster rendering
+* Alternate Reality: [ext-altreal.c](../../src/ext/ext-altreal.c), [altreal.md](altreal.md)
+  * faster rendering
+* River Raid: [ext-river-raid.c](../../src/ext/ext-river-raid.c), [river-raid.md](river-raid.md)
+
+## Reverse-engineering games
+
+The best way to detect where the time is going is to use the
+`TRACE` functionality of Atari800:
+* start a game
+* enter the monitor (`F8`)
+* type: `trace file.trace` - this starts recording the trace to `file.trace`.
+* type: `cont` - this returns to the game
+* play for some time (not too long, a few seconds should be enough)
+* enter the monitor again (`F8`)
+* type: `trace` - this stops the recording
+* type: `quit`
+
+Now, you can use the provided helper tool to analyze the `file.trace`, by running:
+
+    tools/trace-postprocess.py < file.trace
+
+This will show the memory areas where we spend most time (based on how often code is execute there).
+
+## Per-game notes
+
+Various per-game notes are stored in `GAME.md` files under `data/ext`, e.g.:
+* [Alternate Reality](altreal.md)
+* [Mercenary](mercenary.md)
+* [Zybex](zybex/zybex.md)
+
+And of course, sources under `src/ext/*.c` have a lot of info.
