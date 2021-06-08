@@ -64,6 +64,8 @@ Some notes:
 
 # Games extended (in order of creation)
 
+These games are also discussed in [this video on YouTube](https://www.youtube.com/watch?v=075qLp5kIlc).
+
 * Yoomp: [ext-yoomp.c](../../src/ext/ext-yoomp.c)
   * various 3D balls
   * one high-res background
