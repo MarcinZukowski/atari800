@@ -24,7 +24,7 @@
 static ext_state* states[NUM_STATES];
 static ext_state* current_state = NULL;
 
-#define RAM_SIZE (64*1024)
+#define RAM_SIZE (64 * 1024)
 
 static byte code_injection_map[RAM_SIZE];
 static int code_injection_map_set = 0;
@@ -75,17 +75,14 @@ void ext_init()
 	ext_lua_init();
 
 	states[0] = ext_register_yoomp();
-	assert(states[0]);
 	states[1] = ext_register_mercenary();
-	assert(states[1]);
 	states[2] = ext_register_zybex();
-	assert(states[2]);
 	states[3] = ext_register_altreal();
-	assert(states[3]);
 	states[4] = ext_register_bjl();
-	assert(states[4]);
 	states[5] = ext_register_river_raid();
-	assert(states[5]);
+	for (int i = 0; i < NUM_STATES; i++) {
+		EXT_ASSERT_NOT_NULL(states[i]);
+	}
 
 //	set_current_state(states[5]);
 	if (current_state) {
@@ -93,7 +90,7 @@ void ext_init()
 	}
 }
 
-static void ext_choose_ext()
+static void ext_menu()
 {
 	if (inside_menu || disabled()) {
 		return;
@@ -164,7 +161,7 @@ void ext_frame(void)
 	if (!state[SDLK_TAB]) {
 		return;
 	}
-	ext_choose_ext();
+	ext_menu();
 }
 
 void ext_pre_gl_frame(void)
@@ -189,7 +186,7 @@ void ext_post_gl_frame(void)
 
 int ext_handle_code_injection(int pc, int op)
 {
-	if (faking_cpu) {
+	if (faking_cpu || disabled()) {
 		return op;
 	}
 	if (current_state && current_state->code_injection) {
@@ -206,7 +203,7 @@ int ext_handle_code_injection(int pc, int op)
 ext_state* ext_state_alloc(void)
 {
 	ext_state *s = malloc(sizeof(ext_state));
-	assert(s);
+	EXT_ASSERT_NOT_NULL(s);
 	memset(s, 0, sizeof(*s));
 
 	return s;
@@ -240,7 +237,6 @@ static int prev_ANTIC_xpos;
 static int prev_ANTIC_xpos_limit;
 static int prev_ANTIC_delayed_wsync;
 static FILE *prev_MONITOR_trace_file;
-
 
 static void ext_fakecpu_init()
 {
