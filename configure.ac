@@ -1370,7 +1370,8 @@ fi
 if [[ "$a8_target" = default -a "$with_video" = sdl ]]; then
     echo "Using on-screen keyboard?.............: $WANT_USE_UI_BASIC_ONSCREEN_KEYBOARD"
     echo "Using OpenGL?.........................: $with_opengl"
-    echo "Using Lua extensions?.................: $with_lua_ext"
+    echo "Using extensions?.....................: $with_ext"
+    echo "Using Lua scripting in extensions?....: $with_ext_lua"
 fi
 echo
 echo "Main build variables:"

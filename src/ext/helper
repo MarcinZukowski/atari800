@@ -11,7 +11,7 @@ function bootstrap()
     --with-video=sdl --with-opengl --enable-opengl-by-default \
     --enable-monitorbreakpoints --enable-monitorprofile --enable-monitortrace \
     --enable-seriosound \
-    --with-sound=sdl --with-ext
+    --with-sound=sdl --with-ext --with-ext-lua
   cd -
 }
 
