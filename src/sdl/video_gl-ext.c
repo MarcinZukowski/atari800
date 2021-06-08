@@ -9,16 +9,17 @@
 
 #include "memory.h"
 
+#ifdef WITH_EXT_LUA
 #include <lua/lua.h>
 #include <lua/lualib.h>
 #include <lua/lauxlib.h>
+#endif
 
 #define TINYOBJ_LOADER_C_IMPLEMENTATION
 char *dynamic_fgets(char **buf, size_t *size, FILE *file);
 #include "tinyobj_loader_c.h"
 
 /* gl_texture code ******************************************************************* */
-
 
 gl_texture gl_texture_new(int width, int height)
 {
@@ -200,10 +201,8 @@ void gl_obj_render(gl_obj *o)
     gl_obj_render_colorized(o, 1.0f, 1.0f, 1.0f);
 }
 
-
-/* main code ******************************************************************* */
-
-void lua_draw_background(void);
+/** ************************************** LUA ********************************** */
+#ifdef WITH_EXT_LUA
 
 /* Lua extensions - texture ******************************************************************* */
 
@@ -538,3 +537,4 @@ void gl_lua_ext_init(lua_State *L)
     gl_le_glo_create_type(L);
     gl_le_gl_create_type(L);
 }
+#endif  // WITH_EXT_LUA

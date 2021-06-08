@@ -2,7 +2,9 @@
 
 #include <math.h>
 
+#ifdef WITH_EXT_LUA
 #include "ext-lua.h"
+#endif
 
 #include "sdl/video_gl-common.h"
 #include "sdl/video_gl-ext.h"
@@ -31,9 +33,11 @@ static yoomp_ball yoomp_balls[NUM_BALLS] = {
 	"data/ext/yoomp/beach-ball.obj", "Beach Ball", NULL, 0,
 };
 
-static int config_lua_script_on = 0;
 static int config_background_on = 1;
 static int config_ball_nr = 1;
+#ifdef WITH_EXT_LUA
+static int config_lua_script_on = 0;
+#endif
 
 static void xx_load_ball()
 {
@@ -167,6 +171,9 @@ static void xx_init()
 	xx_load_ball();
 }
 
+/** ************************************************* LUA *************************************** */
+#ifdef WITH_EXT_LUA
+
 static void lua_draw_background()
 {
     struct lua_State *L = lua_ext_get_state();
@@ -177,13 +184,15 @@ static void lua_draw_background()
 
 	ext_lua_run_str("yoomp_render_frame()");
 }
+#endif  // WITH_EXT_LUA
 
 static void xx_draw()
 {
-
+#ifdef WITH_EXT_LUA
 	if (config_lua_script_on) {
 		lua_draw_background();
 	}
+#endif
 
 	if (ANTIC_dlist != 0xCA00) {
 		// Not in-game
@@ -214,17 +223,21 @@ static int yoomp_init(void)
 }
 
 static UI_tMenuItem menu[] = {
-	UI_MENU_ACTION(0, "(Lua) Script enabled:"),
-	UI_MENU_ACTION(1, "Nicer background:"),
-	UI_MENU_ACTION(2, "Ball type:"),
+	UI_MENU_ACTION(0, "Nicer background:"),
+	UI_MENU_ACTION(1, "Ball type:"),
+#ifdef WITH_EXT_LUA
+	UI_MENU_ACTION(2, "(Lua) Script enabled:"),
+#endif
 	UI_MENU_END
 };
 
 static void refresh_config()
 {
+	menu[0].suffix = config_background_on ? "ON" : "OFF";
+	menu[1].suffix = yoomp_balls[config_ball_nr].name;
+#ifdef WITH_EXT_LUA
 	menu[0].suffix = config_lua_script_on ? "ON" : "OFF";
-	menu[1].suffix = config_background_on ? "ON" : "OFF";
-	menu[2].suffix = yoomp_balls[config_ball_nr].name;
+#endif
 }
 
 static struct UI_tMenuItem* get_config()
@@ -237,14 +250,16 @@ static void handle_config(int option)
 {
 	switch (option) {
 		case 0:
-			config_lua_script_on ^= 1;
-			break;
-		case 1:
 			config_background_on ^= 1;
 			break;
-		case 2:
+		case 1:
 			config_ball_nr = (config_ball_nr + 1) % NUM_BALLS;
 			break;
+#ifdef WITH_EXT_LUA
+		case 2:
+			config_lua_script_on ^= 1;
+			break;
+#endif
 	}
 	refresh_config();
 }

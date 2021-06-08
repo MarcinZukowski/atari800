@@ -1177,7 +1177,7 @@ if [[ "$with_ext" != no ]]; then
     if [[ "$a8_target" != default -o "$with_video" != sdl -o "$with_opengl" != yes ]]; then
         AC_MSG_ERROR([option --with-ext only supported with --target=default --with-video=sdl --with_opengl=yes !])
     fi
-    AC_DEFINE(HAVE_EXT, 1, [Support for Lua extensions.])
+    AC_DEFINE(HAVE_EXT, 1, [Support for extensions.])
     CFLAGS="$CFLAGS -DWITH_EXT"
 fi
 AM_CONDITIONAL([WITH_EXT], test "$with_ext" = "yes")
@@ -1186,7 +1186,7 @@ dnl Check for Lua scripting in extensions
 AC_ARG_WITH(ext_lua,
     AC_HELP_STRING(--with-ext-lua,[Build support for Lua scripting in extensions @<:@default=no@:>@]),
     [],
-    [with_ext_lua=yes])
+    [with_ext_lua=no])
 if [[ "$with_ext_lua" != no ]]; then
     if [[ "$with_ext" = "no" ]]; then
         AC_MSG_ERROR([option --with-ext-lua only supported with --with-ext !])

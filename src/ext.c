@@ -1,6 +1,8 @@
 #include "ext.h"
 
+#ifdef WITH_EXT_LUA
 #include "ext-lua.h"
+#endif
 
 #include <SDL.h>
 
@@ -72,7 +74,9 @@ static void set_current_state(ext_state *state)
 
 void ext_init()
 {
+#ifdef WITH_EXT_LUA
 	ext_lua_init();
+#endif
 
 	states[0] = ext_register_yoomp();
 	states[1] = ext_register_mercenary();
