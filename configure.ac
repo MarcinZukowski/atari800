@@ -1168,36 +1168,38 @@ fi
 AM_CONDITIONAL([WITH_OPENGL], test "$with_opengl" = "yes")
 
 
-dnl Check for Lua extensions support
-AC_ARG_WITH(lua_ext,
-    AC_HELP_STRING(--with-lua-ext,[Build support for Lua extensions - only in SDL/OPENGL target @<:@default=yes@:>@]),
+dnl Check for extension support
+AC_ARG_WITH(ext,
+    AC_HELP_STRING(--with-ext,[Build support for extensions - only in SDL/OPENGL target @<:@default=no@:>@]),
     [],
-    [with_lua_ext=yes])
-if [[ "$a8_target" != default -o "$with_video" != sdl -o "$with_opengl" != yes ]]; then
-    if [[ "$with_lua_ext" = "yes" ]]; then
-        AC_MSG_ERROR([option --with-lua-ext only supported with --target=default --with-video=sdl --with_opengl=yes !])
+    [with_ext=no])
+if [[ "$with_ext" != no ]]; then
+    if [[ "$a8_target" != default -o "$with_video" != sdl -o "$with_opengl" != yes ]]; then
+        AC_MSG_ERROR([option --with-ext only supported with --target=default --with-video=sdl --with_opengl=yes !])
     fi
-    with_lua_ext=no
+    AC_DEFINE(HAVE_EXT, 1, [Support for Lua extensions.])
+    CFLAGS="$CFLAGS -DWITH_EXT"
 fi
+AM_CONDITIONAL([WITH_EXT], test "$with_ext" = "yes")
 
-if [[ "$with_lua_ext" != no ]]; then
-    have_lua=no
-    AC_CHECK_HEADER([lua/lua.h], [
-        have_lua=yes
-    ], [
+dnl Check for Lua scripting in extensions
+AC_ARG_WITH(ext_lua,
+    AC_HELP_STRING(--with-ext-lua,[Build support for Lua scripting in extensions @<:@default=no@:>@]),
+    [],
+    [with_ext_lua=yes])
+if [[ "$with_ext_lua" != no ]]; then
+    if [[ "$with_ext" = "no" ]]; then
+        AC_MSG_ERROR([option --with-ext-lua only supported with --with-ext !])
+    fi
+    AC_CHECK_HEADER([lua/lua.h], [], [
        AC_MSG_ERROR([unable to use Lua  - lua/lua.h not found or not compilable.])
     ])
-    with_lua_ext=$have_lua
-fi
-AC_MSG_NOTICE([with_lua_ext='$with_lua_ext'])
-if [[ "$with_lua_ext" = "yes" ]]; then
-    AC_DEFINE(HAVE_LUA, 1, [Support for Lua extensions.])
-    LIBS="-llua $LIBS"
-    AC_MSG_NOTICE([LIBS='$LIBS'])
-    CFLAGS="$CFLAGS -DWITH_LUA_EXT"
-fi
-AM_CONDITIONAL([WITH_LUA_EXT], test "$with_lua_ext" = "yes")
 
+    AC_DEFINE(HAVE_LUA, 1, [Support for Lua scripting in extensions.])
+    LIBS="-llua $LIBS"
+    CFLAGS="$CFLAGS -DWITH_EXT_LUA"
+fi
+AM_CONDITIONAL([WITH_EXT_LUA], test "$with_ext_lua" = "yes")
 
 dnl Select host/target specific features...
 
@@ -1256,7 +1258,7 @@ if [[ "$SUPPORTS_RDEVICE" = "yes" ]]; then
                      [Use the host serial port with the R: networking device (Linux/Unix only) (default=ON)],
                      R_SERIAL,[Define to use the host serial port with the R: device.]
                     )
-        else 
+        else
             if [[ "$a8_host" = "win" ]]; then
                 A8_NEED_LIB(ws2_32)
             fi

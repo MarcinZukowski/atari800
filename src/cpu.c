@@ -80,7 +80,7 @@
 #include "libatari800/main.h"
 #endif
 
-#ifdef WITH_LUA_EXT
+#ifdef WITH_EXT
 #include "ext.h"
 #endif
 
@@ -659,7 +659,7 @@ void CPU_GO(int limit)
 
 		insn = GET_CODE_BYTE();
 
-#ifdef WITH_LUA_EXT
+#ifdef WITH_EXT
 		UPDATE_GLOBAL_REGS;
 		insn = ext_handle_code_injection(GET_PC() - 1, insn);
 		UPDATE_LOCAL_REGS;

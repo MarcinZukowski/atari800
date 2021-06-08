@@ -1,6 +1,9 @@
-#ifndef LUA_EXT_H_
-#define LUA_EXT_H_
+#ifndef EXT_LUA_H_
+#define EXT_LUA_H_
 
+#ifndef WITH_EXT_LUA
+#error "WITH_EXT_LUA is expected"
+#endif
 
 struct lua_State;
 
@@ -10,4 +13,4 @@ struct lua_State* lua_ext_get_state(void);
 
 int ext_lua_run_str(const char *str);
 
-#endif  /* LUA_EXT_H */
+#endif  /* EXT_LUA_H */

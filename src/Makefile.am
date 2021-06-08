@@ -177,16 +177,19 @@ atari800_SOURCES += \
 atari800_SOURCES += pbi_proto80.c pbi_proto80.h af80.c af80.h bit3.c bit3.h
 endif
 
-if WITH_LUA_EXT
+if WITH_EXT
 atari800_SOURCES += \
 	ext.c ext.h \
-	ext-lua.c ext-lua.h \
 	ext/ext-altreal.c ext/ext-altreal.h \
 	ext/ext-bjl.c ext/ext-bjl.h \
 	ext/ext-mercenary.c ext/ext-mercenary.h \
 	ext/ext-river-raid.c ext/ext-river-raid.h \
 	ext/ext-yoomp.c ext/ext-yoomp.h \
 	ext/ext-zybex.c ext/ext-zybex.h
+endif
+if WITH_EXT_LUA
+atari800_SOURCES += \
+	ext-lua.c ext-lua.h
 endif
 
 if WITH_VIDEO_DOSVGA
@@ -257,7 +260,7 @@ endif
 
 if WITH_OPENGL
 atari800_SOURCES += sdl/video_gl.c sdl/video_gl.h sdl/video_gl-common.h
-if WITH_LUA_EXT
+if WITH_EXT
 atari800_SOURCES += sdl/video_gl-ext.c sdl/video_gl-ext.h
 endif
 endif

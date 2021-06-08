@@ -1,6 +1,10 @@
 #ifndef EXT_H
 #define EXT_H
 
+#ifndef WITH_EXT
+#error "WITH_EXT is expected"
+#endif
+
 // Forward declare
 struct UI_tMenuItem;
 

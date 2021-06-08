@@ -38,10 +38,6 @@
 #include "cpu.h"
 #include "ui.h"
 
-#ifndef WITH_LUA_EXT
-#error "WITH_LUA_EXT is expected"
-#endif
-
 #include "sdl/video_gl.h"
 
 // FROM: https://stackoverflow.com/questions/11689135/share-array-between-lua-and-c

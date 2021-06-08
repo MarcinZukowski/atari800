@@ -55,7 +55,7 @@
 #include "sdl/video.h"
 #include "sdl/video_gl.h"
 
-#ifdef WITH_LUA_EXT
+#ifdef WITH_EXT
 #include "ext.h"
 #endif
 
@@ -758,7 +758,7 @@ static void DisplayBIT3(GLvoid *dest)
 
 void SDL_VIDEO_GL_DisplayScreen(void)
 {
-#ifdef WITH_LUA_EXT
+#ifdef WITH_EXT
 	ext_pre_gl_frame();
 #endif
 
@@ -781,7 +781,7 @@ void SDL_VIDEO_GL_DisplayScreen(void)
 	}
 	gl.CallList(screen_dlist);
 
-#ifdef WITH_LUA_EXT
+#ifdef WITH_EXT
 	ext_post_gl_frame();
 #endif
 

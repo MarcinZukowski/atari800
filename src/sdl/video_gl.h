@@ -62,7 +62,7 @@ int SDL_VIDEO_GL_Initialise(int *argc, char *argv[]);
    (SDL_VIDEO_InitSDL()). */
 void SDL_VIDEO_GL_InitSDL(void);
 
-#ifdef WITH_LUA_EXT
+#ifdef WITH_EXT
 #include "video_gl-ext.h"
 #endif
 

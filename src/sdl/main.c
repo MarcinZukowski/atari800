@@ -40,7 +40,6 @@
 #include "atari.h"
 #include "../input.h"
 #include "log.h"
-#include "../ext.h"
 #include "monitor.h"
 #include "platform.h"
 #ifdef SOUND
@@ -53,6 +52,10 @@
 #include "videomode.h"
 #include "sdl/video.h"
 #include "sdl/input.h"
+
+#ifdef WITH_EXT
+#include "../ext.h"
+#endif
 
 int PLATFORM_Configure(char *option, char *parameters)
 {
@@ -180,7 +183,7 @@ int main(int argc, char **argv)
 			exit(0);
 	}
 
-#ifdef WITH_LUA_EXT
+#ifdef WITH_EXT
 	ext_init();
 #endif
 
@@ -204,7 +207,7 @@ int main(int argc, char **argv)
 #endif
 		SDL_INPUT_Mouse();
 		Atari800_Frame();
-#ifdef WITH_LUA_EXT
+#ifdef WITH_EXT
 		ext_frame();
 #endif
 		if (Atari800_display_screen)
