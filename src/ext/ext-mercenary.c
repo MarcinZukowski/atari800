@@ -64,7 +64,7 @@ static int current_dl_byte() {
 	return MEMORY_dGetByte(0x2805);
 }
 
-static int mercenary_code_injections(int pc, int op)
+static int mercenary_code_injections(struct ext_state *self, int pc, int op)
 {
 	if (!config_accelerate || ext_acceleration_disabled()) {
 		return op;
@@ -229,7 +229,7 @@ static int mercenary_code_injections(int pc, int op)
 	return op;
 }
 
-static int mercenary_init(void)
+static int mercenary_init(struct ext_state *self)
 {
 	// Some memory fingerprint from 0x4000
 	byte fingerprint_4000[] = {0xA6, 0x65, 0xBC, 0x57, 0x6B};
@@ -262,13 +262,13 @@ static void refresh_config()
 	menu[3].suffix = config_gl_line_types[config_gl_line_type];
 }
 
-static struct UI_tMenuItem* get_config()
+static struct UI_tMenuItem* get_config(struct ext_state *self)
 {
 	refresh_config();
 	return menu;
 }
 
-static void handle_config(int option)
+static void handle_config(struct ext_state *self, int option)
 {
 	switch (option) {
 		case 0:
@@ -287,7 +287,7 @@ static void handle_config(int option)
 	refresh_config();
 }
 
-static void mercenary_pre_gl_frame()
+static void mercenary_pre_gl_frame(struct ext_state *self)
 {
 	if (!config_display_fps) {
 		return;
@@ -312,7 +312,7 @@ static float adjustY(int y)
 	return - ((y + 24 - half) / div + halfPixelY);
 }
 
-static void mercenary_post_gl_frame()
+static void mercenary_post_gl_frame(struct ext_state *self)
 {
 	int i;
 	int dl = current_dl_byte();
@@ -427,7 +427,7 @@ ext_state* ext_register_mercenary(void)
 	s->get_config = get_config;
 	s->handle_config = handle_config;
 
-	mercenary_init();
+	mercenary_init(s);
 
 	return s;
 }

@@ -33,7 +33,7 @@ static void load_background()
 	gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 }
 
-static int init(void)
+static int init(struct ext_state *self)
 {
 	// Some memory fingerprint from 0x3000
 	byte fingerprint_3000[] = {0x18, 0x69, 0x14, 0xA8, 0xC0, 0x50};
@@ -62,13 +62,13 @@ static void refresh_config()
 	menu[1].suffix = config_display_fps ? "ON" : "OFF";
 }
 
-static struct UI_tMenuItem* get_config()
+static struct UI_tMenuItem* get_config(struct ext_state *self)
 {
 	refresh_config();
 	return menu;
 }
 
-static void handle_config(int option)
+static void handle_config(struct ext_state *self, int option)
 {
 	switch (option) {
 		case 0:
@@ -81,7 +81,7 @@ static void handle_config(int option)
 	refresh_config();
 }
 
-static void pre_gl_frame()
+static void pre_gl_frame(struct ext_state *self)
 {
 	if (!config_display_fps) {
 		return;
@@ -140,7 +140,7 @@ static void show_background()
 	gl.Disable(GL_BLEND);
 }
 
-static void  post_gl_frame()
+static void  post_gl_frame(struct ext_state *self)
 {
 	if (config_show_background) {
 		show_background();

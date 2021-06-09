@@ -467,7 +467,7 @@ static void render_subwindow(int x, int y, int w, int h, int with_perspective)
 	}
 }
 
-static void post_gl_frame()
+static void post_gl_frame(struct ext_state *self)
 {
 	if (config_screen_mode == CONFIG_SCREEN_MODE_A8) {
 		return;
@@ -512,7 +512,7 @@ static void post_gl_frame()
 
 }
 
-static int river_raid_init(void)
+static int river_raid_init(struct ext_state *self)
 {
 	// Some memory fingerprint
 	int address = 0xb55c;
@@ -543,13 +543,13 @@ static void refresh_config()
 	menu[0].suffix = config_screen_modes[config_screen_mode];
 }
 
-static struct UI_tMenuItem* get_config()
+static struct UI_tMenuItem* get_config(struct ext_state *self)
 {
 	refresh_config();
 	return menu;
 }
 
-static void handle_config(int option)
+static void handle_config(struct ext_state *self, int option)
 {
 	switch (option) {
 		case 0:

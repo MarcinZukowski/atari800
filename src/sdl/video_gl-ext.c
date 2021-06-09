@@ -482,7 +482,6 @@ static int gl_le_gl_LoadIdentity(lua_State *L)
 }
 
 static int gl_le_gl_api(lua_State* L) {
-    printf("%s: gl=%p\n", __FUNCTION__, &gl);
     void** parray = lua_newuserdata(L, sizeof(void**));
     *parray = &gl;
     luaL_getmetatable(L, LE_GL);

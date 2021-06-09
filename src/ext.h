@@ -12,23 +12,23 @@ typedef struct ext_state {
     // Extension name
     const char* name;
     // Test if applicable and initialize. Return 1 if matches, 0 if not.
-    int (*initialize)(void) ;
+    int (*initialize)(struct ext_state *self);
     // Called before each GL frame is rendered
-    void (*pre_gl_frame)(void);
+    void (*pre_gl_frame)(struct ext_state *self);
     // Called after each GL frame is rendered
-    void (*post_gl_frame)(void);
+    void (*post_gl_frame)(struct ext_state *self);
     // Called when opcode injection is detected, returns the opcode to process
-    int (*code_injection)(int pc, int op);
+    int (*code_injection)(struct ext_state *self, int pc, int op);
     // List of addresses where to use code injection.
     // If not provided, code_injection is called every time.
     // Needs to end with -1
     int *injection_list;
     // Return config items
-    struct UI_tMenuItem* (*get_config)(void);
-    // Handle config choice
-    void (*handle_config)(int);
-    // Custom state
-    void *custom_state;
+    struct UI_tMenuItem* (*get_config)(struct ext_state *self);
+    // Handle config choice - the option param is the number of the menu that has changed
+    void (*handle_config)(struct ext_state *self, int option);
+    // Internal state
+    void *internal_state;
 } ext_state;
 
 ext_state* ext_state_alloc(void);

@@ -16,7 +16,7 @@ static int config_accelerate = ACC_LOW;
 // Seems calling here is once per frame
 static int calls_7856 = 0;
 
-static int code_injections(const int pc, int op)
+static int code_injections(struct ext_state *self, const int pc, int op)
 {
 	if (pc == 0x7856) { // Moving into font memory?
 		calls_7856++;
@@ -57,7 +57,7 @@ static int code_injections(const int pc, int op)
 	return op;
 }
 
-static int init(void)
+static int init(struct ext_state *self)
 {
 	// Some memory fingerprint from 0x29A4
 	byte fingerprint_29B6[] = {0x44, 0x75, 0x6E, 0x67, 0x65, 0x6F, 0x6E};
@@ -84,13 +84,13 @@ static void refresh_config()
 	menu[1].suffix = config_accelerate_strings[config_accelerate];
 }
 
-static struct UI_tMenuItem* get_config()
+static struct UI_tMenuItem* get_config(struct ext_state *self)
 {
 	refresh_config();
 	return menu;
 }
 
-static void handle_config(int option)
+static void handle_config(struct ext_state *self, int option)
 {
 	switch (option) {
 		case 0:
@@ -103,7 +103,7 @@ static void handle_config(int option)
 	refresh_config();
 }
 
-static void pre_gl_frame()
+static void pre_gl_frame(struct ext_state *self)
 {
 	if (!config_display_fps) {
 		return;

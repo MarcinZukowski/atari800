@@ -90,7 +90,7 @@ void ext_init()
 
 //	set_current_state(states[5]);
 	if (current_state) {
-		current_state->initialize();
+		current_state->initialize(current_state);
 	}
 }
 
@@ -103,7 +103,7 @@ static void ext_menu()
 	// Choose extension
 	if (!current_state) {
 		for (int i = 0; i < NUM_STATES; i++) {
-			if (states[i]->initialize()) {
+			if (states[i]->initialize(states[i])) {
 				set_current_state(states[i]);
 				break;
 			}
@@ -125,7 +125,8 @@ static void ext_menu()
 	inside_menu = 1;
 	for (;;) {
 		// Prepare menu including the extension's menu
-		UI_tMenuItem* ext_config = (current_state && current_state->get_config) ? current_state->get_config() : NULL;
+		UI_tMenuItem* ext_config = (current_state && current_state->get_config)
+				? current_state->get_config(current_state->internal_state) : NULL;
 
 		menu_array[0] = menu_array_template[0];
 		menu_array[0].suffix = current_state ? current_state->name : "-UNKNOWN-";
@@ -147,7 +148,7 @@ static void ext_menu()
 			break;
 		}
 		if (current_state && current_state->handle_config) {
-			current_state->handle_config(option);
+			current_state->handle_config(current_state->internal_state, option);
 		}
 	}
 	inside_menu = 0;
@@ -174,7 +175,7 @@ void ext_pre_gl_frame(void)
 		return;
 	}
 	if (current_state && current_state->pre_gl_frame) {
-		current_state->pre_gl_frame();
+		current_state->pre_gl_frame(current_state->internal_state);
 	}
 }
 
@@ -184,7 +185,7 @@ void ext_post_gl_frame(void)
 		return;
 	}
 	if (current_state && current_state->post_gl_frame) {
-		current_state->post_gl_frame();
+		current_state->post_gl_frame(current_state->internal_state);
 	}
 }
 
@@ -198,7 +199,7 @@ int ext_handle_code_injection(int pc, int op)
 			// No need to call
 			return op;
 		}
-		return current_state->code_injection(pc, op);
+		return current_state->code_injection(current_state->internal_state, pc, op);
 	}
 
 	return op;

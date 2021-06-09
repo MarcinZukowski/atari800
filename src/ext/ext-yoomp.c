@@ -186,7 +186,7 @@ static void lua_draw_background()
 }
 #endif  // WITH_EXT_LUA
 
-static void xx_draw()
+static void post_gl_frame(struct ext_state *self)
 {
 #ifdef WITH_EXT_LUA
 	if (config_lua_script_on) {
@@ -207,7 +207,7 @@ static void xx_draw()
 	}
 }
 
-static int yoomp_init(void)
+static int yoomp_init(struct ext_state *self)
 {
 	// Some memory fingerprint from 0x4000
 	byte fingerprint_3600[] = {0x20, 0x00, 0xB0, 0x20, 0xBC, 0x3D};
@@ -236,17 +236,17 @@ static void refresh_config()
 	menu[0].suffix = config_background_on ? "ON" : "OFF";
 	menu[1].suffix = yoomp_balls[config_ball_nr].name;
 #ifdef WITH_EXT_LUA
-	menu[0].suffix = config_lua_script_on ? "ON" : "OFF";
+	menu[2].suffix = config_lua_script_on ? "ON" : "OFF";
 #endif
 }
 
-static struct UI_tMenuItem* get_config()
+static struct UI_tMenuItem* get_config(struct ext_state *self)
 {
 	refresh_config();
 	return menu;
 }
 
-static void handle_config(int option)
+static void handle_config(struct ext_state *self, int option)
 {
 	switch (option) {
 		case 0:
@@ -270,7 +270,7 @@ ext_state* ext_register_yoomp(void)
 	s->name = "Yoomp! Hack by Eru";
 	s->initialize = yoomp_init;
 	s->code_injection = NULL;
-	s->post_gl_frame = xx_draw;
+	s->post_gl_frame = post_gl_frame;
 
 	s->get_config = get_config;
 	s->handle_config = handle_config;
