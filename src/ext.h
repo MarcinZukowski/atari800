@@ -63,7 +63,18 @@ char *ext_fps_str(int previous_value);
 #define EXT_ASSERT_NE(val, exp) EXT_ASSERT(val != exp, "Value of %s=%g equal to %g", #val, (float)val, (float) exp)
 #define EXT_ASSERT_LT(val, exp) EXT_ASSERT(val < exp, "Value of %s=%g not lower than %g", #val, (float)val, (float) exp)
 
+#define EXT_ERROR(fmt, args) { printf("ERROR at %s:%d: " fmt, __FILE__, __LINE__, args); exit(-2); }
+
 // Acceleration is disabled on CTRL, can be used by extensions
 int ext_acceleration_disabled(void);
+
+typedef struct {
+    // Internal data structure for sounds, not exposed
+    void* data;
+} ext_sound;
+
+ext_sound* ext_sound_load(const char* fname);
+void ext_sound_play(ext_sound *snd);
+
 
 #endif   /* EXT_H */
