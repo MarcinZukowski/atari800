@@ -42,6 +42,26 @@ static char* config_screen_modes[CONFIG_SCREEN_MODE_COUNT] = {
 
 static int use_perspective = 1;
 
+/******************************************* SOUNDS ********************************** */
+ext_sound *fire_sound;
+
+static void init_sounds()
+{
+	fire_sound = ext_sound_load("data/ext/river-raid/Flash-laser-04.wav");
+
+	// Stop playing the fire sound on Atari, by overwriting STA $D204, STX $D205 with NOPs
+	memset(MEMORY_mem + 0xB3B0, 0xEA, 6);
+}
+
+static void do_sounds()
+{
+	int fire_volume = MEMORY_mem[0x007D];
+	printf("fire_volume = %02x\n", fire_volume);
+	if (fire_volume == 0x0E) {
+		ext_sound_play(fire_sound);
+	}
+}
+
 /******************************************* OBJECTS *************************************/
 
 typedef struct rr_object {
@@ -510,6 +530,7 @@ static void post_gl_frame(struct ext_state *self)
 	gl.MatrixMode(GL_MODELVIEW);
 	gl.PopMatrix();
 
+	do_sounds();
 }
 
 static int river_raid_init(struct ext_state *self)
@@ -528,6 +549,7 @@ static int river_raid_init(struct ext_state *self)
 
 	init_lines();
 	init_objects();
+	init_sounds();
 
 	// Match
 	return 1;

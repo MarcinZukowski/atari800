@@ -78,7 +78,9 @@ These games are also discussed in [this video on YouTube](https://www.youtube.co
   * faster rendering
 * Alternate Reality: [ext-altreal.c](../../src/ext/ext-altreal.c), [altreal.md](altreal.md)
   * faster rendering
-* River Raid: [ext-river-raid.c](../../src/ext/ext-river-raid.c), [river-raid.md](river-raid.md)
+* River Raid: [ext-river-raid.c](../../src/ext/ext-river-raid.c), [river-raid.md](river-raid/river-raid.md)
+  * 3D rendering
+  * custom sounds example
 
 ## Reverse-engineering games
 
@@ -98,12 +100,3 @@ Now, you can use the provided helper tool to analyze the `file.trace`, by runnin
     tools/trace-postprocess.py < file.trace
 
 This will show the memory areas where we spend most time (based on how often code is execute there).
-
-## Per-game notes
-
-Various per-game notes are stored in `GAME.md` files under `data/ext`, e.g.:
-* [Alternate Reality](altreal.md)
-* [Mercenary](mercenary.md)
-* [Zybex](zybex/zybex.md)
-
-And of course, sources under `src/ext/*.c` have a lot of info.

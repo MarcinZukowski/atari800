@@ -54,3 +54,6 @@
 
 grm b904 01 18 - shows PM
 
+sound
+* b384 - fire sound code
+  * 7d - fire volume - 0e seems to be the fire start
