@@ -29,6 +29,14 @@
 #include "platform.h"
 #include "sound.h"
 
+#undef USE_SDL_MIXER
+#define USE_SDL_MIXER
+
+#ifdef USE_SDL_MIXER
+#include <SDL_mixer.h>
+#endif
+
+
 static void SoundCallback(void *userdata, Uint8 *stream, int len)
 {
 	Sound_Callback(stream, len);
@@ -36,24 +44,38 @@ static void SoundCallback(void *userdata, Uint8 *stream, int len)
 
 int PLATFORM_SoundSetup(Sound_setup_t *setup)
 {
-	SDL_AudioSpec desired;
-
 	if (Sound_enabled)
+#ifdef USE_SDL_MIXER
+		Mix_CloseAudio();
+#else
 		SDL_CloseAudio();
+#endif
 	else if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) {
 		Log_print("SDL_INIT_AUDIO FAILED: %s", SDL_GetError());
 		return FALSE;
 	}
 
-	desired.freq = setup->freq;
-	desired.format = setup->sample_size == 2 ? AUDIO_S16SYS : AUDIO_U8;
-	desired.channels = setup->channels;
+	unsigned int format = setup->sample_size == 2 ? AUDIO_S16SYS : AUDIO_U8;
 
 	if (setup->buffer_frames == 0)
 		/* Set buffer_frames automatically. */
 		setup->buffer_frames = setup->freq / 50;
 
 	setup->buffer_frames = Sound_NextPow2(setup->buffer_frames);
+
+#ifdef USE_SDL_MIXER
+	if (Mix_OpenAudio(setup->freq, format, setup->channels, setup->buffer_frames) < 0) {
+		SDL_QuitSubSystem(SDL_INIT_AUDIO);
+		return FALSE;
+	}
+	Mix_HookMusic(SoundCallback, NULL);
+#else
+	/** Use native SDL */
+	SDL_AudioSpec desired;
+
+	desired.freq = setup->freq;
+	desired.format = format;
+	desired.channels = setup->channels;
 
 	desired.samples = setup->buffer_frames;
 	desired.callback = SoundCallback;
@@ -64,32 +86,54 @@ int PLATFORM_SoundSetup(Sound_setup_t *setup)
 		return FALSE;
 	}
 	setup->buffer_frames = desired.samples;
-
+#endif
 	return TRUE;
 }
 
 void PLATFORM_SoundExit(void)
 {
+#ifdef USE_SDL_MIXER
+	Mix_CloseAudio();
+#else
 	SDL_CloseAudio();
+#endif
 	SDL_QuitSubSystem(SDL_INIT_AUDIO);
 }
 
 void PLATFORM_SoundPause(void)
 {
+#ifdef USE_SDL_MIXER
+	Mix_Pause(-1);
+	Mix_PauseMusic();
+#else
 	SDL_PauseAudio(1);
+#endif
 }
 
 void PLATFORM_SoundContinue(void)
 {
+#ifdef USE_SDL_MIXER
+	Mix_Resume(-1);
+	Mix_ResumeMusic();
+#else
 	SDL_PauseAudio(0);
+#endif
 }
 
 void PLATFORM_SoundLock(void)
 {
+#ifdef USE_SDL_MIXER
+	// Do nothing
+#else
 	SDL_LockAudio();
+#endif
 }
 
 void PLATFORM_SoundUnlock(void)
 {
+#ifdef USE_SDL_MIXER
+	// Do nothing
+#else
 	SDL_UnlockAudio();
+#endif
 }
