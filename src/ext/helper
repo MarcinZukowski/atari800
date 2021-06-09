@@ -18,7 +18,7 @@ function bootstrap()
 
 install()
 {
-  VERBOSE=1 SHELL='sh -x' make -C build -j 4 install
+  VERBOSE=1 SHELL='sh -x' make V=1 -C build -j 4 install
 }
 
 $1
