@@ -29,9 +29,6 @@
 #include "platform.h"
 #include "sound.h"
 
-#undef USE_SDL_MIXER
-#define USE_SDL_MIXER
-
 #ifdef USE_SDL_MIXER
 #include <SDL_mixer.h>
 #endif

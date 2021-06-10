@@ -102,6 +102,10 @@ endif
 if WITH_SOUND_SDL
 atari800_SOURCES += sound.c sound.h sdl/sound.c
 endif
+if WITH_SOUND_SDLMIXER
+atari800_SOURCES += sound.c sound.h sdl/sound.c
+atari800_CPPFLAGS += -DUSE_SDL_MIXER
+endif
 if WITH_SOUND_FALCON
 atari800_SOURCES += sound.c falcon/sound.c
 endif
