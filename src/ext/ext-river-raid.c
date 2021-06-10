@@ -56,7 +56,6 @@ static void init_sounds()
 static void do_sounds()
 {
 	int fire_volume = MEMORY_mem[0x007D];
-	printf("fire_volume = %02x\n", fire_volume);
 	if (fire_volume == 0x0E) {
 		ext_sound_play(fire_sound);
 	}
