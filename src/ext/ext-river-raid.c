@@ -43,7 +43,18 @@ static char* config_screen_modes[CONFIG_SCREEN_MODE_COUNT] = {
 static int use_perspective = 1;
 
 /******************************************* SOUNDS ********************************** */
-ext_sound *fire_sound;
+
+ext_sound* fire_sound;
+
+#define NUM_EXPLOSIONS 5
+const char* explosion_files[NUM_EXPLOSIONS] = {
+	"data/ext/river-raid/snd-boom1.wav",
+	"data/ext/river-raid/snd-boom2.wav",
+	"data/ext/river-raid/snd-expl1.wav",
+	"data/ext/river-raid/snd-expl2.wav",
+	"data/ext/river-raid/snd-expl3.wav",
+};
+ext_sound* explosions[5];
 
 static void init_sounds()
 {
@@ -51,6 +62,13 @@ static void init_sounds()
 
 	// Stop playing the fire sound on Atari, by overwriting STA $D204, STX $D205 with NOPs
 	memset(MEMORY_mem + 0xB3B0, 0xEA, 6);
+
+	for (int i = 0; i < NUM_EXPLOSIONS; i++) {
+		explosions[i] = ext_sound_load(explosion_files[i]);
+	}
+
+	// Stop playing the enemy explosion sound on Atari, by overwriting STA $D202, STX $D203 with NOPs
+	memset(MEMORY_mem + 0xB37E, 0xEA, 6);
 }
 
 static void do_sounds()
@@ -59,6 +77,20 @@ static void do_sounds()
 	if (fire_volume == 0x0E) {
 		ext_sound_play(fire_sound);
 	}
+
+#if 0
+	for (int a = 0x74; a <= 0x7f; a++) {
+		printf("%02x: %02x ", a, MEMORY_mem[a]);
+	}
+	printf("\n");
+#endif
+
+	int enemy_crash_volume = MEMORY_mem[0x007c];
+	if (enemy_crash_volume == 0x16) {
+		int idx = rand() % NUM_EXPLOSIONS;
+		ext_sound_play(explosions[idx]);
+	}
+
 }
 
 /******************************************* OBJECTS *************************************/

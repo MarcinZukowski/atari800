@@ -55,5 +55,12 @@
 grm b904 01 18 - shows PM
 
 sound
+* channel 1 - plane sounds
+* channel 2 - enemy explosion sounds
+* channel 3 - fire sounds
+* b2ce - engine, crash sounds
+  * 7b - crash phase - starts with 1E
+* b352 - enemy sounds
+  * 7c - enemy crash phase - starts with 16
 * b384 - fire sound code
   * 7d - fire volume - 0e seems to be the fire start
