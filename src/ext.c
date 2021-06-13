@@ -152,6 +152,15 @@ static void ext_menu()
 		// Run the menu
 		option = UI_driver->fSelect("Extensions", 0, option, menu_array, NULL);
 		if (option < 0 || option == 101) {
+			// Wait for no key pressed, not to influence Atari
+			while (1) {
+				SDL_PumpEvents();
+				const Uint8 *state = SDL_GetKeyState(NULL);
+				if (state[SDLK_ESCAPE] || state[SDLK_RETURN] || state[SDLK_TAB] || state[SDLK_SPACE]) {
+					continue;
+				}
+				break;
+			}
 			break;
 		}
 		if (current_state && current_state->handle_config) {
