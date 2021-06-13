@@ -486,7 +486,6 @@ static int ext_lua_register(lua_State *L)
 		els->menu_items = items;
 		EXT_ASSERT_NOT_NULL(items);
 		els->menu_item_count = sz;
-		printf("MENU sz=%d\n", sz);
 
 		// Iterate over menu items
 		lua_pushnil(L);
@@ -529,8 +528,6 @@ static int ext_lua_register(lua_State *L)
 				item->current = luaL_checkinteger(L, -1);
 				lua_pop(L, 1);  // pop current
 			}
-
-			printf("MENU ITEM: label=%s current=%d count=%d\n", item->label, item->current, item->option_count);
 
 			lua_pop(L, 1);  // pop table
 		}
