@@ -36,7 +36,7 @@ ext_state* ext_state_alloc(void);
 void ext_init(void);
 
 // Register an extension
-void register_ext(struct ext_state *ext_state);
+void ext_register_ext(ext_state *ext_state);
 
 int ext_handle_code_injection(int pc, int op);
 void ext_frame(void);
@@ -62,8 +62,11 @@ char *ext_fps_str(int previous_value);
 #define EXT_ASSERT_EQ(val, exp) EXT_ASSERT(val == exp, "Value of %s=%g not equal to %g", #val, (float)val, (float)exp)
 #define EXT_ASSERT_NE(val, exp) EXT_ASSERT(val != exp, "Value of %s=%g equal to %g", #val, (float)val, (float) exp)
 #define EXT_ASSERT_LT(val, exp) EXT_ASSERT(val < exp, "Value of %s=%g not lower than %g", #val, (float)val, (float) exp)
+#define EXT_ASSERT_GT(val, exp) EXT_ASSERT(val > exp, "Value of %s=%g not greter than %g", #val, (float)val, (float) exp)
 
-#define EXT_ERROR(fmt, args) { printf("ERROR at %s:%d: " fmt, __FILE__, __LINE__, args); exit(-2); }
+#define EXT_ERROR(fmt, args...) do { printf("ERROR at %s:%d: " fmt "\n", __FILE__, __LINE__, args); exit(-2); } while (0)
+#define EXT_ERROR0(fmt) EXT_ERROR(fmt "%s", "")
+#define EXT_TRACE(fmt, args...) do { printf("%s:%d:%s: " fmt "\n", __FILE__, __LINE__, __FUNCTION__, args); fflush(stdout);} while (0)
 
 // Acceleration is disabled on CTRL, can be used by extensions
 int ext_acceleration_disabled(void);

@@ -179,6 +179,151 @@ static int ext_lua_antic_dlist(lua_State* L) {
     return 1;
 }
 
+// Lua-specific extension state
+typedef struct {
+	const char* name;
+
+	// All Lua extensions for now use the simple memory fingerprint mechanism
+	int enable_check_address;
+	byte *enable_check_fingerprint;
+	int enable_check_fingerprint_size;
+
+	// Compatible with ext_state::injection_list, ends with -1 if present
+	int *code_injection_list;
+	int code_injection_function;
+} ext_lua_state;
+
+static int ext_lua_shared_initialize(ext_state *state)
+{
+	ext_lua_state *els = (ext_lua_state*)state->internal_state;
+	EXT_ASSERT_NOT_NULL(els);
+
+	if (memcmp(MEMORY_mem + els->enable_check_address,
+			els->enable_check_fingerprint,
+			els->enable_check_fingerprint_size)) {
+		// No match
+		return 0;
+	}
+
+	// Match
+	return 1;
+}
+
+static int ext_lua_shared_code_injection(ext_state *state, int pc, int op)
+{
+	ext_lua_state *els = (ext_lua_state*)state->internal_state;
+	EXT_ASSERT_NOT_NULL(els);
+
+	EXT_ASSERT_GT(els->code_injection_function, 0);
+
+	// Call the provided extension's function
+	lua_geti(L, LUA_REGISTRYINDEX, els->code_injection_function);
+	lua_pushnumber(L, pc);
+	lua_pushnumber(L, op);
+
+	if (lua_pcall(L, 2, 1, 0) != LUA_OK) {
+		EXT_ERROR("Failed calling lua function: %s", lua_tostring(L, -1));
+	}
+
+	int ret = luaL_checkinteger(L, -1);
+	lua_pop(L, -1);
+
+	return ret;
+}
+
+// Lua wrapper over ext_fakecpu_until_op
+static int ext_lua_fakecpu_until_op(lua_State *L)
+{
+	int op = luaL_checkinteger(L, 1);
+	int ret = ext_fakecpu_until_op(op);
+	lua_pushinteger(L, ret);
+	return 1;
+}
+
+// Function called by Lua scripts
+static int ext_lua_register(lua_State *L)
+{
+	luaL_checktype(L, 1, LUA_TTABLE);
+
+	ext_lua_state *els = malloc(sizeof(ext_lua_state));
+	EXT_ASSERT_NOT_NULL(els);
+	memset(els, 0, sizeof(*els));
+
+	lua_getfield(L, 1, "NAME");
+	els->name = luaL_checkstring(L, -1);
+	lua_pop(L, 1);
+
+	lua_getfield(L, 1, "ENABLE_CHECK_ADDRESS");
+	els->enable_check_address = luaL_checkinteger(L, -1);
+	lua_pop(L, 1);
+
+	lua_getfield(L, 1, "ENABLE_CHECK_FINGERPRINT");
+	luaL_checktype(L, -1, LUA_TTABLE);
+	int sz = lua_rawlen(L, -1);
+	EXT_ASSERT_GT(sz, 0);
+	els->enable_check_fingerprint_size = sz;
+	els->enable_check_fingerprint = malloc(sz);
+	EXT_ASSERT_NOT_NULL(els->enable_check_fingerprint);
+	for (int i = 0; i < sz; i++) {
+		lua_rawgeti(L, -1, i + 1);  // push next value on stack
+		int val = luaL_checkinteger(L, -1);  // Note, doesn't pop from stack
+		EXT_ASSERT_BETWEEN(val, 0x00, 0xFF);
+		els->enable_check_fingerprint[i] = val;
+		lua_pop(L, 1);
+	}
+	lua_pop(L, 1);
+
+	lua_getfield(L, 1, "CODE_INJECTION_LIST");
+	if (!lua_isnil(L, -1)) {
+		luaL_checktype(L, -1, LUA_TTABLE);
+		int sz = lua_rawlen(L, -1);
+		EXT_ASSERT_GT(sz, 0);
+		els->code_injection_list = malloc((sz + 1) * sizeof(*els->code_injection_list));
+		EXT_ASSERT_NOT_NULL(els->code_injection_list);
+		for (int i = 0; i < sz; i++) {
+			lua_rawgeti(L, -1, i + 1);
+			int val = luaL_checkinteger(L, -1);
+			EXT_ASSERT_BETWEEN(val, 0x0000, 0xFFFF);
+			els->code_injection_list[i] = val;
+			lua_pop(L, 1);
+		}
+		els->code_injection_list[sz] = -1;
+	}
+	lua_pop(L, 1);
+
+	lua_getfield(L, 1, "CODE_INJECTION_FUNCTION");
+	if (!lua_isnil(L, -1)) {
+		luaL_checktype(L, -1, LUA_TFUNCTION);
+		els->code_injection_function = luaL_ref(L, LUA_REGISTRYINDEX);
+	} else {
+		lua_pop(L, 1);
+	}
+
+	if (els->code_injection_list && !els->code_injection_function) {
+		EXT_ERROR0("Can't have CODE_INJECTION_LIST without CODE_INJECTION_FUNCTION");
+	}
+	if (!els->code_injection_list && els->code_injection_function) {
+		EXT_ERROR0("Can't have CODE_INJECTION_FUNCTION without CODE_INJECTION_LIST");
+	}
+
+	// Verify we're still sane
+	luaL_checktype(L, 1, LUA_TTABLE);
+
+	// Now, register the extension
+	ext_state *state = ext_state_alloc();
+	state->name = els->name;
+	state->internal_state = els;
+	state->initialize = ext_lua_shared_initialize;
+	state->injection_list = els->code_injection_list;
+	if (els->code_injection_function) {
+		state->code_injection = ext_lua_shared_code_injection;
+	}
+
+	ext_register_ext(state);
+
+	return 0;
+}
+
 void ext_lua_init()
 {
     printf("Initializing Lua\n");
@@ -189,11 +334,21 @@ void ext_lua_init()
 	gl_lua_ext_init(L);
 
 	create_barray_type(L);
-    lua_register(L, "a8_memory", get_a8_memory);
 
+	lua_register(L, "a8_memory", get_a8_memory);
 	lua_register(L, "antic_dlist", ext_lua_antic_dlist);
+	lua_register(L, "ext_register", ext_lua_register);
+	lua_register(L, "ext_fakecpu_until_op", ext_lua_fakecpu_until_op);
 
-	if(ext_lua_run_file("data/ext/yoomp/script.lua")) {
+#define push_integer_value(_id) \
+	lua_pushinteger(L, _id); \
+	lua_setglobal(L, #_id);
+
+	push_integer_value(OP_RTS);
+	push_integer_value(OP_NOP);
+
+//	if(ext_lua_run_file("data/ext/yoomp/script.lua")) {
+	if(ext_lua_run_file("data/ext/bjl/init.lua")) {
 		printf("exiting\n");
 		exit(1);
 	};
@@ -201,7 +356,6 @@ void ext_lua_init()
 	char* code [] = {
 		"print('Hello, World')",
 		"a8mem = a8_memory()",
-		"yoomp_initialize()",
 	};
 
 	for (int c = 0; c < sizeof(code) / sizeof(*code); c++) {

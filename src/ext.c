@@ -74,7 +74,7 @@ static void set_current_state(ext_state *state)
 	printf("State set, %d code injections\n", i);
 }
 
-static void ext_register_ext(ext_state *state)
+void ext_register_ext(ext_state *state)
 {
 	EXT_ASSERT_NOT_NULL(state);
 	EXT_ASSERT_LT(num_states, MAX_NUM_STATES);
@@ -92,7 +92,7 @@ void ext_init()
 	ext_register_ext(ext_register_mercenary());
 	ext_register_ext(ext_register_zybex());
 	ext_register_ext(ext_register_altreal());
-	ext_register_ext(ext_register_bjl());
+//	ext_register_ext(ext_register_bjl());
 	ext_register_ext(ext_register_river_raid());
 
 //	set_current_state(states[5]);
@@ -133,7 +133,7 @@ static void ext_menu()
 	for (;;) {
 		// Prepare menu including the extension's menu
 		UI_tMenuItem* ext_config = (current_state && current_state->get_config)
-				? current_state->get_config(current_state->internal_state) : NULL;
+				? current_state->get_config(current_state) : NULL;
 
 		menu_array[0] = menu_array_template[0];
 		menu_array[0].suffix = current_state ? current_state->name : "-UNKNOWN-";
@@ -155,7 +155,7 @@ static void ext_menu()
 			break;
 		}
 		if (current_state && current_state->handle_config) {
-			current_state->handle_config(current_state->internal_state, option);
+			current_state->handle_config(current_state, option);
 		}
 	}
 	inside_menu = 0;
@@ -182,7 +182,7 @@ void ext_pre_gl_frame(void)
 		return;
 	}
 	if (current_state && current_state->pre_gl_frame) {
-		current_state->pre_gl_frame(current_state->internal_state);
+		current_state->pre_gl_frame(current_state);
 	}
 }
 
@@ -192,7 +192,7 @@ void ext_post_gl_frame(void)
 		return;
 	}
 	if (current_state && current_state->post_gl_frame) {
-		current_state->post_gl_frame(current_state->internal_state);
+		current_state->post_gl_frame(current_state);
 	}
 }
 
@@ -206,7 +206,7 @@ int ext_handle_code_injection(int pc, int op)
 			// No need to call
 			return op;
 		}
-		return current_state->code_injection(current_state->internal_state, pc, op);
+		return current_state->code_injection(current_state, pc, op);
 	}
 
 	return op;
