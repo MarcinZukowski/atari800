@@ -352,6 +352,15 @@ static int ext_lua_fakecpu_until_op(lua_State *L)
 	return 1;
 }
 
+// Lua wrapper over ext_fakecpu_until_pc
+static int ext_lua_fakecpu_until_pc(lua_State *L)
+{
+	int op = luaL_checkinteger(L, 1);
+	int ret = ext_fakecpu_until_pc(op);
+	lua_pushinteger(L, ret);
+	return 1;
+}
+
 static int ext_lua_print_fps(lua_State *L)
 {
 	int value = luaL_checkinteger(L, 1);
@@ -579,6 +588,7 @@ void ext_lua_init()
 	lua_register(L, "antic_hscrol", ext_lua_antic_hscrol);
 	lua_register(L, "ext_register", ext_lua_register);
 	lua_register(L, "ext_fakecpu_until_op", ext_lua_fakecpu_until_op);
+	lua_register(L, "ext_fakecpu_until_pc", ext_lua_fakecpu_until_pc);
 	lua_register(L, "ext_print_fps", ext_lua_print_fps);
 	lua_register(L, "ext_acceleration_disabled", ext_lua_acceleration_disabled);
 
@@ -590,8 +600,7 @@ void ext_lua_init()
 	push_integer_value(OP_NOP);
 
 //	if(ext_lua_run_file("data/ext/yoomp/script.lua")) {
-//	if(ext_lua_run_file("data/ext/bjl/init.lua")) {
-	if(ext_lua_run_file("data/ext/zybex/init.lua")) {
+	if(ext_lua_run_file("data/ext/altreal/init.lua")) {
 		printf("exiting\n");
 		exit(1);
 	};

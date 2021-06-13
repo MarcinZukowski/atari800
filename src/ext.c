@@ -91,7 +91,7 @@ void ext_init()
 	ext_register_ext(ext_register_yoomp());
 	ext_register_ext(ext_register_mercenary());
 //	ext_register_ext(ext_register_zybex());
-	ext_register_ext(ext_register_altreal());
+//	ext_register_ext(ext_register_altreal());
 //	ext_register_ext(ext_register_bjl());
 	ext_register_ext(ext_register_river_raid());
 
