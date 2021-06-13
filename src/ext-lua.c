@@ -27,6 +27,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include <lua/lua.h>
 #include <lua/lualib.h>
@@ -596,8 +599,42 @@ void ext_lua_init()
 	push_integer_value(OP_RTS);
 	push_integer_value(OP_NOP);
 
-//	if(ext_lua_run_file("data/ext/yoomp/script.lua")) {
-	if(ext_lua_run_file("data/ext/altreal/init.lua")) {
+	// Register all files matching: data/ext/*/init.lua
+	const char *dirname = "data/ext";
+	DIR *dir = opendir(dirname);
+	EXT_ASSERT_NOT_NULL(dir);
+	printf("%p\n", dir);
+
+	struct dirent *dp;
+#define BUFSIZE 1000
+	char buf[BUFSIZE];
+	while ((dp = readdir(dir)) != NULL) {
+		// Check if it's a directory
+		struct stat stbuf;
+		snprintf(buf, BUFSIZE, "%s/%s", dirname, dp->d_name);
+		if (stat(buf, &stbuf) == -1) {
+			EXT_ERROR("stat(%s) failed", buf);
+		}
+		if ((stbuf.st_mode & S_IFDIR) == 0) {
+			// Skip files
+			continue;
+		}
+		// See if init.lua exists
+		snprintf(buf, BUFSIZE, "%s/%s/init.lua", dirname, dp->d_name);
+		if (stat(buf, &stbuf) == -1) {
+			// File doesn't exist
+			continue;
+		}
+		// Found init.lua, try to load
+		if (ext_lua_run_file(buf)) {
+			printf("exiting\n");
+			exit(1);
+		};
+	}
+
+
+#if 0  // some old code
+	if(ext_lua_run_file("data/ext/yoomp/script.lua")) {
 		printf("exiting\n");
 		exit(1);
 	};
@@ -615,6 +652,7 @@ void ext_lua_init()
 			exit(1);
 		}
 	}
+#endif
 }
 
 struct lua_State *lua_ext_get_state(void)
