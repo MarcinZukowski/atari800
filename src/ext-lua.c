@@ -119,7 +119,7 @@ static int get_a8_memory (lua_State* L) {
     return expose_barray(L, MEMORY_mem );
 }
 
-lua_State *L = NULL;
+static lua_State *L = NULL;
 
 static int ext_lua_eval(const char* str)
 {
@@ -180,8 +180,23 @@ static int ext_lua_antic_dlist(lua_State* L) {
     return 1;
 }
 
+/** *********************** SCRIPTING SUPPORT ****************** */
+
 // Lua-specific extension state
 typedef struct {
+	const char* label;
+	const char** options;
+	int option_count;
+	int current;
+	// Handle to the Lua menu table
+	int handle;
+} ext_lua_menu_item;
+
+typedef struct {
+	// Handle to the registered lua table
+	int self;
+
+	// Extension name
 	const char* name;
 
 	// All Lua extensions for now use the simple memory fingerprint mechanism
@@ -195,6 +210,12 @@ typedef struct {
 
 	// Handles to various functions
 	int pre_gl_frame;
+
+	// Menu
+	ext_lua_menu_item *menu_items;
+	int menu_item_count;
+	UI_tMenuItem *ui_menu_items;
+
 } ext_lua_state;
 
 static int ext_lua_shared_initialize(ext_state *state)
@@ -221,9 +242,12 @@ static int ext_lua_shared_code_injection(ext_state *state, int pc, int op)
 	// Call the provided extension's function
 	EXT_ASSERT_GT(els->code_injection_function, 0);
 	lua_geti(L, LUA_REGISTRYINDEX, els->code_injection_function);
+	// Push "self" parameter
+	lua_geti(L, LUA_REGISTRYINDEX, els->self);
+	// Push other params
 	lua_pushnumber(L, pc);
 	lua_pushnumber(L, op);
-	if (lua_pcall(L, 2, 1, 0) != LUA_OK) {
+	if (lua_pcall(L, 3, 1, 0) != LUA_OK) {
 		EXT_ERROR("Failed calling lua function: %s", lua_tostring(L, -1));
 	}
 
@@ -233,6 +257,52 @@ static int ext_lua_shared_code_injection(ext_state *state, int pc, int op)
 	return ret;
 }
 
+static void ext_lua_refresh_config(ext_state *state)
+{
+	ext_lua_state *els = (ext_lua_state*)state->internal_state;
+	EXT_ASSERT_NOT_NULL(els);
+	EXT_ASSERT_GT(els->menu_item_count, 0);
+
+	for (int i = 0; i < els->menu_item_count; i++) {
+		ext_lua_menu_item *item = els->menu_items + i;
+		int current = item->current;
+		// Update UI
+		els->ui_menu_items[i].suffix = item->options[current];
+		// Update LUA state
+		lua_geti(L, LUA_REGISTRYINDEX, item->handle);
+		luaL_checktype(L, -1, LUA_TTABLE);
+		lua_pushstring(L, "CURRENT");
+		lua_pushnumber(L, current);
+		lua_settable(L, -3);
+		lua_pop(L, 1);
+	}
+}
+
+static struct UI_tMenuItem* ext_lua_shared_get_config(ext_state *state)
+{
+	ext_lua_state *els = (ext_lua_state*)state->internal_state;
+	EXT_ASSERT_NOT_NULL(els);
+	EXT_ASSERT_GT(els->menu_item_count, 0);
+
+	ext_lua_refresh_config(state);
+
+	return els->ui_menu_items;
+}
+
+static void ext_lua_shared_handle_config(ext_state *state, int option)
+{
+	ext_lua_state *els = (ext_lua_state*)state->internal_state;
+	EXT_ASSERT_NOT_NULL(els);
+	EXT_ASSERT_GT(els->menu_item_count, 0);
+
+	EXT_ASSERT_BETWEEN(option, 0, els->menu_item_count - 1);
+	ext_lua_menu_item *item = els->menu_items + option;
+	item->current = (item->current + 1) % item->option_count;
+
+	ext_lua_refresh_config(state);
+}
+
+
 static void ext_lua_shared_pre_gl_frame(ext_state *state)
 {
 	ext_lua_state *els = (ext_lua_state*)state->internal_state;
@@ -241,7 +311,10 @@ static void ext_lua_shared_pre_gl_frame(ext_state *state)
 	// Call the provided extension's function
 	EXT_ASSERT_GT(els->pre_gl_frame, 0);
 	lua_geti(L, LUA_REGISTRYINDEX, els->pre_gl_frame);
-	if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+	// Push "self" parameter
+	lua_geti(L, LUA_REGISTRYINDEX, els->self);
+	// Call
+	if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
 		EXT_ERROR("Failed calling lua function: %s", lua_tostring(L, -1));
 	}
 }
@@ -275,6 +348,16 @@ static int ext_lua_acceleration_disabled(lua_State *L)
 	return 1;
 }
 
+static int hlp_lua_tablesize(lua_State *L, int idx)
+{
+	int sz = 0;
+	lua_pushnil(L);
+	while (lua_next(L, idx - 1)) {
+		sz++;
+		lua_pop(L, 1);
+	}
+	return sz;
+}
 
 // Function called by Lua scripts
 static int ext_lua_register(lua_State *L)
@@ -284,6 +367,9 @@ static int ext_lua_register(lua_State *L)
 	ext_lua_state *els = malloc(sizeof(ext_lua_state));
 	EXT_ASSERT_NOT_NULL(els);
 	memset(els, 0, sizeof(*els));
+
+	lua_pushvalue(L, -1);
+	els->self = luaL_ref(L, LUA_REGISTRYINDEX);
 
 	lua_getfield(L, 1, "NAME");
 	els->name = luaL_checkstring(L, -1);
@@ -350,6 +436,73 @@ static int ext_lua_register(lua_State *L)
 		lua_pop(L, 1);
 	}
 
+	lua_getfield(L, 1, "MENU");
+	if (!lua_isnil(L, -1)) {
+		luaL_checktype(L, -1, LUA_TTABLE);
+		int sz = hlp_lua_tablesize(L, -1);
+		EXT_ASSERT_GT(sz, 0);
+		ext_lua_menu_item *items = malloc(sz * sizeof(*items));
+		els->menu_items = items;
+		EXT_ASSERT_NOT_NULL(items);
+		els->menu_item_count = sz;
+		printf("MENU sz=%d\n", sz);
+
+		// Iterate over menu items
+		lua_pushnil(L);
+		int idx = 0;
+		while (lua_next(L, -2)) {
+			ext_lua_menu_item *item = items + idx++;
+			memset(item, 0, sizeof(*item));
+			EXT_ASSERT_EQ(lua_type(L, -1), LUA_TTABLE);
+			EXT_ASSERT_EQ(lua_type(L, -2), LUA_TSTRING);
+
+			// Parse one menu item from table at -1
+
+			// Save the handle to that item
+			lua_pushvalue(L, -1);
+			item->handle = luaL_ref(L, LUA_REGISTRYINDEX);
+
+			// LABEL
+			lua_getfield(L, -1, "LABEL");
+			item->label = luaL_checkstring(L, -1);
+			lua_pop(L, 1);  // pop label
+
+			// OPTIONS
+			lua_getfield(L, -1, "OPTIONS");
+			luaL_checktype(L, -1, LUA_TTABLE);
+			item->option_count = lua_rawlen(L, -1);
+			item->options = malloc(sizeof(*item->options) * item->option_count);
+			for (int i = 0; i < item->option_count; i++) {
+				lua_rawgeti(L, -1, i + 1);
+				item->options[i] = luaL_checkstring(L, -1);
+				lua_pop(L, 1);  // pop current option
+			}
+			lua_pop(L, 1);  // pop options table
+
+			// CURRENT
+			lua_getfield(L, -1, "CURRENT");
+			if (lua_isnil(L, -1)) {
+				lua_pop(L, 1);
+				item->current = 0;
+			} else {
+				item->current = luaL_checkinteger(L, -1);
+				lua_pop(L, 1);  // pop current
+			}
+
+			printf("MENU ITEM: label=%s current=%d count=%d\n", item->label, item->current, item->option_count);
+
+			lua_pop(L, 1);  // pop table
+		}
+		// Create a structure for UI handler
+		els->ui_menu_items = malloc(sizeof(*els->ui_menu_items) * (els->menu_item_count + 1));
+		for (int i = 0; i < els->menu_item_count; i++) {
+			els->ui_menu_items[i] = (UI_tMenuItem) UI_MENU_ACTION(i, els->menu_items[i].label);
+		}
+		els->ui_menu_items[els->menu_item_count] = 	(UI_tMenuItem) UI_MENU_END;
+	} else {
+		lua_pop(L, 1);
+	}
+
 	// Verify we're still sane
 	luaL_checktype(L, 1, LUA_TTABLE);
 
@@ -364,6 +517,10 @@ static int ext_lua_register(lua_State *L)
 	}
 	if (els->pre_gl_frame) {
 		state->pre_gl_frame = ext_lua_shared_pre_gl_frame;
+	}
+	if (els->menu_item_count > 0) {
+		state->get_config = ext_lua_shared_get_config;
+		state->handle_config = ext_lua_shared_handle_config;
 	}
 
 	ext_register_ext(state);
