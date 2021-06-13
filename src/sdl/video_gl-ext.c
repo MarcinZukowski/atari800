@@ -393,6 +393,16 @@ static int gl_le_gl_TexCoord2f(lua_State *L)
     return 0;
 }
 
+static int gl_le_gl_TexParameteri(lua_State *L)
+{
+    luaL_checkudata(L, 1, LE_GL);
+    int target = luaL_checkinteger(L, 2);
+    int pname = luaL_checkinteger(L, 3);
+    int param = luaL_checkinteger(L, 4);
+    gl.TexParameteri(target, pname, param);
+    return 0;
+}
+
 static int gl_le_gl_Vertex3f(lua_State *L)
 {
     luaL_checkudata(L, 1, LE_GL);
@@ -503,6 +513,7 @@ static void gl_le_gl_create_type(lua_State* L) {
         { "BlendFunc", gl_le_gl_BlendFunc },
         { "BindTexture", gl_le_gl_BindTexture },
         { "TexCoord2f", gl_le_gl_TexCoord2f },
+        { "TexParameteri", gl_le_gl_TexParameteri },
         { "Vertex3f", gl_le_gl_Vertex3f },
         { "Translatef", gl_le_gl_Translatef },
         { "Scalef", gl_le_gl_Scalef },
@@ -522,10 +533,17 @@ static void gl_le_gl_create_type(lua_State* L) {
     push_integer_value(GL_LIGHTING);
     push_integer_value(GL_LIGHT0);
     push_integer_value(GL_MODELVIEW);
+    push_integer_value(GL_ONE);
+    push_integer_value(GL_ONE_MINUS_DST_ALPHA);
+    push_integer_value(GL_ONE_MINUS_DST_COLOR);
     push_integer_value(GL_ONE_MINUS_SRC_ALPHA);
+    push_integer_value(GL_ONE_MINUS_SRC_COLOR);
+    push_integer_value(GL_REPEAT);
     push_integer_value(GL_QUADS);
     push_integer_value(GL_SRC_ALPHA);
     push_integer_value(GL_TEXTURE_2D);
+    push_integer_value(GL_TEXTURE_WRAP_S);
+    push_integer_value(GL_TEXTURE_WRAP_T);
 
     lua_register(L, "gl_api", gl_le_gl_api);
 }
