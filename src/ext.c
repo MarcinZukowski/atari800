@@ -23,9 +23,10 @@
 #include "monitor.h"
 #include "ui.h"
 
-#define NUM_STATES 6
-static ext_state* states[NUM_STATES];
+#define MAX_NUM_STATES 256
+static ext_state* states[MAX_NUM_STATES];
 static ext_state* current_state = NULL;
+static int num_states;
 
 #define RAM_SIZE (64 * 1024)
 
@@ -73,21 +74,26 @@ static void set_current_state(ext_state *state)
 	printf("State set, %d code injections\n", i);
 }
 
+static void ext_register_ext(ext_state *state)
+{
+	EXT_ASSERT_NOT_NULL(state);
+	EXT_ASSERT_LT(num_states, MAX_NUM_STATES);
+	printf("Registering extension: %s\n", state->name);
+	states[num_states++] = state;
+}
+
 void ext_init()
 {
 #ifdef WITH_EXT_LUA
 	ext_lua_init();
 #endif
 
-	states[0] = ext_register_yoomp();
-	states[1] = ext_register_mercenary();
-	states[2] = ext_register_zybex();
-	states[3] = ext_register_altreal();
-	states[4] = ext_register_bjl();
-	states[5] = ext_register_river_raid();
-	for (int i = 0; i < NUM_STATES; i++) {
-		EXT_ASSERT_NOT_NULL(states[i]);
-	}
+	ext_register_ext(ext_register_yoomp());
+	ext_register_ext(ext_register_mercenary());
+	ext_register_ext(ext_register_zybex());
+	ext_register_ext(ext_register_altreal());
+	ext_register_ext(ext_register_bjl());
+	ext_register_ext(ext_register_river_raid());
 
 //	set_current_state(states[5]);
 	if (current_state) {
@@ -103,7 +109,7 @@ static void ext_menu()
 
 	// Choose extension
 	if (!current_state) {
-		for (int i = 0; i < NUM_STATES; i++) {
+		for (int i = 0; i < num_states; i++) {
 			if (states[i]->initialize(states[i])) {
 				set_current_state(states[i]);
 				break;
