@@ -37,6 +37,7 @@
 #include "antic.h"
 #include "cpu.h"
 #include "ui.h"
+#include "ui_basic.h"
 
 #include "sdl/video_gl.h"
 
@@ -191,6 +192,9 @@ typedef struct {
 	// Compatible with ext_state::injection_list, ends with -1 if present
 	int *code_injection_list;
 	int code_injection_function;
+
+	// Handles to various functions
+	int pre_gl_frame;
 } ext_lua_state;
 
 static int ext_lua_shared_initialize(ext_state *state)
@@ -214,13 +218,11 @@ static int ext_lua_shared_code_injection(ext_state *state, int pc, int op)
 	ext_lua_state *els = (ext_lua_state*)state->internal_state;
 	EXT_ASSERT_NOT_NULL(els);
 
-	EXT_ASSERT_GT(els->code_injection_function, 0);
-
 	// Call the provided extension's function
+	EXT_ASSERT_GT(els->code_injection_function, 0);
 	lua_geti(L, LUA_REGISTRYINDEX, els->code_injection_function);
 	lua_pushnumber(L, pc);
 	lua_pushnumber(L, op);
-
 	if (lua_pcall(L, 2, 1, 0) != LUA_OK) {
 		EXT_ERROR("Failed calling lua function: %s", lua_tostring(L, -1));
 	}
@@ -231,6 +233,19 @@ static int ext_lua_shared_code_injection(ext_state *state, int pc, int op)
 	return ret;
 }
 
+static void ext_lua_shared_pre_gl_frame(ext_state *state)
+{
+	ext_lua_state *els = (ext_lua_state*)state->internal_state;
+	EXT_ASSERT_NOT_NULL(els);
+
+	// Call the provided extension's function
+	EXT_ASSERT_GT(els->pre_gl_frame, 0);
+	lua_geti(L, LUA_REGISTRYINDEX, els->pre_gl_frame);
+	if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+		EXT_ERROR("Failed calling lua function: %s", lua_tostring(L, -1));
+	}
+}
+
 // Lua wrapper over ext_fakecpu_until_op
 static int ext_lua_fakecpu_until_op(lua_State *L)
 {
@@ -239,6 +254,27 @@ static int ext_lua_fakecpu_until_op(lua_State *L)
 	lua_pushinteger(L, ret);
 	return 1;
 }
+
+static int ext_lua_print_fps(lua_State *L)
+{
+	int value = luaL_checkinteger(L, 1);
+	int color1 = luaL_checkinteger(L, 2);
+	int color2 = luaL_checkinteger(L, 3);
+	int posx = luaL_checkinteger(L, 4);
+	int posy = luaL_checkinteger(L, 5);
+
+	const char *fps_str = ext_fps_str(value);
+	Print(color1, color2, fps_str, posx, posy, 20);
+
+	return 0;
+}
+
+static int ext_lua_acceleration_disabled(lua_State *L)
+{
+	lua_pushboolean(L, ext_acceleration_disabled());
+	return 1;
+}
+
 
 // Function called by Lua scripts
 static int ext_lua_register(lua_State *L)
@@ -306,6 +342,14 @@ static int ext_lua_register(lua_State *L)
 		EXT_ERROR0("Can't have CODE_INJECTION_FUNCTION without CODE_INJECTION_LIST");
 	}
 
+	lua_getfield(L, 1, "PRE_GL_FRAME");
+	if (!lua_isnil(L, -1)) {
+		luaL_checktype(L, -1, LUA_TFUNCTION);
+		els->pre_gl_frame = luaL_ref(L, LUA_REGISTRYINDEX);
+	} else {
+		lua_pop(L, 1);
+	}
+
 	// Verify we're still sane
 	luaL_checktype(L, 1, LUA_TTABLE);
 
@@ -317,6 +361,9 @@ static int ext_lua_register(lua_State *L)
 	state->injection_list = els->code_injection_list;
 	if (els->code_injection_function) {
 		state->code_injection = ext_lua_shared_code_injection;
+	}
+	if (els->pre_gl_frame) {
+		state->pre_gl_frame = ext_lua_shared_pre_gl_frame;
 	}
 
 	ext_register_ext(state);
@@ -339,6 +386,8 @@ void ext_lua_init()
 	lua_register(L, "antic_dlist", ext_lua_antic_dlist);
 	lua_register(L, "ext_register", ext_lua_register);
 	lua_register(L, "ext_fakecpu_until_op", ext_lua_fakecpu_until_op);
+	lua_register(L, "ext_print_fps", ext_lua_print_fps);
+	lua_register(L, "ext_acceleration_disabled", ext_lua_acceleration_disabled);
 
 #define push_integer_value(_id) \
 	lua_pushinteger(L, _id); \

@@ -8,7 +8,15 @@ ext_register({
 	-- We'll intercept execution at these points
 	CODE_INJECTION_LIST = { 0xb51c, 0x9da7, 0xaf32 },
 	CODE_INJECTION_FUNCTION = function(pc, op)
+		if ext_acceleration_disabled() then
+			return op
+		end
 		-- For all entry points, just run until RTS
 		return ext_fakecpu_until_op(OP_RTS)
 	end,
+
+	-- Show FPS
+	PRE_GL_FRAME = function()
+		ext_print_fps(antic_dlist(), 0x9f, 0x90, 0, -2)
+	end
 })

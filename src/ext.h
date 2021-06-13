@@ -67,6 +67,7 @@ char *ext_fps_str(int previous_value);
 #define EXT_ERROR(fmt, args...) do { printf("ERROR at %s:%d: " fmt "\n", __FILE__, __LINE__, args); exit(-2); } while (0)
 #define EXT_ERROR0(fmt) EXT_ERROR(fmt "%s", "")
 #define EXT_TRACE(fmt, args...) do { printf("%s:%d:%s: " fmt "\n", __FILE__, __LINE__, __FUNCTION__, args); fflush(stdout);} while (0)
+#define EXT_TRACE0(fmt) EXT_TRACE(fmt "%s", "")
 
 // Acceleration is disabled on CTRL, can be used by extensions
 int ext_acceleration_disabled(void);
