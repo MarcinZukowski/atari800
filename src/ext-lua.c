@@ -180,6 +180,11 @@ static int ext_lua_antic_dlist(lua_State* L) {
     return 1;
 }
 
+static int ext_lua_antic_hscrol(lua_State* L) {
+    lua_pushnumber(L, ANTIC_HSCROL);
+    return 1;
+}
+
 /** *********************** SCRIPTING SUPPORT ****************** */
 
 // Lua-specific extension state
@@ -210,6 +215,7 @@ typedef struct {
 
 	// Handles to various functions
 	int pre_gl_frame;
+	int post_gl_frame;
 
 	// Menu
 	ext_lua_menu_item *menu_items;
@@ -318,6 +324,24 @@ static void ext_lua_shared_pre_gl_frame(ext_state *state)
 		EXT_ERROR("Failed calling lua function: %s", lua_tostring(L, -1));
 	}
 }
+
+static void ext_lua_shared_post_gl_frame(ext_state *state)
+{
+	ext_lua_state *els = (ext_lua_state*)state->internal_state;
+	EXT_ASSERT_NOT_NULL(els);
+
+	// Call the provided extension's function
+	EXT_ASSERT_GT(els->post_gl_frame, 0);
+	lua_geti(L, LUA_REGISTRYINDEX, els->post_gl_frame);
+	// Push "self" parameter
+	lua_geti(L, LUA_REGISTRYINDEX, els->self);
+	// Call
+	if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
+		EXT_ERROR("Failed calling lua function: %s", lua_tostring(L, -1));
+	}
+}
+
+
 
 // Lua wrapper over ext_fakecpu_until_op
 static int ext_lua_fakecpu_until_op(lua_State *L)
@@ -436,6 +460,14 @@ static int ext_lua_register(lua_State *L)
 		lua_pop(L, 1);
 	}
 
+	lua_getfield(L, 1, "POST_GL_FRAME");
+	if (!lua_isnil(L, -1)) {
+		luaL_checktype(L, -1, LUA_TFUNCTION);
+		els->post_gl_frame = luaL_ref(L, LUA_REGISTRYINDEX);
+	} else {
+		lua_pop(L, 1);
+	}
+
 	lua_getfield(L, 1, "MENU");
 	if (!lua_isnil(L, -1)) {
 		luaL_checktype(L, -1, LUA_TTABLE);
@@ -518,6 +550,9 @@ static int ext_lua_register(lua_State *L)
 	if (els->pre_gl_frame) {
 		state->pre_gl_frame = ext_lua_shared_pre_gl_frame;
 	}
+	if (els->post_gl_frame) {
+		state->post_gl_frame = ext_lua_shared_post_gl_frame;
+	}
 	if (els->menu_item_count > 0) {
 		state->get_config = ext_lua_shared_get_config;
 		state->handle_config = ext_lua_shared_handle_config;
@@ -541,6 +576,7 @@ void ext_lua_init()
 
 	lua_register(L, "a8_memory", get_a8_memory);
 	lua_register(L, "antic_dlist", ext_lua_antic_dlist);
+	lua_register(L, "antic_hscrol", ext_lua_antic_hscrol);
 	lua_register(L, "ext_register", ext_lua_register);
 	lua_register(L, "ext_fakecpu_until_op", ext_lua_fakecpu_until_op);
 	lua_register(L, "ext_print_fps", ext_lua_print_fps);
@@ -554,7 +590,8 @@ void ext_lua_init()
 	push_integer_value(OP_NOP);
 
 //	if(ext_lua_run_file("data/ext/yoomp/script.lua")) {
-	if(ext_lua_run_file("data/ext/bjl/init.lua")) {
+//	if(ext_lua_run_file("data/ext/bjl/init.lua")) {
+	if(ext_lua_run_file("data/ext/zybex/init.lua")) {
 		printf("exiting\n");
 		exit(1);
 	};
