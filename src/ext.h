@@ -62,7 +62,7 @@ char *ext_fps_str(int previous_value);
 #define EXT_ASSERT_EQ(val, exp) EXT_ASSERT(val == exp, "Value of %s=%g not equal to %g", #val, (float)val, (float)exp)
 #define EXT_ASSERT_NE(val, exp) EXT_ASSERT(val != exp, "Value of %s=%g equal to %g", #val, (float)val, (float) exp)
 #define EXT_ASSERT_LT(val, exp) EXT_ASSERT(val < exp, "Value of %s=%g not lower than %g", #val, (float)val, (float) exp)
-#define EXT_ASSERT_GT(val, exp) EXT_ASSERT(val > exp, "Value of %s=%g not greter than %g", #val, (float)val, (float) exp)
+#define EXT_ASSERT_GT(val, exp) EXT_ASSERT(val > exp, "Value of %s=%g not greater than %g", #val, (float)val, (float) exp)
 
 #define EXT_ERROR(fmt, args...) do { printf("ERROR at %s:%d: " fmt "\n", __FILE__, __LINE__, args); exit(-2); } while (0)
 #define EXT_ERROR0(fmt) EXT_ERROR(fmt "%s", "")
