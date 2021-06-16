@@ -38,6 +38,7 @@
 #include "akey.h"
 #include "memory.h"
 #include "antic.h"
+#include "colours.h"
 #include "cpu.h"
 #include "ui.h"
 #include "ui_basic.h"
@@ -183,6 +184,24 @@ static int ext_lua_antic_hscrol(lua_State* L) {
     lua_pushnumber(L, ANTIC_HSCROL);
     return 1;
 }
+
+static int ext_lua_colours_getr(lua_State* L) {
+    int color = luaL_checkinteger(L, 1);
+    lua_pushinteger(L, Colours_GetR(color));
+    return 1;
+}
+static int ext_lua_colours_getg(lua_State* L) {
+    int color = luaL_checkinteger(L, 1);
+    lua_pushinteger(L, Colours_GetG(color));
+    return 1;
+}
+static int ext_lua_colours_getb(lua_State* L) {
+    int color = luaL_checkinteger(L, 1);
+    lua_pushinteger(L, Colours_GetB(color));
+    return 1;
+}
+
+
 
 /** *********************** SCRIPTING SUPPORT ****************** */
 
@@ -584,6 +603,10 @@ void ext_lua_init()
 	lua_register(L, "a8_memory", get_a8_memory);
 	lua_register(L, "antic_dlist", ext_lua_antic_dlist);
 	lua_register(L, "antic_hscrol", ext_lua_antic_hscrol);
+	lua_register(L, "a8_Colours_GetR", ext_lua_colours_getr);
+	lua_register(L, "a8_Colours_GetG", ext_lua_colours_getg);
+	lua_register(L, "a8_Colours_GetB", ext_lua_colours_getb);
+
 	lua_register(L, "ext_register", ext_lua_register);
 	lua_register(L, "ext_fakecpu_until_op", ext_lua_fakecpu_until_op);
 	lua_register(L, "ext_fakecpu_until_pc", ext_lua_fakecpu_until_pc);
