@@ -324,9 +324,20 @@ static int gl_le_glo_render(lua_State *L)
     return 0;
 }
 
+static int gl_le_glo_render_colorized(lua_State *L)
+{
+    gl_obj* glo = *(gl_obj**)luaL_checkudata(L, 1, LE_GLO);
+    float R = luaL_checknumber(L, 2);
+    float G = luaL_checknumber(L, 3);
+    float B = luaL_checknumber(L, 4);
+    gl_obj_render_colorized(glo, R, G, B);
+    return 0;
+}
+
 static void gl_le_glo_create_type(lua_State* L) {
     static const struct luaL_Reg funcs[] = {
         { "render", gl_le_glo_render },
+        { "render_colorized", gl_le_glo_render_colorized },
         NULL, NULL
     };
     luaL_newmetatable(L, LE_GLO);
