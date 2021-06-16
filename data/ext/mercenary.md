@@ -53,10 +53,12 @@ Memory:
 * 2000 - screen lines HI
 * 26a0 - div-by-4 (0,0,0,0,1,1,1,1,2,2,2,2) - X pos to byte
 * 23 - screen memory HI (0x80 or 0xE0)
+* 04 - current Y
+* 06 - X/Y lo
+* 64 - X/Y delta
+* 68 - start X
+* 69 - start Y
 * 6a - max X ?
 * 6b - max Y ?
-* 64 - X/Y delta
-* 06 - X/Y lo
-* 04 - current Y
 * 8010 - screen memory 1
 * e010 - screen memory 2
