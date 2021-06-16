@@ -83,9 +83,7 @@ static int barray_new(lua_State *L) {
 
 static int barray_gc(lua_State *L) {
 	byte *ptr = *(byte**)(lua_touserdata(L, 1));
-	printf("barray_gc: %p\n", ptr);
-	free(ptr);
-	exit(1);
+	// Do nothing here, as the exposed memory is not managed by us
 	return 0;
 }
 
@@ -113,12 +111,10 @@ static int expose_barray(lua_State* L, byte *barray) {
    *parray = barray;
    luaL_getmetatable(L, "barray");
    lua_setmetatable(L, -2);
-   printf("ok!\n");
    return 1;
 }
 
 static int get_a8_memory (lua_State* L) {
-	printf("get_a8_memory\n");
     return expose_barray(L, MEMORY_mem );
 }
 
