@@ -279,7 +279,6 @@ static int gl_le_glt_load_rgba(lua_State* L) {
     *parray = glt;
     luaL_getmetatable(L, LE_GLT);
     lua_setmetatable(L, -2);
-    printf("ok!\n");
 
     return 1;
 }

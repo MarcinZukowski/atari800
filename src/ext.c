@@ -88,7 +88,7 @@ void ext_init()
 	ext_lua_init();
 #endif
 
-	ext_register_ext(ext_register_yoomp());
+//	ext_register_ext(ext_register_yoomp());
 	ext_register_ext(ext_register_mercenary());
 //	ext_register_ext(ext_register_zybex());
 //	ext_register_ext(ext_register_altreal());
