@@ -67,7 +67,7 @@ ext_register({
 		local TT = 0.70;
 		local TB = 0.30;
 
-
+		-- Texture id
 		local texture = (self.MENU.BKG.CURRENT == 1) and self.TEXTURE_GRAY or self.TEXTURE_COLOR
 		local texture_id = texture:gl_id()
 
@@ -76,21 +76,9 @@ ext_register({
 		gl:Disable(gl.GL_DEPTH_TEST);
 		gl:Color4f(0.2, 0.2, 0.2, 0.5);
 		gl:Enable(gl.GL_BLEND);
-		gl:BlendFunc(
-			gl.GL_ONE_MINUS_DST_COLOR,
-			gl.GL_ONE
-		);
+		gl:BlendFunc(gl.GL_ONE_MINUS_DST_COLOR, gl.GL_ONE);
 
-		gl:Begin(gl.GL_QUADS);
-		gl:TexCoord2f(TL, TB);
-		gl:Vertex3f(L, B, -2.0);
-		gl:TexCoord2f(TR, TB);
-		gl:Vertex3f(R, B, -2.0);
-		gl:TexCoord2f(TR, TT);
-		gl:Vertex3f(R, T, -2.0);
-		gl:TexCoord2f(TL, TT);
-		gl:Vertex3f(L, T, -2.0);
-		gl:End();
+		ext_gl_draw_quad(gl, TL, TR, TT, TB, L, R, T, B, Z);
 
 		gl:Color4f(1.0, 1.0, 1.0, 1.0);
 		gl:Disable(gl.GL_BLEND);

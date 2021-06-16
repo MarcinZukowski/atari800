@@ -579,8 +579,10 @@ void ext_lua_init()
 	assert(L);
 	luaL_openlibs(L);
 
+	// Register OpenGL extensions
 	gl_lua_ext_init(L);
 
+	// Register various a8-specific types
 	create_barray_type(L);
 
 	lua_register(L, "a8_memory", get_a8_memory);
@@ -599,11 +601,16 @@ void ext_lua_init()
 	push_integer_value(OP_RTS);
 	push_integer_value(OP_NOP);
 
+	// Register common.lua
+	if (ext_lua_run_file("data/ext/common.lua")) {
+		printf("exiting\n");
+		exit(1);
+	};
+
 	// Register all files matching: data/ext/*/init.lua
 	const char *dirname = "data/ext";
 	DIR *dir = opendir(dirname);
 	EXT_ASSERT_NOT_NULL(dir);
-	printf("%p\n", dir);
 
 	struct dirent *dp;
 #define BUFSIZE 1000
