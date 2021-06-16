@@ -33,9 +33,8 @@ ext_register({
             self.balls[i] = glo_load(self.ball_files[i]);
         end
 
-
         -- Load background
-        self.background = glt_load_rgba("data/ext/yoomp/rof.rgba", 476, 476);
+        self.background = glt_load_rgba("data/ext/yoomp/rof-gray.rgba", 476, 476);
 
         -- Fix alphas
         local height = self.background:height()
@@ -78,6 +77,7 @@ ext_register({
         end
 
         local gl = self.gl;
+        local a8mem = a8_memory();
 
         local L = -0.77;
         local R = -L;
@@ -92,24 +92,24 @@ ext_register({
         gl:BindTexture(gl.GL_TEXTURE_2D, self.background:gl_id());
 
         gl:Disable(gl.GL_DEPTH_TEST);
-        gl:Color4f(1.0, 1.0, 1.0, 1.0);
         gl:Enable(gl.GL_BLEND);
         gl:BlendFunc(
             gl.GL_SRC_ALPHA,
             gl.GL_ONE_MINUS_SRC_ALPHA
         );
 
-        gl:Begin(gl.GL_QUADS);
-        gl:TexCoord2f(TL, TB);
-        gl:Vertex3f(L, B, -2.0);
-        gl:TexCoord2f(TR, TB);
-        gl:Vertex3f(R, B, -2.0);
-        gl:TexCoord2f(TR, TT);
-        gl:Vertex3f(R, T, -2.0);
-        gl:TexCoord2f(TL, TT);
-        gl:Vertex3f(L, T, -2.0);
-        gl:End();
+        -- 4F60 has background color
+        local color = a8mem:get(0x4F60) | 0x0F;  -- brightest
+        local colR = a8_Colours_GetR(color) / 255.0;
+        local colG = a8_Colours_GetG(color) / 255.0;
+        local colB = a8_Colours_GetB(color) / 255.0;
 
+        gl:Disable(gl.GL_DEPTH_TEST);
+        gl:Color4f(colR, colG, colB, 1.0);
+
+		ext_gl_draw_quad(gl, TL, TR, TT, TB, L, R, T, B, -2.0);
+
+        gl:Color4f(1.0, 1.0, 1.0, 1.0);
         gl:Disable(gl.GL_BLEND);
     end,
 
@@ -148,15 +148,26 @@ ext_register({
         gl:Rotatef(ball_angle / 256.0 * 360.0, 0, 0, 1);
         gl:Rotatef(11 * self.ball_counter, 1, 0, 0);
 
+        local colR, colG, colB;
+        if ball_nr == 1 then
+            -- 4F5c has ball color
+            local color = a8mem:get(0x4F5c) | 0x0c;  -- brightness
+            colR = a8_Colours_GetR(color) / 255.0;
+            colG = a8_Colours_GetG(color) / 255.0;
+            colB = a8_Colours_GetB(color) / 255.0;
+        else
+            colR = 1.0;
+            colG = 1.0;
+            colB = 1.0;
+        end
+
         local ball = self.balls[ball_nr + 1]
-        ball:render();
+        ball:render_colorized(colR, colG, colB);
 
         gl:PopMatrix();
 
         gl:Enable(gl.GL_TEXTURE_2D);
         gl:Color4f(1, 1, 1, 1);
-        gl:Disable(gl.GL_LIGHTING);
-        gl:Disable(gl.GL_LIGHT0);
     end,
 
 	POST_GL_FRAME = function(self)
