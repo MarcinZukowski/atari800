@@ -44,8 +44,8 @@ The extension mechanism also supports scripting in Lua.
 It can be enabled with `--enable-ext-lua` when running `configure`.
 Not all functionality is exposed in Lua, depending on the feedback and demand, more can easily be added.
 
- atari800 at the startup will look for files matching the
-[data/ext/*/init.lua](data/ext) pattern and execute them.
+ atari800 at the startup will look for files matching the `data/ext/*/init.lua` pattern
+ (e.g. [data/ext/yoomp/init.lua](yoomp/init.lua)) and execute them.
 Check out those files for a lot of examples.
 
 Currently exposed basic APIs (see [ext-lua.c](../../src/ext-lua.c) for more details):
