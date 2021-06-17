@@ -41,14 +41,14 @@ Extension-specific (`ext/*.c`) functionality and hooks (see `ext_state`  in `ext
 ## Lua scripting
 
 The extension mechanism also supports scripting in Lua.
-It can be enabled with `--enable-ext-lua`.
+It can be enabled with `--enable-ext-lua` when running `configure`.
 Not all functionality is exposed in Lua, depending on the feedback and demand, more can easily be added.
 
  atari800 at the startup will look for files matching the
-`data/ext/*/init.lua` pattern and execute them.
+[data/ext/*/init.lua](data/ext) pattern and execute them.
 Check out those files for a lot of examples.
 
-Currently exposed basic APIs (see `ext-lua.c` for more details):
+Currently exposed basic APIs (see [ext-lua.c](../../src/ext-lua.c) for more details):
 * `ext_register(state)` - used to register a new extension, see below for more details
 * `a8_memory()` - returns a handle to internal Atari memory. Typical usage is
   ```
@@ -64,17 +64,17 @@ Currently exposed basic APIs (see `ext-lua.c` for more details):
   * `ext_fakecpu_until_op(op)` - run CPU until reaching a given opcode `op` (e.g. `OP_RTS`)
 * `ext_print_fps(value, color1, color2, x, y)` - detect FPS (a `value` change is considered a new frame),
   and displays it using `color1` and `color2` at position `x,y`. Typically used in `PRE_GL_FRAME`
-* `ext_acceleration_disabled()` - check if acceleration is disabeld (CTRL key)
+* `ext_acceleration_disabled()` - check if acceleration is disabled (CTRL key)
 
-OpenGL APIs (see `video_gl-ext.c` for more details):
+OpenGL APIs (see [sdl/video_gl-ext.c](../../src/sdl/video_gl-ext.c) for more details):
 * `gl_api()` - returns a handle to an OpenGL API interface, which provides various OpenGL functions.
   Typical usage:
   ```
   local gl = gl_api();
   gl:BindTexture(gl.GL_TEXTURE_2D, some_texture_id)
   ```
-  * `gl_api()` result provides a set of constants, e.g. `GL_TEXTURE_2D`, `GL_BLEND`, `GL_DEPTH_TEST` etc - see video_gl-ext. c for a full list.
-  * `gl_api()` result provides a set of functions, e.g. `BindTexture`, `Enable`, `Disable` etc - see `video_gl-ext.c` for a full list.
+  * `gl_api()` result provides a set of constants, e.g. `GL_TEXTURE_2D`, `GL_BLEND`, `GL_DEPTH_TEST` etc - (see [sdl/video_gl-ext.c](../../src/sdl/video_gl-ext.c) for a full list).
+  * `gl_api()` result provides a set of functions, e.g. `BindTexture`, `Enable`, `Disable` etc - see (see [sdl/video_gl-ext.c](../../src/sdl/video_gl-ext.c) for a full list).
 * `glt_load_rgba(fname, width, height)` - loads an RGBA image and returns a handle to a texture object, supporting the following methods:
   * `get(index)` - return a texture byte
   * `set(index, val)` - set a texture byte
@@ -83,7 +83,7 @@ OpenGL APIs (see `video_gl-ext.c` for more details):
   * `num_pixels()` - total number of pixels
   * `num_bytes()` - total number of bytes
   * `gl_id()` - the OpenGL texture id
-  * `finalize()` - needs to be called befure use (this allows changing texture bytes before loading)
+  * `finalize()` - needs to be called befure use (this allows changing texture bytes before loading, (see [yoomp/init.lua](yoomp/init.lua) for an example)
 * `glo_load(fname)` - loads a Wavefront `.obj` file (and the related `.mtl` file) representing a 3D object, and returns a handle to it. It supports the following methods
   * `render()` - render the object as is in 3D
   * `render_colorized(r,g,b)` - render the object while changing its colors to match the provided R/G/B
