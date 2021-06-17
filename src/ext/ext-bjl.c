@@ -14,9 +14,6 @@ static int config_display_fps = 1;
 #define ACC_COUNT 3
 static int config_accelerate = ACC_LOW;
 
-// Seems calling here is once per frame
-static int calls_7856 = 0;
-
 static int code_injections(struct ext_state *self, const int pc, int op)
 {
 	if (config_accelerate == ACC_NONE || ext_acceleration_disabled()) {
