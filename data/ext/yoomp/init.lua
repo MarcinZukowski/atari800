@@ -45,7 +45,7 @@ ext_register({
 		local height = self.background:height()
 		local width = self.background:width()
 
-	   -- We make the center semi-transparent
+		-- We make the center semi-transparent
 		local xc = width / 2.0 + 7;
 		local yc = height / 2.0;
 		local rad = 120.0;
@@ -85,13 +85,13 @@ ext_register({
 		local gl = self.gl;
 		local a8mem = a8_memory();
 
-	   -- Screen coordinates
+		-- Screen coordinates
 		local L = -0.77;
 		local R = -L;
 		local T = 0.9;
 		local B = -0.75;
 
-	   --  Texture coordinates
+		--  Texture coordinates
 		local TL = 0.18;
 		local TR = 0.84;
 		local TT = 0.76;
@@ -107,7 +107,7 @@ ext_register({
 		);
 
 		-- Colorize the texture to try to match the current tunnel
-	   -- 4F60 has background color
+		-- 4F60 has background color
 		local color = a8mem:get(0x4F60) | 0x0F;  -- brightest
 		local colR = a8_Colours_GetR(color) / 255.0;
 		local colG = a8_Colours_GetG(color) / 255.0;
@@ -116,10 +116,10 @@ ext_register({
 		gl:Disable(gl.GL_DEPTH_TEST);
 		gl:Color4f(colR, colG, colB, 1.0);
 
-	   -- Draw the texture
+		-- Draw the texture
 		ext_gl_draw_quad(gl, TL, TR, TT, TB, L, R, T, B, -2.0);
 
-	   -- Clean up
+		-- Clean up
 		gl:Color4f(1.0, 1.0, 1.0, 1.0);
 		gl:Disable(gl.GL_BLEND);
 	end,
@@ -139,18 +139,18 @@ ext_register({
 		local gl = self.gl;
 		local a8mem = a8_memory();
 
-	   -- Our balls don't have textures
-	   gl:Disable(gl.GL_TEXTURE_2D);
+		-- Our balls don't have textures
+		gl:Disable(gl.GL_TEXTURE_2D);
 
-	   -- Determine the ball location
+		-- Determine the ball location
 		gl:MatrixMode(gl.GL_MODELVIEW);
 		gl:PushMatrix();
 		gl:LoadIdentity();
 
-	   -- Mark time progress
-	   self.ball_counter = self.ball_counter + 1;
+		-- Mark time progress
+		self.ball_counter = self.ball_counter + 1;
 
-	   -- Read ball position from Atari memory
+		-- Read ball position from Atari memory
 		local EQU_BALL_X = 0x0030;
 		local EQU_BALL_VX = 0x0031;
 		local EQU_BALL_VY = 0x0032;
@@ -159,7 +159,7 @@ ext_register({
 		local ball_vx = a8mem:get(EQU_BALL_VX);
 		local ball_vy = a8mem:get(EQU_BALL_VY);
 
-	   --  Set the ball location and rotation
+		--  Set the ball location and rotation
 		gl:Translatef(
 			(ball_vx - 128 + 4) / 84,
 			- (ball_vy - 112 - 8) / 120,
@@ -183,7 +183,7 @@ ext_register({
 			colB = 1.0;
 		end
 
-	   -- Render the current ball
+		-- Render the current ball
 		local ball = self.balls[ball_nr + 1]
 		ball:render_colorized(colR, colG, colB);
 
