@@ -17,7 +17,7 @@
 
 #define TINYOBJ_LOADER_C_IMPLEMENTATION
 char *dynamic_fgets(char **buf, size_t *size, FILE *file);
-#include "tinyobj_loader_c.h"
+#include "3rd-party/tinyobj_loader_c.h"
 
 /* gl_texture code ******************************************************************* */
 
