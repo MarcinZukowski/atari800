@@ -1,7 +1,7 @@
 #ifndef EXT_BJL_H
 #define EXT_BJL_H
 
-// Behind Jaggi Lines
+/* Behind Jaggi Lines */
 
 #include "ext.h"
 

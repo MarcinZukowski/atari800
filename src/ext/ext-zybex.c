@@ -35,17 +35,17 @@ static void load_background()
 
 static int init(struct ext_state *self)
 {
-	// Some memory fingerprint from 0x3000
+	/* Some memory fingerprint from 0x3000 */
 	byte fingerprint_3000[] = {0x18, 0x69, 0x14, 0xA8, 0xC0, 0x50};
 
 	if (memcmp(MEMORY_mem + 0x3000, fingerprint_3000, sizeof(fingerprint_3000))) {
-		// No match
+		/* No match */
 		return 0;
 	}
 
 	load_background();
 
-	// Match
+	/* Match */
 	return 1;
 }
 
@@ -96,19 +96,19 @@ static void show_background()
 	static int last_hscrol = 0;
 	static int texture_hscrol = 0;
 
-	// Screen coords
+	/* Screen coords */
 	float L = -0.95;
 	float R = -L;
 	float T = 0.78;
 	float B = -0.65;
 
-	// If hscrol changes, the screen moved, adjust texture
+	/* If hscrol changes, the screen moved, adjust texture */
 	if (ANTIC_HSCROL != last_hscrol) {
 		texture_hscrol++;
 		last_hscrol = ANTIC_HSCROL;
 	}
 
-	// Texture coords
+	/* Texture coords */
 	float TL = 0.0015 * texture_hscrol;
 	float TR = TL + 0.5;
 	float TT = 0.70;

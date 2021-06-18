@@ -37,15 +37,15 @@ static int code_injections(struct ext_state *self, const int pc, int op)
 
 static int init(struct ext_state *self)
 {
-	// Some memory fingerprint from 0x41fc
+	/* Some memory fingerprint from 0x41fc */
 	byte fingerprint_41fc[] = {0x6A, 0x61, 0x67, 0x67, 0x69};
 
 	if (memcmp(MEMORY_mem + 0x41fc, fingerprint_41fc, sizeof(fingerprint_41fc))) {
-		// No match
+		/* No match */
 		return 0;
 	}
 
-	// Match
+	/* Match */
 	return 1;
 }
 

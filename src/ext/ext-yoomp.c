@@ -41,7 +41,8 @@ static int config_lua_script_on = 0;
 
 static void xx_load_ball()
 {
-	for (int i = 1; i < NUM_BALLS; i++) {
+	int i;
+	for (i = 1; i < NUM_BALLS; i++) {
 		yoomp_balls[i].glo_ball = gl_obj_load(yoomp_balls[i].fname);
 	}
 }
@@ -50,16 +51,17 @@ static void xx_load_background()
 {
 	glt_background = gl_texture_load_rgba("data/ext/yoomp/rof-gray.rgba", 476, 476);
 
-    gl_texture t = glt_background;
+	gl_texture t = glt_background;
 
 	float xc = t.width / 2.0f + 7;
 	float yc = t.height / 2.0f;
 	float rad = 120.0;
 	float dark = 0.8 * rad;
 
-	// Fix alphas
-	for (int y = 0; y < t.width; y++) {
-		for (int x = 0; x < t.width; x++) {
+	/* Fix alphas */
+	int x, y;
+	for (y = 0; y < t.width; y++) {
+		for (x = 0; x < t.width; x++) {
 			int idx = y * t.width + x;
 			float r = sqrt((x - xc) * (x - xc) + (y - yc) * (y - yc));
 			int alpha = 0;
@@ -89,8 +91,8 @@ static void xx_draw_background()
 	float TT = 0.76;
 	float TB = 0.25;
 
-	// 4F60 has background color
-	int color = MEMORY_mem[0x4F60] | 0x0F;  // brightest
+	/* 4F60 has background color */
+	int color = MEMORY_mem[0x4F60] | 0x0F;  /* brightest */
 	float colR = Colours_GetR(color) / 255.0;
 	float colG = Colours_GetG(color) / 255.0;
 	float colB = Colours_GetB(color) / 255.0;
@@ -146,8 +148,8 @@ static void xx_render_ball()
 
 	float colR, colG, colB;
 	if (yoomp_balls[config_ball_nr].colorize) {
-		// 4F5c has ball color
-		int color = MEMORY_mem[0x4F5c] | 0x0c;  // brightness
+		/* 4F5c has ball color */
+		int color = MEMORY_mem[0x4F5c] | 0x0c;  /* brightness */
 		colR = Colours_GetR(color) / 255.0;
 		colG = Colours_GetG(color) / 255.0;
 		colB = Colours_GetB(color) / 255.0;
@@ -155,7 +157,7 @@ static void xx_render_ball()
 		colR = colG = colB = 1.0;
 	}
 
-    gl_obj_render_colorized(yoomp_balls[config_ball_nr].glo_ball, colR, colG, colB);
+	gl_obj_render_colorized(yoomp_balls[config_ball_nr].glo_ball, colR, colG, colB);
 
 	gl.PopMatrix();
 
@@ -167,7 +169,7 @@ static void xx_render_ball()
 
 static void xx_init()
 {
-    xx_load_background();
+	xx_load_background();
 	xx_load_ball();
 }
 
@@ -176,7 +178,7 @@ static void xx_init()
 
 static void lua_draw_background()
 {
-    struct lua_State *L = lua_ext_get_state();
+	struct lua_State *L = lua_ext_get_state();
 	if (!L) {
 		printf("%s: Lua not ready, waiting\n", __FUNCTION__);
 		return;
@@ -184,7 +186,7 @@ static void lua_draw_background()
 
 	ext_lua_run_str("yoomp_render_frame()");
 }
-#endif  // WITH_EXT_LUA
+#endif  /* WITH_EXT_LUA */
 
 static void post_gl_frame(struct ext_state *self)
 {
@@ -195,7 +197,7 @@ static void post_gl_frame(struct ext_state *self)
 #endif
 
 	if (ANTIC_dlist != 0xCA00) {
-		// Not in-game
+		/* Not in-game */
 		return;
 	}
 
@@ -209,15 +211,15 @@ static void post_gl_frame(struct ext_state *self)
 
 static int yoomp_init(struct ext_state *self)
 {
-	// Some memory fingerprint from 0x4000
+	/* Some memory fingerprint from 0x4000 */
 	byte fingerprint_3600[] = {0x20, 0x00, 0xB0, 0x20, 0xBC, 0x3D};
 
 	if (memcmp(MEMORY_mem + 0x3600, fingerprint_3600, sizeof(fingerprint_3600))) {
-		// No match
+		/* No match */
 		return 0;
 	}
 
-	// Match
+	/* Match */
 	xx_init();
 	return 1;
 }

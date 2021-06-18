@@ -37,8 +37,7 @@ static char* config_gl_line_types[CONFIG_GL_LINE_TYPE_COUNT] = {
 	"Polygon-Fill"
 };
 
-
-// Info about a single drawn line
+/* Info about a single drawn line */
 typedef struct drawn_line {
 	int startX, startY;
 	int endX, endY;
@@ -46,26 +45,28 @@ typedef struct drawn_line {
 } drawn_line;
 
 #define MAX_LINES 100
-// Holds info about all lines drawn in one frame
+/* Holds info about all lines drawn in one frame */
 typedef struct drawing_state {
 	drawn_line drawn_lines[MAX_LINES];
 	int drawn_lines_count;
 } drawing_state;
 
-// Two states, we'll alternate between them as the screen changes
+/* Two states, we'll alternate between them as the screen changes */
 static drawing_state state1;
 static drawing_state state2;
 static drawing_state *shown_state = &state1;
 static drawing_state *prepared_state = &state2;
 static int shown_dl;
 
-// A change in 0x2805 is a new frame
+/* A change in 0x2805 is a new frame */
 static int current_dl_byte() {
 	return MEMORY_dGetByte(0x2805);
 }
 
 static int mercenary_code_injections(struct ext_state *self, int pc, int op)
 {
+	int l;
+
 	if (!config_accelerate || ext_acceleration_disabled()) {
 		return op;
 	}
@@ -74,7 +75,7 @@ static int mercenary_code_injections(struct ext_state *self, int pc, int op)
 		return ext_fakecpu_until_after_op(OP_RTS);
 	}
 
-	// line drawing - 8 different modes
+	/* line drawing - 8 different modes */
 	int lines[8][6] = {
 		/*   PC  Xmajor  majorDelta, minorLimit, minorDelta, fracNeg */
 		{0x5230,   TRUE,          1,       0x98,          1,   FALSE},  /* X right major, Y down minor, ADC delta */
@@ -87,7 +88,7 @@ static int mercenary_code_injections(struct ext_state *self, int pc, int op)
 		{0x536b,   TRUE,          1,       0xFF,         -1,    TRUE},  /* X right major, Y up minor, ADC delta */
 	};
 
-	for (int l = 0; l < 8; l++) {
+	for (l = 0; l < 8; l++) {
 		if (pc == lines[l][0]) {
 			int screen = MEMORY_dGetByte(0x23) * 0x0100 + 0x0010;
 
@@ -131,10 +132,10 @@ static int mercenary_code_injections(struct ext_state *self, int pc, int op)
 				if (colorAnd) {
 					newByte = oldByte & (~mask);
 				} else {
-					// Seems we're only ORing odd bits here, this prevents lines from getting onto the sky
+					/* Seems we're only ORing odd bits here, this prevents lines from getting onto the sky */
 					newByte = oldByte | (mask & 0x55);
 				}
-				// Draw pixel, if needed
+				/* Draw pixel, if needed */
 				if (config_line_mode != CONFIG_LINE_MODE_GL) {
 					MEMORY_PutByte(adr, newByte);
 				}
@@ -174,17 +175,17 @@ static int mercenary_code_injections(struct ext_state *self, int pc, int op)
 	}
 
 
-	// pixel drawing
+	/* pixel drawing */
 	if (pc == 0x538a) {
-		// implement me
+		/* implement me */
 		return op;
 	}
 
-	// line fill: 1-color
+	/* line fill: 1-color */
 	if (pc == 0x586f) {
-		// X - how many lines
-		// A - value
-		// [00] - address
+		/* X - how many lines
+		 * A - value
+		 * [00] - address */
 		int cx, cy, maxy, val;
 		int dst = MEMORY_dGetWord(0x00);
 		maxy = CPU_regX;
@@ -197,11 +198,11 @@ static int mercenary_code_injections(struct ext_state *self, int pc, int op)
 			MEMORY_PutByte(0x18, MEMORY_GetByte(0x18) - 1);
 			MEMORY_dPutWord(0x00, dst + 40);
 		}
-		// Fake we didn't do anything
+		/* Fake we didn't do anything */
 		return OP_RTS;
 	}
 
-	// fill 2-color
+	/* fill 2-color */
 	if (pc == 0x570e) {
 		int dst = MEMORY_dGetWord(0x00);
 		int change = MEMORY_dGetByte(0x7);
@@ -221,7 +222,7 @@ static int mercenary_code_injections(struct ext_state *self, int pc, int op)
 		for (x = 1; x < c2bytes; x++) {
 			MEMORY_PutByte(dst + c1bytes + x, c2);
 		}
-		// Jump ahead of this line, as we don't implement that logic
+		/* Jump ahead of this line, as we don't implement that logic */
 		CPU_regPC = 0x5823;
 		return OP_NOP;
 	}
@@ -231,18 +232,18 @@ static int mercenary_code_injections(struct ext_state *self, int pc, int op)
 
 static int mercenary_init(struct ext_state *self)
 {
-	// Some memory fingerprint from 0x4000
+	/* Some memory fingerprint from 0x4000 */
 	byte fingerprint_4000[] = {0xA6, 0x65, 0xBC, 0x57, 0x6B};
 
 	if (memcmp(MEMORY_mem + 0x4000, fingerprint_4000, sizeof(fingerprint_4000))) {
-		// No match
+		/* No match */
 		return 0;
 	}
 
 	state1.drawn_lines_count = 0;
 	state2.drawn_lines_count = 0;
 
-	// Match
+	/* Match */
 	return 1;
 }
 
@@ -254,7 +255,7 @@ static UI_tMenuItem menu[] = {
 	UI_MENU_END
 };
 
-static void refresh_config()
+static void refresh_config(void)
 {
 	menu[0].suffix = config_display_fps ? "ON" : "OFF";
 	menu[1].suffix = config_accelerate ? "ON" : "OFF";
@@ -317,7 +318,7 @@ static void mercenary_post_gl_frame(struct ext_state *self)
 	int i;
 	int dl = current_dl_byte();
 	if (dl != shown_dl) {
-		// DL change, flip prepared/shown states
+		/* DL change, flip prepared/shown states */
 		drawing_state *prev = shown_state;
 		shown_state = prepared_state;
 		prepared_state = prev;
@@ -333,9 +334,9 @@ static void mercenary_post_gl_frame(struct ext_state *self)
 		return;
 	}
 
-	// Draw lines with GL
+	/* Draw lines with GL */
 
-	// Remember state
+	/* Remember state */
 	gl.PushAttrib(GL_ENABLE_BIT);
 	gl.PushAttrib(GL_POLYGON_BIT);
 	gl.PushAttrib(GL_LINE_BIT);
@@ -345,7 +346,7 @@ static void mercenary_post_gl_frame(struct ext_state *self)
 
 	for (i = 0 ; i < shown_state->drawn_lines_count; i++) {
 		drawn_line *line = &shown_state->drawn_lines[i];
-		// Current drawn color is in 0xA1 and 0xA4, or so it seems
+		/* Current drawn color is in 0xA1 and 0xA4, or so it seems */
 		int color = line->color ? MEMORY_mem[0xA1] : MEMORY_mem[0xA4];
 		gl.Color4f(Colours_GetR(color) / 255.0f, Colours_GetG(color) / 255.0f, Colours_GetB(color) / 255.0f, 1);
 		float startX = adjustX(line->startX);
@@ -354,16 +355,16 @@ static void mercenary_post_gl_frame(struct ext_state *self)
 		float endY = adjustY(line->endY);
 
 		if (config_gl_line_type == CONFIG_GL_LINE_TYPE_LINE) {
-			// Draw lines as GL lines
+			/* Draw lines as GL lines */
 			gl.LineWidth(4);
 			gl.Begin(GL_LINES);
 			gl.Vertex3f(startX, startY, -2.0);
 			gl.Vertex3f(endX, endY, -2.0);
 			gl.End();
 		} else {
-			// Draw lines as Polygon lines
+			/* Draw lines as Polygon lines */
 
-			// Draw left-to-right always
+			/* Draw left-to-right always */
 			if (startX > endX) {
 #define flt_swap(a,b) { float tmp = (a); (a) = (b); (b) = tmp; }
 				flt_swap(startX, endX);
@@ -377,27 +378,27 @@ static void mercenary_post_gl_frame(struct ext_state *self)
 					config_gl_line_type == CONFIG_GL_LINE_TYPE_POLYGON_LINE ? GL_LINE : GL_FILL);
 
 			gl.Begin(GL_POLYGON);
-			// Start (left) pixel
-			// If we're going down, do top-right corner
+			/* Start (left) pixel
+			 * If we're going down, do top-right corner */
 			if (down) {
 				gl.Vertex3f(startX + halfPixelX, startY + halfPixelY, -2.0);
 			}
-			// top-left corner and bottom-left corner
+			/* top-left corner and bottom-left corner */
 			gl.Vertex3f(startX - halfPixelX, startY + halfPixelY, -2.0);
 			gl.Vertex3f(startX - halfPixelX, startY - halfPixelY, -2.0);
-			// Then, if we're going up, bottom-right corner
+			/* Then, if we're going up, bottom-right corner */
 			if (!down) {
 				gl.Vertex3f(startX + halfPixelX, startY - halfPixelY, -2.0);
 			}
-			// End (rigth) pixel
-			// If we're going down, draw bottom-left corner
+			/* End (right) pixel
+			 * If we're going down, draw bottom-left corner */
 			if (down) {
 				gl.Vertex3f(endX - halfPixelX, endY - halfPixelY, -2.0);
 			}
-			// Always bottom-right and top-right
+			/* Always bottom-right and top-right */
 			gl.Vertex3f(endX + halfPixelX, endY - halfPixelY, -2.0);
 			gl.Vertex3f(endX + halfPixelX, endY + halfPixelY, -2.0);
-			// If up, top-left
+			/* If up, top-left */
 			if (!down) {
 				gl.Vertex3f(endX - halfPixelX, endY + halfPixelY, -2.0);
 			}
@@ -407,7 +408,7 @@ static void mercenary_post_gl_frame(struct ext_state *self)
 		}
 	}
 
-	// Restore state
+	/* Restore state */
 	gl.PopAttrib();
 	gl.PopAttrib();
 	gl.PopAttrib();

@@ -13,12 +13,12 @@ static int config_display_fps = 1;
 #define ACC_COUNT 3
 static int config_accelerate = ACC_LOW;
 
-// Seems calling here is once per frame
+/* Seems calling here is once per frame */
 static int calls_7856 = 0;
 
 static int code_injections(struct ext_state *self, const int pc, int op)
 {
-	if (pc == 0x7856) { // Moving into font memory?
+	if (pc == 0x7856) { /* Moving into font memory? */
 		calls_7856++;
 	}
 
@@ -26,7 +26,7 @@ static int code_injections(struct ext_state *self, const int pc, int op)
 		return op;
 	}
 
-	if (pc == 0x90) {  // Drawing?
+	if (pc == 0x90) {  /* Drawing? */
 		return ext_fakecpu_until_pc(0x00D5);
 	}
 
@@ -34,23 +34,23 @@ static int code_injections(struct ext_state *self, const int pc, int op)
 		return op;
 	}
 
-	if (pc == 0x4A69) { // ??
+	if (pc == 0x4A69) { /* ?? */
 		return ext_fakecpu_until_pc(0x4A82);
 	}
 
-	if (pc == 0x3884) {  // ??
+	if (pc == 0x3884) {  /* ?? */
 		return ext_fakecpu_until_pc(0x38CE);
 	}
 
-	if (pc == 0x7858) { // Moving into font memory?
+	if (pc == 0x7858) { /* Moving into font memory? */
 		return ext_fakecpu_until_pc(0x7887);
 	}
 
-	if (pc == 0x7A1F) { // ??
+	if (pc == 0x7A1F) { /* ?? */
 		return ext_fakecpu_until_pc(0x7A36);
 	}
 
-	if (pc == 0x7F1B) { // ??
+	if (pc == 0x7F1B) { /* ?? */
 		return ext_fakecpu_until_pc(0x7F4A);
 	}
 
@@ -59,15 +59,15 @@ static int code_injections(struct ext_state *self, const int pc, int op)
 
 static int init(struct ext_state *self)
 {
-	// Some memory fingerprint from 0x29A4
+	/* Some memory fingerprint from 0x29A4 */
 	byte fingerprint_29B6[] = {0x44, 0x75, 0x6E, 0x67, 0x65, 0x6F, 0x6E};
 
 	if (memcmp(MEMORY_mem + 0x29B6, fingerprint_29B6, sizeof(fingerprint_29B6))) {
-		// No match
+		/* No match */
 		return 0;
 	}
 
-	// Match
+	/* Match */
 	return 1;
 }
 

@@ -120,7 +120,7 @@ void PLATFORM_SoundContinue(void)
 void PLATFORM_SoundLock(void)
 {
 #ifdef USE_SDL_MIXER
-	// Do nothing
+	/* Do nothing */
 #else
 	SDL_LockAudio();
 #endif
@@ -129,7 +129,7 @@ void PLATFORM_SoundLock(void)
 void PLATFORM_SoundUnlock(void)
 {
 #ifdef USE_SDL_MIXER
-	// Do nothing
+	/* Do nothing */
 #else
 	SDL_UnlockAudio();
 #endif

@@ -60,7 +60,7 @@ static void set_current_state(ext_state *state)
 		return;
 	}
 
-	// Initialize code injections
+	/* Initialize code injections */
 	int i = 0;
 	memset(code_injection_map, 0, RAM_SIZE);
 	code_injection_map_set = 0;
@@ -88,14 +88,18 @@ void ext_init()
 	ext_lua_init();
 #endif
 
-//	ext_register_ext(ext_register_yoomp());
+/*  These extensions have been replaced by their Lua implementation
+	ext_register_ext(ext_register_yoomp());
+	ext_register_ext(ext_register_zybex());
+	ext_register_ext(ext_register_altreal());
+	ext_register_ext(ext_register_bjl());
+*/
 	ext_register_ext(ext_register_mercenary());
-//	ext_register_ext(ext_register_zybex());
-//	ext_register_ext(ext_register_altreal());
-//	ext_register_ext(ext_register_bjl());
 	ext_register_ext(ext_register_river_raid());
 
-//	set_current_state(states[5]);
+/* Can be set to a particual extension during development
+	set_current_state(states[5]);
+*/
 	if (current_state) {
 		current_state->initialize(current_state);
 	}
@@ -103,13 +107,15 @@ void ext_init()
 
 static void ext_menu()
 {
+	int i;
+
 	if (inside_menu || disabled()) {
 		return;
 	}
 
-	// Choose extension
+	/* Choose extension */
 	if (!current_state) {
-		for (int i = 0; i < num_states; i++) {
+		for (i = 0; i < num_states; i++) {
 			if (states[i]->initialize(states[i])) {
 				set_current_state(states[i]);
 				break;
@@ -119,7 +125,9 @@ static void ext_menu()
 
 	static UI_tMenuItem menu_array_template[] = {
 		UI_MENU_ACTION(100, "Found extension:"),
-		// We'll include here the additional entries
+
+		/* Here we will include the additional entries provided by the extensions */
+
 		UI_MENU_ACTION(101, "EXIT"),
 		UI_MENU_END
 	};
@@ -131,7 +139,7 @@ static void ext_menu()
 	UI_driver->fInit();
 	inside_menu = 1;
 	for (;;) {
-		// Prepare menu including the extension's menu
+		/* Prepare menu including the extension's menu */
 		UI_tMenuItem* ext_config = (current_state && current_state->get_config)
 				? current_state->get_config(current_state) : NULL;
 
@@ -140,19 +148,19 @@ static void ext_menu()
 
 		int idx = 1;
 		if (ext_config) {
-			for (int i = 0; ext_config[i].flags != UI_ITEM_END; i++, idx++) {
+			for (i = 0; ext_config[i].flags != UI_ITEM_END; i++, idx++) {
 				menu_array[idx] = ext_config[i];
 			}
 		}
 
-		// Add EXIT
+		/* Add EXIT */
 		menu_array[idx++] = menu_array_template[1];
 		menu_array[idx] = menu_array_template[2];
 
-		// Run the menu
+		/* Run the menu */
 		option = UI_driver->fSelect("Extensions", 0, option, menu_array, NULL);
 		if (option < 0 || option == 101) {
-			// Wait for no key pressed, not to influence Atari
+			/* Wait for no key pressed, not to influence Atari */
 			while (1) {
 				SDL_PumpEvents();
 				const Uint8 *state = SDL_GetKeyState(NULL);
@@ -212,7 +220,7 @@ int ext_handle_code_injection(int pc, int op)
 	}
 	if (current_state && current_state->code_injection) {
 		if (code_injection_map_set && !code_injection_map[pc]) {
-			// No need to call
+			/* No need to call */
 			return op;
 		}
 		return current_state->code_injection(current_state, pc, op);
@@ -303,10 +311,10 @@ static void ext_fakecpu_finish()
 
 static int ext_fakecpu_until(int end_pc, int end_op, int after)
 {
-	// Save state
+	/* Save state */
 	ext_fakecpu_init();
 
-	// Re-execute this instruction
+	/* Re-execute this instruction */
 	CPU_regPC--;
 
 	do {
@@ -353,12 +361,12 @@ static void ext_sound_initialize()
 	}
 
 #if 0
-	// start SDL with audio support
+	/* start SDL with audio support */
 	if (SDL_Init(SDL_INIT_AUDIO)==-1) {
 		EXT_ERROR("SDL_Init: %s\n", SDL_GetError());
 	}
-	// open 44.1KHz, signed 16bit, system byte order,
-	//      stereo audio, using 1024 byte chunks
+	/* open 44.1KHz, signed 16bit, system byte order,
+	 * stereo audio, using 1024 byte chunks */
 	if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 1024)==-1) {
 		EXT_ERROR("Mix_OpenAudio: %s\n", Mix_GetError());
 	}

@@ -45,68 +45,66 @@
 
 #include "sdl/video_gl.h"
 
-// FROM: https://stackoverflow.com/questions/11689135/share-array-between-lua-and-c
+/* FROM: https://stackoverflow.com/questions/11689135/share-array-between-lua-and-c */
 
 #define LUA_BARRAY "barray"
-// metatable method for handling "array[index]"
+/* metatable method for handling "array[index]" */
 static int barray_index (lua_State* L) {
-    byte** parray = luaL_checkudata(L, 1, LUA_BARRAY);
-    int index = luaL_checkinteger(L, 2);
-    lua_pushnumber(L, (*parray)[index]);
-    return 1;
+	byte** parray = luaL_checkudata(L, 1, LUA_BARRAY);
+	int index = luaL_checkinteger(L, 2);
+	lua_pushnumber(L, (*parray)[index]);
+	return 1;
 }
 
-// metatable method for handle "array[index] = value"
+/* metatable method for handle "array[index] = value" */
 static int barray_newindex (lua_State* L) {
-    byte** parray = luaL_checkudata(L, 1, LUA_BARRAY);
-    int index = luaL_checkinteger(L, 2);
-    int value = luaL_checkinteger(L, 3);
-    (*parray)[index] = value;
-    return 0;
+	byte** parray = luaL_checkudata(L, 1, LUA_BARRAY);
+	int index = luaL_checkinteger(L, 2);
+	int value = luaL_checkinteger(L, 3);
+	(*parray)[index] = value;
+	return 0;
 }
 
 static int barray_size(lua_State* L) {
-    byte** parray = luaL_checkudata(L, 1, LUA_BARRAY);
-    lua_pushnumber(L, 7);
-    return 1;
+	byte** parray = luaL_checkudata(L, 1, LUA_BARRAY);
+	lua_pushnumber(L, 7);
+	return 1;
 }
 
 static int barray_new(lua_State *L) {
 	size_t size = luaL_checkinteger(L, 1);
 	byte *ptr = malloc(size);
-    byte** parray = lua_newuserdata(L, sizeof(byte**));
-    *parray = ptr;
+	byte** parray = lua_newuserdata(L, sizeof(byte**));
+	*parray = ptr;
 	luaL_setmetatable(L, LUA_BARRAY);
-//    luaL_getmetatable(L, LUA_BARRAY);
-//	luaL_setmetatable(L, -2);
 	return 1;
 }
 
 static int barray_gc(lua_State *L) {
 	byte *ptr = *(byte**)(lua_touserdata(L, 1));
-	// Do nothing here, as the exposed memory is not managed by us
+	/* Do nothing here, as the exposed memory is not managed by us */
 	return 0;
 }
 
-// create a metatable for our array type
+/* create a metatable for our array type */
 static void create_barray_type(lua_State* L) {
    static const struct luaL_Reg barray[] = {
-//      { "__index",  barray_index  },    // This doesn't work, unfortunately
-      { "__newindex",  barray_newindex  },
-      { "__gc",  barray_gc  },
-      { "size",  barray_size  },
+/*	  { "__index",  barray_index  },  */  /* This doesn't work, unfortunately */
+	  { "__newindex",  barray_newindex  },
+	  { "__gc",  barray_gc  },
+	  { "size",  barray_size  },
 	  { "get", barray_index },
 	  { "set", barray_newindex },
-      NULL, NULL
+	  NULL, NULL
    };
    luaL_newmetatable(L, "barray");
    luaL_setfuncs(L, barray, 0);
-   // Some magic from https://stackoverflow.com/questions/38162702/how-to-register-c-nested-class-to-lua
+   /* Some magic from https://stackoverflow.com/questions/38162702/how-to-register-c-nested-class-to-lua */
    lua_pushvalue(L, -1);
    lua_setfield(L, -2, "__index");
 }
 
-// expose an array to lua, by storing it in a userdata with the array metatable
+/* expose an array to lua, by storing it in a userdata with the array metatable */
 static int expose_barray(lua_State* L, byte *barray) {
    byte** parray = lua_newuserdata(L, sizeof(byte**));
    *parray = barray;
@@ -116,7 +114,7 @@ static int expose_barray(lua_State* L, byte *barray) {
 }
 
 static int get_a8_memory (lua_State* L) {
-    return expose_barray(L, MEMORY_mem );
+	return expose_barray(L, MEMORY_mem );
 }
 
 static lua_State *L = NULL;
@@ -126,8 +124,8 @@ static int ext_lua_eval(const char* str)
 	int res;
 	if ((res = luaL_loadstring(L, str)) == LUA_OK) {
 		if ((res = lua_pcall(L, 0, 0, 0)) == LUA_OK) {
-			// If it was executed successfuly we
-			// remove the code from the stack
+			/* If it was executed successfuly we
+			 * remove the code from the stack */
 			lua_pop(L, lua_gettop(L));
 		} else {
 			const char* errmsg = lua_tostring(L, -1);
@@ -176,66 +174,66 @@ static int ext_lua_run_file(const char *fname)
 }
 
 static int ext_lua_antic_dlist(lua_State* L) {
-    lua_pushnumber(L, ANTIC_dlist);
-    return 1;
+	lua_pushnumber(L, ANTIC_dlist);
+	return 1;
 }
 
 static int ext_lua_antic_hscrol(lua_State* L) {
-    lua_pushnumber(L, ANTIC_HSCROL);
-    return 1;
+	lua_pushnumber(L, ANTIC_HSCROL);
+	return 1;
 }
 
 static int ext_lua_colours_getr(lua_State* L) {
-    int color = luaL_checkinteger(L, 1);
-    lua_pushinteger(L, Colours_GetR(color));
-    return 1;
+	int color = luaL_checkinteger(L, 1);
+	lua_pushinteger(L, Colours_GetR(color));
+	return 1;
 }
 static int ext_lua_colours_getg(lua_State* L) {
-    int color = luaL_checkinteger(L, 1);
-    lua_pushinteger(L, Colours_GetG(color));
-    return 1;
+	int color = luaL_checkinteger(L, 1);
+	lua_pushinteger(L, Colours_GetG(color));
+	return 1;
 }
 static int ext_lua_colours_getb(lua_State* L) {
-    int color = luaL_checkinteger(L, 1);
-    lua_pushinteger(L, Colours_GetB(color));
-    return 1;
+	int color = luaL_checkinteger(L, 1);
+	lua_pushinteger(L, Colours_GetB(color));
+	return 1;
 }
 
 
 
 /** *********************** SCRIPTING SUPPORT ****************** */
 
-// Lua-specific extension state
+/* Lua-specific extension state */
 typedef struct {
 	const char* label;
 	const char** options;
 	int option_count;
 	int current;
-	// Handle to the Lua menu table
+	/* Handle to the Lua menu table */
 	int handle;
 } ext_lua_menu_item;
 
 typedef struct {
-	// Handle to the registered lua table
+	/* Handle to the registered lua table */
 	int self;
 
-	// Extension name
+	/* Extension name */
 	const char* name;
 
-	// All Lua extensions for now use the simple memory fingerprint mechanism
+	/* All Lua extensions for now use the simple memory fingerprint mechanism */
 	int enable_check_address;
 	byte *enable_check_fingerprint;
 	int enable_check_fingerprint_size;
 
-	// Compatible with ext_state::injection_list, ends with -1 if present
+	/* Compatible with ext_state::injection_list, ends with -1 if present */
 	int *code_injection_list;
 	int code_injection_function;
 
-	// Handles to various functions
+	/* Handles to various functions */
 	int pre_gl_frame;
 	int post_gl_frame;
 
-	// Menu
+	/* Menu */
 	ext_lua_menu_item *menu_items;
 	int menu_item_count;
 	UI_tMenuItem *ui_menu_items;
@@ -250,11 +248,11 @@ static int ext_lua_shared_initialize(ext_state *state)
 	if (memcmp(MEMORY_mem + els->enable_check_address,
 			els->enable_check_fingerprint,
 			els->enable_check_fingerprint_size)) {
-		// No match
+		/* No match */
 		return 0;
 	}
 
-	// Match
+	/* Match */
 	return 1;
 }
 
@@ -263,12 +261,12 @@ static int ext_lua_shared_code_injection(ext_state *state, int pc, int op)
 	ext_lua_state *els = (ext_lua_state*)state->internal_state;
 	EXT_ASSERT_NOT_NULL(els);
 
-	// Call the provided extension's function
+	/* Call the provided extension's function */
 	EXT_ASSERT_GT(els->code_injection_function, 0);
 	lua_geti(L, LUA_REGISTRYINDEX, els->code_injection_function);
-	// Push "self" parameter
+	/* Push "self" parameter */
 	lua_geti(L, LUA_REGISTRYINDEX, els->self);
-	// Push other params
+	/* Push other params */
 	lua_pushnumber(L, pc);
 	lua_pushnumber(L, op);
 	if (lua_pcall(L, 3, 1, 0) != LUA_OK) {
@@ -287,12 +285,13 @@ static void ext_lua_refresh_config(ext_state *state)
 	EXT_ASSERT_NOT_NULL(els);
 	EXT_ASSERT_GT(els->menu_item_count, 0);
 
-	for (int i = 0; i < els->menu_item_count; i++) {
+	int i;
+	for (i = 0; i < els->menu_item_count; i++) {
 		ext_lua_menu_item *item = els->menu_items + i;
 		int current = item->current;
-		// Update UI
+		/* Update UI */
 		els->ui_menu_items[i].suffix = item->options[current];
-		// Update LUA state
+		/* Update LUA state */
 		lua_geti(L, LUA_REGISTRYINDEX, item->handle);
 		luaL_checktype(L, -1, LUA_TTABLE);
 		lua_pushstring(L, "CURRENT");
@@ -332,12 +331,12 @@ static void ext_lua_shared_pre_gl_frame(ext_state *state)
 	ext_lua_state *els = (ext_lua_state*)state->internal_state;
 	EXT_ASSERT_NOT_NULL(els);
 
-	// Call the provided extension's function
+	/* Call the provided extension's function */
 	EXT_ASSERT_GT(els->pre_gl_frame, 0);
 	lua_geti(L, LUA_REGISTRYINDEX, els->pre_gl_frame);
-	// Push "self" parameter
+	/* Push "self" parameter */
 	lua_geti(L, LUA_REGISTRYINDEX, els->self);
-	// Call
+	/* Call */
 	if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
 		EXT_ERROR("Failed calling lua function: %s", lua_tostring(L, -1));
 	}
@@ -348,12 +347,12 @@ static void ext_lua_shared_post_gl_frame(ext_state *state)
 	ext_lua_state *els = (ext_lua_state*)state->internal_state;
 	EXT_ASSERT_NOT_NULL(els);
 
-	// Call the provided extension's function
+	/* Call the provided extension's function */
 	EXT_ASSERT_GT(els->post_gl_frame, 0);
 	lua_geti(L, LUA_REGISTRYINDEX, els->post_gl_frame);
-	// Push "self" parameter
+	/* Push "self" parameter */
 	lua_geti(L, LUA_REGISTRYINDEX, els->self);
-	// Call
+	/* Call */
 	if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
 		EXT_ERROR("Failed calling lua function: %s", lua_tostring(L, -1));
 	}
@@ -361,7 +360,7 @@ static void ext_lua_shared_post_gl_frame(ext_state *state)
 
 
 
-// Lua wrapper over ext_fakecpu_until_op
+/* Lua wrapper over ext_fakecpu_until_op */
 static int ext_lua_fakecpu_until_op(lua_State *L)
 {
 	int op = luaL_checkinteger(L, 1);
@@ -370,7 +369,7 @@ static int ext_lua_fakecpu_until_op(lua_State *L)
 	return 1;
 }
 
-// Lua wrapper over ext_fakecpu_until_pc
+/* Lua wrapper over ext_fakecpu_until_pc */
 static int ext_lua_fakecpu_until_pc(lua_State *L)
 {
 	int op = luaL_checkinteger(L, 1);
@@ -410,9 +409,11 @@ static int hlp_lua_tablesize(lua_State *L, int idx)
 	return sz;
 }
 
-// Function called by Lua scripts
+/* Function called by Lua scripts */
 static int ext_lua_register(lua_State *L)
 {
+	int i;
+
 	luaL_checktype(L, 1, LUA_TTABLE);
 
 	ext_lua_state *els = malloc(sizeof(ext_lua_state));
@@ -437,9 +438,9 @@ static int ext_lua_register(lua_State *L)
 	els->enable_check_fingerprint_size = sz;
 	els->enable_check_fingerprint = malloc(sz);
 	EXT_ASSERT_NOT_NULL(els->enable_check_fingerprint);
-	for (int i = 0; i < sz; i++) {
-		lua_rawgeti(L, -1, i + 1);  // push next value on stack
-		int val = luaL_checkinteger(L, -1);  // Note, doesn't pop from stack
+	for (i = 0; i < sz; i++) {
+		lua_rawgeti(L, -1, i + 1);  /* push next value on stack */
+		int val = luaL_checkinteger(L, -1);  /* Note, doesn't pop from stack */
 		EXT_ASSERT_BETWEEN(val, 0x00, 0xFF);
 		els->enable_check_fingerprint[i] = val;
 		lua_pop(L, 1);
@@ -453,7 +454,7 @@ static int ext_lua_register(lua_State *L)
 		EXT_ASSERT_GT(sz, 0);
 		els->code_injection_list = malloc((sz + 1) * sizeof(*els->code_injection_list));
 		EXT_ASSERT_NOT_NULL(els->code_injection_list);
-		for (int i = 0; i < sz; i++) {
+		for (i = 0; i < sz; i++) {
 			lua_rawgeti(L, -1, i + 1);
 			int val = luaL_checkinteger(L, -1);
 			EXT_ASSERT_BETWEEN(val, 0x0000, 0xFFFF);
@@ -505,7 +506,7 @@ static int ext_lua_register(lua_State *L)
 		EXT_ASSERT_NOT_NULL(items);
 		els->menu_item_count = sz;
 
-		// Iterate over menu items
+		/* Iterate over menu items */
 		lua_pushnil(L);
 		int idx = 0;
 		while (lua_next(L, -2)) {
@@ -514,44 +515,44 @@ static int ext_lua_register(lua_State *L)
 			EXT_ASSERT_EQ(lua_type(L, -1), LUA_TTABLE);
 			EXT_ASSERT_EQ(lua_type(L, -2), LUA_TSTRING);
 
-			// Parse one menu item from table at -1
+			/* Parse one menu item from table at -1 */
 
-			// Save the handle to that item
+			/* Save the handle to that item */
 			lua_pushvalue(L, -1);
 			item->handle = luaL_ref(L, LUA_REGISTRYINDEX);
 
-			// LABEL
+			/* LABEL */
 			lua_getfield(L, -1, "LABEL");
 			item->label = luaL_checkstring(L, -1);
-			lua_pop(L, 1);  // pop label
+			lua_pop(L, 1);  /* pop label */
 
-			// OPTIONS
+			/* OPTIONS */
 			lua_getfield(L, -1, "OPTIONS");
 			luaL_checktype(L, -1, LUA_TTABLE);
 			item->option_count = lua_rawlen(L, -1);
 			item->options = malloc(sizeof(*item->options) * item->option_count);
-			for (int i = 0; i < item->option_count; i++) {
+			for (i = 0; i < item->option_count; i++) {
 				lua_rawgeti(L, -1, i + 1);
 				item->options[i] = luaL_checkstring(L, -1);
-				lua_pop(L, 1);  // pop current option
+				lua_pop(L, 1);  /* pop current option */
 			}
-			lua_pop(L, 1);  // pop options table
+			lua_pop(L, 1);  /* pop options table */
 
-			// CURRENT
+			/* CURRENT */
 			lua_getfield(L, -1, "CURRENT");
 			if (lua_isnil(L, -1)) {
 				lua_pop(L, 1);
 				item->current = 0;
 			} else {
 				item->current = luaL_checkinteger(L, -1);
-				lua_pop(L, 1);  // pop current
+				lua_pop(L, 1);  /* pop current */
 			}
 
-			lua_pop(L, 1);  // pop table
+			lua_pop(L, 1);  /* pop table */
 		}
-		// Create a structure for UI handler
+		/* Create a structure for UI handler */
 		els->ui_menu_items = malloc(sizeof(*els->ui_menu_items) * (els->menu_item_count + 1));
-		for (int i = 0; i < els->menu_item_count; i++) {
+		for (i = 0; i < els->menu_item_count; i++) {
 			els->ui_menu_items[i] = (UI_tMenuItem) UI_MENU_ACTION(i, els->menu_items[i].label);
 		}
 		els->ui_menu_items[els->menu_item_count] = 	(UI_tMenuItem) UI_MENU_END;
@@ -559,10 +560,10 @@ static int ext_lua_register(lua_State *L)
 		lua_pop(L, 1);
 	}
 
-	// Verify we're still sane
+	/* Verify we're still sane */
 	luaL_checktype(L, 1, LUA_TTABLE);
 
-	// Now, register the extension
+	/* Now, register the extension */
 	ext_state *state = ext_state_alloc();
 	state->name = els->name;
 	state->internal_state = els;
@@ -589,15 +590,15 @@ static int ext_lua_register(lua_State *L)
 
 void ext_lua_init()
 {
-    printf("Initializing Lua\n");
-    L = luaL_newstate();
+	printf("Initializing Lua\n");
+	L = luaL_newstate();
 	assert(L);
 	luaL_openlibs(L);
 
-	// Register OpenGL extensions
+	/* Register OpenGL extensions */
 	gl_lua_ext_init(L);
 
-	// Register various a8-specific types
+	/* Register various a8-specific types */
 	create_barray_type(L);
 
 	lua_register(L, "a8_memory", get_a8_memory);
@@ -620,13 +621,13 @@ void ext_lua_init()
 	push_integer_value(OP_RTS);
 	push_integer_value(OP_NOP);
 
-	// Register common.lua
+	/* Register common.lua */
 	if (ext_lua_run_file("data/ext/common.lua")) {
 		printf("exiting\n");
 		exit(1);
 	};
 
-	// Register all files matching: data/ext/*/init.lua
+	/* Register all files matching: data/ext/* /init.lua */
 	const char *dirname = "data/ext";
 	DIR *dir = opendir(dirname);
 	EXT_ASSERT_NOT_NULL(dir);
@@ -635,23 +636,23 @@ void ext_lua_init()
 #define BUFSIZE 1000
 	char buf[BUFSIZE];
 	while ((dp = readdir(dir)) != NULL) {
-		// Check if it's a directory
+		/* Check if it's a directory */
 		struct stat stbuf;
 		snprintf(buf, BUFSIZE, "%s/%s", dirname, dp->d_name);
 		if (stat(buf, &stbuf) == -1) {
 			EXT_ERROR("stat(%s) failed", buf);
 		}
 		if ((stbuf.st_mode & S_IFDIR) == 0) {
-			// Skip files
+			/* Skip files */
 			continue;
 		}
-		// See if init.lua exists
+		/* See if init.lua exists */
 		snprintf(buf, BUFSIZE, "%s/%s/init.lua", dirname, dp->d_name);
 		if (stat(buf, &stbuf) == -1) {
-			// File doesn't exist
+			/* File doesn't exist */
 			continue;
 		}
-		// Found init.lua, try to load
+		/* Found init.lua, try to load */
 		if (ext_lua_run_file(buf)) {
 			printf("exiting\n");
 			exit(1);
@@ -659,7 +660,7 @@ void ext_lua_init()
 	}
 
 
-#if 0  // some old code
+#if 0  /* some old code */
 	if(ext_lua_run_file("data/ext/yoomp/script.lua")) {
 		printf("exiting\n");
 		exit(1);
@@ -672,7 +673,7 @@ void ext_lua_init()
 
 	for (int c = 0; c < sizeof(code) / sizeof(*code); c++) {
 		int res;
-		// Here we load the string and use lua_pcall for run the code
+		/* Here we load the string and use lua_pcall for run the code */
 		if (ext_lua_run_str(code[c])) {
 			printf("exiting\n");
 			exit(1);

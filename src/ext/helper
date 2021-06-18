@@ -2,13 +2,36 @@
 
 function bootstrap()
 {
+# Some switches to disable a bunch of warnings
+#    -Wno-c99-extensions \
+#    -Wno-declaration-after-statement \
+#    -Wno-missing-prototypes \
+#    -Wno-long-long \
+#    -Wno-comment \
+#    -Wno-variadic-macros \
+
+  rm -rf build
+  mkdir -p build
   ./autogen.sh
   cd build
-  CC="ccache clang" CFLAGS="-fsanitize=address -g -Wno-c99-extensions \
-    -Wno-declaration-after-statement -Wno-missing-prototypes \
-    -Wno-gcc-compat -Wno-long-long -Wno-comment -Wno-variadic-macros \
-    -Werror=incompatible-function-pointer-types" \
-    ../configure --prefix $PWD/../local \
+
+  export CFLAGS="-g "
+
+  if true ; then
+    # gcc
+    export CC="ccache gcc"
+    export CFLAGS+=" -I /usr/local/include"
+  else
+    # clang
+    export CC="ccache clang"
+    export CFLAGS+="\
+      -fsanitize=address \
+      -Wno-gcc-compat \
+      -Werror=incompatible-function-pointer-types \
+    "
+  fi
+
+  ../configure --prefix $PWD/../local \
     --with-video=sdl --with-opengl --enable-opengl-by-default \
     --enable-monitorbreakpoints --enable-monitorprofile --enable-monitortrace \
     --enable-seriosound \
@@ -19,6 +42,11 @@ function bootstrap()
 install()
 {
   VERBOSE=1 SHELL='sh -x' make V=1 -C build -j 4 install
+}
+
+clean()
+{
+  make -C build clean
 }
 
 $1

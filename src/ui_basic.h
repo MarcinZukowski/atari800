@@ -18,13 +18,13 @@ extern int UI_BASIC_OnScreenKeyboard(const char *title, int layout);
 /* used only in the Dreamcast port */
 extern const unsigned char UI_BASIC_key_to_ascii[256];
 
-#ifdef DIRECTX	
+#ifdef DIRECTX
 	#define DX_MENU_ITEM_HEIGHT  8
 	extern POINT UI_mouse_click;
 	void SetMouseIndex(int x, int y);
 #endif
 
-// Expose functions to print text to Atari screen
+/* Expose functions to print text to Atari screen */
 void Plot(int fg, int bg, int ch, int x, int y);
 void Print(int fg, int bg, const char *string, int x, int y, int maxwidth);
 

@@ -24,8 +24,8 @@
 #define Z_NEAR 200
 #define Z_FAR ((Z_NEAR) + (RR_LINE_COUNT))
 
-#define Y_ADJUSTMENT 0x5D  // adjustment in the Y positions
-#define Y_BLANKS 20   // empty lines on top of the screen
+#define Y_ADJUSTMENT 0x5D  /* adjustment in the Y positions */
+#define Y_BLANKS 20   /* empty lines on top of the screen */
 
 #define CONFIG_SCREEN_MODE_A8 0
 #define CONFIG_SCREEN_MODE_GL_2D 1
@@ -58,16 +58,18 @@ ext_sound* explosions[5];
 
 static void init_sounds()
 {
+	int i;
+
 	fire_sound = ext_sound_load("data/ext/river-raid/Flash-laser-04.wav");
 
-	// Stop playing the fire sound on Atari, by overwriting STA $D204, STX $D205 with NOPs
+	/* Stop playing the fire sound on Atari, by overwriting STA $D204, STX $D205 with NOPs */
 	memset(MEMORY_mem + 0xB3B0, 0xEA, 6);
 
-	for (int i = 0; i < NUM_EXPLOSIONS; i++) {
+	for (i = 0; i < NUM_EXPLOSIONS; i++) {
 		explosions[i] = ext_sound_load(explosion_files[i]);
 	}
 
-	// Stop playing the enemy explosion sound on Atari, by overwriting STA $D202, STX $D203 with NOPs
+	/* Stop playing the enemy explosion sound on Atari, by overwriting STA $D202, STX $D203 with NOPs */
 	memset(MEMORY_mem + 0xB37E, 0xEA, 6);
 }
 
@@ -79,7 +81,8 @@ static void do_sounds()
 	}
 
 #if 0
-	for (int a = 0x74; a <= 0x7f; a++) {
+	int a;
+	for (a = 0x74; a <= 0x7f; a++) {
 		printf("%02x: %02x ", a, MEMORY_mem[a]);
 	}
 	printf("\n");
@@ -98,42 +101,43 @@ static void do_sounds()
 typedef struct rr_object {
 	gl_texture normal;
 	gl_texture mirror;
-	// explosion textures (from memory 1c, 34, 4c resp)
+	/* explosion textures (from memory 1c, 34, 4c resp) */
 	gl_texture explosions[3];
 } rr_object;
 
 
-// Object IDs:
-// 0, 1 - nothing
-// 2..6 - explosions
-// 7..15 - 9 actual objects
+/* Object IDs:
+ * 0, 1 - nothing
+ * 2..6 - explosions
+ * 7..15 - 9 actual objects */
 #define OBJECTS_OFFSET 7
 #define NUM_OBJECTS 9
 rr_object objects[NUM_OBJECTS];
 
 #define NUM_PLANE_TEXTURES 10
-gl_texture plane_textures[NUM_PLANE_TEXTURES];  // left, right, straight
+gl_texture plane_textures[NUM_PLANE_TEXTURES];  /* left, right, straight */
 
 gl_texture missile_texture;
 
-// If color_or_ptr < 256, it's color. Otherwise it's a pointer to a color bitmap
+/* If color_or_ptr < 256, it's color. Otherwise it's a pointer to a color bitmap */
 static gl_texture gen_texture(int height, int color_or_ptr, int gfx_ptr)
 {
 	static const int width = 8;
 
 	gl_texture t = gl_texture_new(width, height);
 
-	for (int y = 0; y < height; y++) {
-		// We're upside down
+	int x, y;
+	for (y = 0; y < height; y++) {
+		/* We're upside down */
 		int idx = height - y - 1;
-		// Take color, we're upside down
+		/* Take color, we're upside down */
 		byte color = color_or_ptr < 256 ? color_or_ptr : MEMORY_mem[color_or_ptr + idx];
 		byte colR = Colours_GetR(color);
 		byte colG = Colours_GetG(color);
 		byte colB = Colours_GetB(color);
-		// Take bitmap
+		/* Take bitmap */
 		byte gfx_byte = MEMORY_mem[gfx_ptr + idx];
-		for (int x = 0; x < width; x++) {
+		for (x = 0; x < width; x++) {
 			int mul = (gfx_byte & (1 << (7 - x))) != 0;
 			t.data[4 * (y * width + x) + 0] = mul * colR;
 			t.data[4 * (y * width + x) + 1] = mul * colG;
@@ -175,13 +179,13 @@ static void init_objects()
 		objects[i] = gen_object(OBJECTS_OFFSET + i);
 	}
 
-	// Generate plane textures based on addresses from BACD pointers
+	/* Generate plane textures based on addresses from BACD pointers */
 	for (i = 0; i < NUM_PLANE_TEXTURES; i++) {
 		plane_textures[i] = gen_texture(14, GTIA_COLPM1, MEMORY_dGetWord(0xBACD + 2 * i));
 	}
 
-	// Missile is 8 lines with 0x20.
-	// a5b3 has 0x20
+	/* Missile is 8 lines with 0x20.
+	 * a5b3 has 0x20 */
 	missile_texture = gen_texture(1, GTIA_COLPM1, 0xa5b3);
 }
 
@@ -201,17 +205,14 @@ static void render_objects()
 		int w = 2 * (8 + 8 * MEMORY_mem[RR_WIDTHS + idx]);
 		int x = MEMORY_mem[0x516 + idx];
 
-		// Fix X for now
-		// x = 48;
-
 		if (gfx_id >= 2) {
-			// Only then render
+			/* Only then render */
 			EXT_ASSERT(color_id >= OBJECTS_OFFSET && color_id <= 15, "Unexpected color_id=%d, idx=%d", color_id, idx);
 			rr_object *o = &objects[color_id - OBJECTS_OFFSET];
 
 			float sy, sh, sw, sx, z;
 			if (use_perspective) {
-				// In 3D coords
+				/* In 3D coords */
 				sy = 0;
 				sh = 0.25 * o->normal.height;
 				sy += sh / 2;
@@ -220,7 +221,7 @@ static void render_objects()
 				z = - (Z_FAR - y);
 			} else {
 				y += Y_BLANKS;
-				// In 2D screen coords
+				/* In 2D screen coords */
 				sy = 120 - y;
 				sh = o->normal.height;
 				sw = w;
@@ -230,7 +231,7 @@ static void render_objects()
 
 			gl_texture *t;
 			if (gfx_id <= 6) {
-				// Explosion
+				/* Explosion */
 				static int id_to_explosion_index[7] = {-1, -1, 2, 1, 0, 1, 2};
 				int explosion_index = id_to_explosion_index[gfx_id];
 				assert(explosion_index >= 0 && explosion_index <= 2);
@@ -252,8 +253,9 @@ static void render_objects()
 		}
 	}
 
-	// Showcase all objects
-	for (int t = 0; t < NUM_OBJECTS; t++) {
+	/* Showcase all objects */
+	int t;
+	for (t = 0; t < NUM_OBJECTS; t++) {
 		float x = -0.8 + t * 0.1;
 		gl_texture_draw(&objects[t].normal,
 			0, 1, 0, 1,
@@ -269,7 +271,7 @@ static void render_objects()
 /******************************************* LINES *************************************/
 #define RR_LINE_WIDTH 48
 
-gl_texture lines[RR_LINE_COUNT];  // Ordering the same as in Atari memory, 80 lines from 0x2000 and 80 from 0x3000
+gl_texture lines[RR_LINE_COUNT];  /* Ordering the same as in Atari memory, 80 lines from 0x2000 and 80 from 0x3000 */
 
 int last_active = 0;
 int last_line_nr = 0;
@@ -298,7 +300,7 @@ static int line_to_addr(int line)
 	return addr;
 }
 
-// Render one atari line to a GL texture
+/* Render one atari line to a GL texture */
 static void render_line(int line_nr)
 {
 	int addr = line_to_addr(line_nr);
@@ -306,9 +308,10 @@ static void render_line(int line_nr)
 
 	int colors[4] = { GTIA_COLBK, GTIA_COLPF0, GTIA_COLPF1, GTIA_COLPF2 };
 
-	for (int xb = 0; xb < RR_LINE_WIDTH; xb++) {
+	int xb, xp;
+	for (xb = 0; xb < RR_LINE_WIDTH; xb++) {
 		int byte = MEMORY_mem[addr + xb];
-		for (int xp = 0; xp < 4; xp++) {
+		for (xp = 0; xp < 4; xp++) {
 			int pixel = byte >> (2 * (3 - xp)) & 0x03;
 			EXT_ASSERT_BETWEEN(pixel, 0, 3);
 			int color = colors[pixel];
@@ -331,7 +334,8 @@ static void print_dl()
 	int last = -1;
 	int cnt = 0;
 	printf("DL: ");
-	for (int i = 0x3f03; i <= 0x3fa9; i++ ) {
+	int i;
+	for (i = 0x3f03; i <= 0x3fa9; i++ ) {
 		int b = MEMORY_mem[i];
 		if (b != last) {
 			if (last >= 0) {
@@ -353,17 +357,18 @@ static void print_dl()
 
 static void render_lines()
 {
-//	print_dl();
+/*	print_dl(); */
 
 	int cur_line_addr = MEMORY_dGetWord(0x3f04);
 	int cur_line_nr = addr_to_line(cur_line_addr);
-//	printf("  #%d\n", cur_line_nr);
+/*	printf("  #%d\n", cur_line_nr); */
 
-	// Memory at 0x3eff is reset
+	/* Memory at 0x3eff is reset */
 	int active = MEMORY_mem[0x3eff] != 0;
 	if (active && ! last_active) {
-		// Re-render all lines
-		for (int i = 0; i < RR_LINE_COUNT; i++) {
+		/* Re-render all lines */
+		int i;
+		for (i = 0; i < RR_LINE_COUNT; i++) {
 			render_line(i);
 		}
 		last_line_nr = cur_line_nr;
@@ -375,11 +380,12 @@ static void render_lines()
 	}
 	last_active = active;
 
-	// Texture is 48 bytes -> 384 atari pixels
-	// Screen is really 336 pixels, which is 0.875 of the width
+	/* Texture is 48 bytes -> 384 atari pixels
+	 * Screen is really 336 pixels, which is 0.875 of the width */
 	float margin = (1.0 - 0.875) / 2;
 
-	for (int y = 0; y < RR_LINE_COUNT; y++) {
+	int y;
+	for (y = 0; y < RR_LINE_COUNT; y++) {
 		int line_nr = (cur_line_nr + y) % RR_LINE_COUNT;
 		if (use_perspective) {
 			float sy = 0;
@@ -405,7 +411,8 @@ static void render_lines()
 
 static void init_lines()
 {
-	for (int i = 0; i < RR_LINE_COUNT; i++) {
+	int i;
+	for (i = 0; i < RR_LINE_COUNT; i++) {
 		lines[i] = gl_texture_new(RR_LINE_WIDTH * 4, 1);
 		memset(lines[i].data, 0, RR_LINE_WIDTH);
 		gl_texture_finalize(&lines[i]);
@@ -418,7 +425,7 @@ static void init_lines()
 
 static void show_plane_and_missile()
 {
-	// Show plane
+	/* Show plane */
 	{
 		int plane_idx = MEMORY_mem[0x5e];
 		EXT_ASSERT_BETWEEN(plane_idx, 0, 9);
@@ -441,7 +448,7 @@ static void show_plane_and_missile()
 			sx, sx + sw, sy, sy + sh, z);
 	}
 
-	// Show missile
+	/* Show missile */
 	{
 		int missile_y = MEMORY_mem[0x56];
 		if (missile_y > 1) {
@@ -480,21 +487,21 @@ static void render_subwindow(int x, int y, int w, int h, int with_perspective)
 	gl.LoadIdentity();
 	if (use_perspective) {
 		gl.Frustum(
-			// left/right
+			/* left/right */
 			-168,+168,
-			// bottom/top
+			/* bottom/top */
 			-25, 5,
-			// near/far
+			/* near/far */
 			Z_NEAR, Z_FAR  + 160);
 		gl.MatrixMode(GL_MODELVIEW);
 		gl.LoadIdentity();
 
 		float player_x = MEMORY_mem[0x0057];
-//		printf("Player X: %d\n", (int)player_x);
+/*		printf("Player X: %d\n", (int)player_x); */
 		player_x -= 128;
 		gl.Translatef(-2.0 * (player_x + 2), 0, 0);
 		gl.Translatef(0, -25.0f, 0);
-//		gl.Rotatef(10, 1, 0, 0);
+/*		gl.Rotatef(10, 1, 0, 0); */
 
 		gl.Enable(GL_FOG);
 		GLfloat fog_color[4] = {0.0, 0.1, 0.3, 1.0};
@@ -532,7 +539,7 @@ static void post_gl_frame(struct ext_state *self)
 		GL_ONE_MINUS_SRC_ALPHA
 	);
 
-//	gl.PushMatrix();
+/*	gl.PushMatrix(); */
 	GLint old_viewport[4];
 	gl.GetIntegerv(GL_VIEWPORT, old_viewport);
 	gl.MatrixMode(GL_MODELVIEW);
@@ -541,19 +548,18 @@ static void post_gl_frame(struct ext_state *self)
 	gl.PushMatrix();
 
 	if (config_screen_mode == CONFIG_SCREEN_MODE_PIP) {
-		// Render 2 windows in corners, one with perspective, one without
+		/* Render 2 windows in corners, one with perspective, one without */
 		render_subwindow(0, 0, 336, 240, 0);
 		render_subwindow(336 * 2, 0, 336, 240, 1);
 	} else {
-		// Render over the main window, in 2D or 3D
+		/* Render over the main window, in 2D or 3D */
 		int persp = (config_screen_mode == CONFIG_SCREEN_MODE_GL_3D);
 		render_subwindow(0, 180, 1008, 720, persp);
 	}
 
-//	printf("%d %d %d %d\n", old_viewport[0], old_viewport[01, old_viewport[2], old_viewport[3]);
 	gl.Viewport(old_viewport[0], old_viewport[1], (GLsizei)old_viewport[2], (GLsizei) old_viewport[3]);
 
-//	gl.PopMatrix();
+/*  gl.PopMatrix(); */
 	gl.Color4f(1.0f, 1.0f, 1.0f, 1.0f);
 	gl.Disable(GL_BLEND);
 	gl.MatrixMode(GL_PROJECTION);
@@ -566,12 +572,12 @@ static void post_gl_frame(struct ext_state *self)
 
 static int river_raid_init(struct ext_state *self)
 {
-	// Some memory fingerprint
+	/* Some memory fingerprint */
 	int address = 0xb55c;
 	byte fingerprint[] = {0xA4, 0x4D, 0xA2, 0x5D, 0xD0, 0x03};
 
 	if (memcmp(MEMORY_mem + address, fingerprint, sizeof(fingerprint))) {
-		// No match
+		/* No match */
 		printf("RIVER RAID not detected\n");
 		return 0;
 	}
@@ -582,7 +588,7 @@ static int river_raid_init(struct ext_state *self)
 	init_objects();
 	init_sounds();
 
-	// Match
+	/* Match */
 	return 1;
 }
 
