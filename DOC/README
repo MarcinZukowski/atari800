@@ -1,8 +1,8 @@
-  Free and portable Atari 800 Emulator for everybody, Version 4.2.0
+  Free and portable Atari 800 Emulator for everybody, Version 5.0.0
   -----------------------------------------------------------------
 
     Copyright (C) 1995 David Firth. E-Mail: david@signus.demon.co.uk
-    Copyright (C) 1998-2019 Atari800 Development Team.
+    Copyright (C) 1998-2022 Atari800 Development Team.
                             http://atari800.github.io/
 
     This program is free software; you can redistribute it and/or modify
@@ -139,7 +139,12 @@ o Atari palette read from a file or calculated basing on user-defined
 
 o Screen snapshots (normal and interlaced) to PCX and PNG files.
 
-o Sound output may be written to WAV files.
+o Sound output may be written to WAV or MP3 files.
+
+o MP3 sound support if libmp3lame is available.
+
+o Emulator video and audio may be recorded to AVI files for playback in
+  video players or uploading to YouTube or other online platforms.
 
 o User interface on all versions supporting bitmapped graphics.
 

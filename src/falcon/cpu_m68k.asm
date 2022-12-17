@@ -44,17 +44,21 @@ NEW_CYCLE_EXACT equ 0   ; set to 1 to use the new cycle exact CPU emulation
 
   opt    P=68040,L1,O+,W-
 
-  xref _CARTRIDGE_BountyBob2
-  xref _CARTRIDGE_BountyBob1
   xref _GTIA_GetByte
   xref _POKEY_GetByte
   xref _PIA_GetByte
   xref _ANTIC_GetByte
+  xref _CARTRIDGE_5200SuperCartGetByte
+  xref _CARTRIDGE_BountyBob1GetByte
+  xref _CARTRIDGE_BountyBob2GetByte
   xref _CARTRIDGE_GetByte
   xref _GTIA_PutByte
   xref _POKEY_PutByte
   xref _PIA_PutByte
   xref _ANTIC_PutByte
+  xref _CARTRIDGE_5200SuperCartPutByte
+  xref _CARTRIDGE_BountyBob1PutByte
+  xref _CARTRIDGE_BountyBob2PutByte
   xref _CARTRIDGE_PutByte
   xref _ESC_Run
   xref _Atari800_Exit
@@ -182,28 +186,84 @@ UPDATE_LOCAL_REGS macro
   add.l   d7,PC6502
   endm
 
-_Local_GetByte:
+GetByte:
   move.l d7,d1
-  moveq  #0,d0
-  move.b d1,d0
   lsr.w  #8,d1
-  move.b (HIxTable,d1.l),d1
-; jmp    ([GetTable,PC,d1.l*4])
-  move.w (GetTable,PC,d1.l*2),d1
-  jmp    (GetTable,d1.w)
+  move.l (GetTable,pc,d1.l*4),a0
+  jmp    (a0)
 
 GetTable:
-  dc.w GetNone-GetTable,GetGTIA-GetTable
-  dc.w GetPOKEY-GetTable,GetPIA-GetTable
-  dc.w GetANTIC-GetTable,GetCART-GetTable
-  dc.w ItsBob1-GetTable,ItsBob2-GetTable
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 00..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 04..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 08..b
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 0c..f
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 10..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 14..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 18..b
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 1c..f
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 20..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 24..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 28..b
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 2c..f
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 30..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 34..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 38..b
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 3c..f
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 40..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 44..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 48..b
+  dc.l GetNone,GetNone,GetNone,GetBob1     ; 4c..f
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 50..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 54..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 58..b
+  dc.l GetNone,GetNone,GetNone,GetBob2     ; 5c..f
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 60..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 64..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 68..b
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 6c..f
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 70..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 74..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 78..b
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 7c..f
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 80..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 84..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 88..b
+  dc.l GetNone,GetNone,GetNone,GetBob1     ; 8c..f
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 90..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 94..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; 98..b
+  dc.l GetNone,GetNone,GetNone,GetBob2     ; 9c..f
+  dc.l GetNone,GetNone,GetNone,GetNone     ; a0..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; a4..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; a8..b
+  dc.l GetNone,GetNone,GetNone,GetNone     ; ac..f
+  dc.l GetNone,GetNone,GetNone,GetNone     ; b0..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; b4..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; b8..b
+  dc.l GetNone,GetNone,GetNone,Get5200     ; bc..f
+  dc.l GetGTIA,GetNone,GetNone,GetNone     ; c0..3
+  dc.l GetNone,GetNone,GetNone,GetNone     ; c4..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; c8..b
+  dc.l GetNone,GetNone,GetNone,GetNone     ; cc..f
+  dc.l GetGTIA,GetNone,GetPOKEY,GetPIA     ; d0..3
+  dc.l GetANTIC,GetCART,GetNone,GetNone    ; d4..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; d8..b
+  dc.l GetNone,GetNone,GetNone,GetNone     ; dc..f
+  dc.l GetNone,GetNone,GetNone,GetNone     ; e0..3
+  dc.l GetNone,GetNone,GetNone,GetNone     ; e4..7
+  dc.l GetPOKEY,GetNone,GetNone,GetPOKEY   ; e8..b
+  dc.l GetNone,GetNone,GetNone,GetNone     ; ec..f
+  dc.l GetNone,GetNone,GetNone,GetNone     ; f0..3
+  dc.l GetNone,GetNone,GetNone,GetNone     ; f4..7
+  dc.l GetNone,GetNone,GetNone,GetNone     ; f8..b
+  dc.l GetNone,GetNone,GetNone,GetNone     ; fc..f
 
 GetNone:
   st     d0        ; higher bytes are 0 from before
   rts
 GetGTIA:
-  clr.l -(a7)      ; FALSE (no side effects)
-  move.l d0,-(a7)
+  clr.l  -(a7)      ; FALSE (no side effects)
+  move.l d7,-(a7)
   ifne   NEW_CYCLE_EXACT
   move.l CD,_ANTIC_xpos
   endif
@@ -211,192 +271,183 @@ GetGTIA:
   addq.l #8,a7
   rts
 GetPOKEY:
-  clr.l -(a7)      ; FALSE (no side effects)
-  move.l d0,-(a7)
+  clr.l  -(a7)      ; FALSE (no side effects)
+  move.l d7,-(a7)
   move.l CD,_ANTIC_xpos
   jsr    _POKEY_GetByte
   addq.l #8,a7
   rts
 GetPIA:
-  clr.l -(a7)      ; FALSE (no side effects)
-  move.l d0,-(a7)
+  clr.l  -(a7)      ; FALSE (no side effects)
+  move.l d7,-(a7)
   jsr    _PIA_GetByte
   addq.l #8,a7
   rts
 GetANTIC:
-  clr.l -(a7)      ; FALSE (no side effects)
-  move.l d0,-(a7)
+  clr.l  -(a7)      ; FALSE (no side effects)
+  move.l d7,-(a7)
   move.l CD,_ANTIC_xpos
   jsr    _ANTIC_GetByte
   addq.l #8,a7
   rts
 GetCART:
-  clr.l -(a7)      ; FALSE (no side effects)
-  move.l d0,-(a7)
+  clr.l  -(a7)      ; FALSE (no side effects)
+  move.l d7,-(a7)
   jsr    _CARTRIDGE_GetByte
   addq.l #8,a7
   rts
-ItsBob2:
-  move.w d7,-(a7)
-  clr.w  -(a7)
-  jsr    _CARTRIDGE_BountyBob2
-  addq.l #4,a7
-  moveq  #0,d0
+GetBob1:
+  clr.l  -(a7)      ; FALSE (no side effects)
+  move.l d7,-(a7)
+  jsr    _CARTRIDGE_BountyBob1GetByte
+  addq.l #8,a7
   rts
-ItsBob1:
-  move.w d7,-(a7)
-  clr.w  -(a7)
-  jsr    _CARTRIDGE_BountyBob1
-  addq.l #4,a7
-  moveq  #0,d0
+GetBob2:
+  clr.l  -(a7)      ; FALSE (no side effects)
+  move.l d7,-(a7)
+  jsr    _CARTRIDGE_BountyBob2GetByte
+  addq.l #8,a7
+  rts
+Get5200:
+  clr.l  -(a7)      ; FALSE (no side effects)
+  move.l d7,-(a7)
+  jsr    _CARTRIDGE_5200SuperCartGetByte
+  addq.l #8,a7
   rts
 
-_Local_PutByte:
-  moveq  #0,d1
-  move.w d7,d1
+PutByte:
+  move.l d7,d1
   lsr.w  #8,d1
-  move.b (HIxTable,d1.l),d1
-  jmp    ([PutTable,PC,d1.l*4])
+  move.l (PutTable,pc,d1.l*4),a0
+  jmp    (a0)
 
 PutTable:
-  dc.l PutNone,PutGTIA,PutPOKEY,PutPIA
-  dc.l PutANTIC,PutCART,ItsBob1,ItsBob2
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 00..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 04..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 08..b
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 0c..f
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 10..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 14..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 18..b
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 1c..f
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 20..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 24..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 28..b
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 2c..f
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 30..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 34..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 38..b
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 3c..f
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 40..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 44..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 48..b
+  dc.l PutNone,PutNone,PutNone,PutBob1     ; 4c..f
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 50..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 54..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 58..b
+  dc.l PutNone,PutNone,PutNone,PutBob2     ; 5c..f
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 60..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 64..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 68..b
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 6c..f
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 70..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 74..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 78..b
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 7c..f
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 80..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 84..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 88..b
+  dc.l PutNone,PutNone,PutNone,PutBob1     ; 8c..f
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 90..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 94..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; 98..b
+  dc.l PutNone,PutNone,PutNone,PutBob2     ; 9c..f
+  dc.l PutNone,PutNone,PutNone,PutNone     ; a0..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; a4..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; a8..b
+  dc.l PutNone,PutNone,PutNone,PutNone     ; ac..f
+  dc.l PutNone,PutNone,PutNone,PutNone     ; b0..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; b4..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; b8..b
+  dc.l PutNone,PutNone,PutNone,Put5200     ; bc..f
+  dc.l PutGTIA,PutNone,PutNone,PutNone     ; c0..3
+  dc.l PutNone,PutNone,PutNone,PutNone     ; c4..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; c8..b
+  dc.l PutNone,PutNone,PutNone,PutNone     ; cc..f
+  dc.l PutGTIA,PutNone,PutPOKEY,PutPIA     ; d0..3
+  dc.l PutANTIC,PutCART,PutNone,PutNone    ; d4..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; d8..b
+  dc.l PutNone,PutNone,PutNone,PutNone     ; dc..f
+  dc.l PutNone,PutNone,PutNone,PutNone     ; e0..3
+  dc.l PutNone,PutNone,PutNone,PutNone     ; e4..7
+  dc.l PutPOKEY,PutNone,PutNone,PutPOKEY   ; e8..b
+  dc.l PutNone,PutNone,PutNone,PutNone     ; ec..f
+  dc.l PutNone,PutNone,PutNone,PutNone     ; f0..3
+  dc.l PutNone,PutNone,PutNone,PutNone     ; f4..7
+  dc.l PutNone,PutNone,PutNone,PutNone     ; f8..b
+  dc.l PutNone,PutNone,PutNone,PutNone     ; fc..f
 
 PutNone:
   moveq  #0,d0
   rts
 PutGTIA:
-  move.b d0,d1
-  move.l d1,-(a7)
-  move.b d7,d1
-  move.l d1,-(a7)
+  move.l d0,-(a7)
+  move.l d7,-(a7)
   move.l CD,_ANTIC_xpos
   jsr    _GTIA_PutByte
   addq.l #8,a7
   rts
 PutPOKEY:
-  move.b d0,d1
-  move.l d1,-(a7)
-  move.b d7,d1
-  move.l d1,-(a7)
+  move.l d0,-(a7)
+  move.l d7,-(a7)
   jsr    _POKEY_PutByte
   addq.l #8,a7
   rts
 PutPIA:
-  move.b d0,d1
-  move.l d1,-(a7)
-  move.b d7,d1
-  move.l d1,-(a7)
+  move.l d0,-(a7)
+  move.l d7,-(a7)
   jsr    _PIA_PutByte
   addq.l #8,a7
   rts
 PutANTIC:
-  move.b d0,d1
-  move.l d1,-(a7)
-  move.b d7,d1
-  move.l d1,-(a7)
+  move.l d0,-(a7)
+  move.l d7,-(a7)
   move.l CD,_ANTIC_xpos
   jsr    _ANTIC_PutByte
   move.l _ANTIC_xpos,CD
   addq.l #8,a7
   rts
 PutCART:
-  move.b d0,d1
-  move.l d1,-(a7)
-  move.b d7,d1
-  move.l d1,-(a7)
+  move.l d0,-(a7)
+  move.l d7,-(a7)
   jsr    _CARTRIDGE_PutByte
   addq.l #8,a7
   rts
-
-HIxNone   equ 0
-HIxGTIA8  equ 1
-HIxGTIA5  equ 1
-HIxPOKEY8 equ 2
-HIxPOKEY5 equ 2
-HIxPIA8   equ 3
-HIxANTIC8 equ 4
-HIxCART   equ 5
-HIxBob1   equ 6
-HIxBob2   equ 7
-
-HIxTable:
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 00..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 04..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 08..b
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 0c..f
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 10..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 14..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 18..b
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 1c..f
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 20..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 24..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 28..b
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 2c..f
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 30..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 34..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 38..b
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 3c..f
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 40..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 44..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 48..b
-  dc.b HIxNone,HIxNone,HIxNone,HIxBob1     ; 4c..f
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 50..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 54..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 58..b
-  dc.b HIxNone,HIxNone,HIxNone,HIxBob2     ; 5c..f
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 60..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 64..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 68..b
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 6c..f
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 70..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 74..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 78..b
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 7c..f
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 80..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 84..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 88..b
-  dc.b HIxNone,HIxNone,HIxNone,HIxBob1     ; 8c..f
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 90..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 94..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; 98..b
-  dc.b HIxNone,HIxNone,HIxNone,HIxBob2     ; 9c..f
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; a0..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; a4..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; a8..b
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; ac..f
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; b0..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; b4..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; b8..b
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; bc..f
-  dc.b HIxGTIA5,HIxNone,HIxNone,HIxNone    ; c0..3
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; c4..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; c8..b
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; cc..f
-  dc.b HIxGTIA8,HIxNone,HIxPOKEY8,HIxPIA8  ; d0..3
-  dc.b HIxANTIC8,HIxCART,HIxNone,HIxNone   ; d4..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; d8..b
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; dc..f
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; e0..3
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; e4..7
-  dc.b HIxPOKEY5,HIxNone,HIxNone,HIxPOKEY5 ; e8..b
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; ec..f
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; f0..3
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; f4..7
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; f8..b
-  dc.b HIxNone,HIxNone,HIxNone,HIxNone     ; fc..f
+PutBob1:
+  move.l d0,-(a7)
+  move.l d7,-(a7)
+  jsr    _CARTRIDGE_BountyBob1PutByte
+  addq.l #8,a7
+  rts
+PutBob2:
+  move.l d0,-(a7)
+  move.l d7,-(a7)
+  jsr    _CARTRIDGE_BountyBob2PutByte
+  addq.l #8,a7
+  rts
+Put5200:
+  move.l d0,-(a7)
+  move.l d7,-(a7)
+  jsr    _CARTRIDGE_5200SuperCartPutByte
+  addq.l #8,a7
+  rts
 
 EXE_GETBYTE macro
-; move.l d7,-(a7)
-  jsr    _Local_GetByte
-; addq.l #4,a7 ;put stack onto right place
+  bsr    GetByte
   endm
 
 EXE_PUTBYTE macro
-; clr.l  -(a7)
-; move.b \1,3(a7) ;byte
-  jsr    _Local_PutByte
-; addq.l #8,a7
+  bsr    PutByte
   endm
 
 ; XXX: we do this only for GTIA, because NEW_CYCLE_EXACT does not correctly
@@ -564,9 +615,7 @@ ConvertRegP_STATUS macro
   endm
 
 Call_Atari800_RunEsc macro
-; move.l d7,-(a7)   !!!TEST!!!
-  clr.l  -(a7)     ;!!!TEST!!!
-  move.b d7,(3,a7) ;!!!TEST!!!
+  move.l d7,-(a7)
   ConvertSTATUS_RegP_destroy d0
   UPDATE_GLOBAL_REGS
   jsr _ESC_Run

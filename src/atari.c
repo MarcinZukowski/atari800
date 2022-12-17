@@ -90,6 +90,9 @@
 #include "colours.h"
 #include "screen.h"
 #endif
+#if defined(AUDIO_RECORDING) || defined(VIDEO_RECORDING)
+#include "file_export.h"
+#endif
 #ifndef BASIC
 #include "statesav.h"
 #ifndef __PLUS
@@ -98,7 +101,6 @@
 #endif /* BASIC */
 #if defined(SOUND) && !defined(__PLUS)
 #include "pokeysnd.h"
-#include "sndsave.h"
 #include "sound.h"
 #endif
 #ifdef R_IO_DEVICE
@@ -451,9 +453,14 @@ int Atari800_Initialise(int *argc, char *argv[])
 	   the configuration file easier to edit */
 	SYSROM_SetDefaults();
 
-	/* if no configuration file read, try to save one with the defaults */
+	/* if no configuration file read, try to save one with the defaults (except when
+	   using libatari800) */
 	if (!got_config)
+#ifdef LIBATARI800
+		; /* prevent warning for unused variable got_config */
+#else
 		CFG_WriteConfig();
+#endif
 
 #endif /* __PLUS */
 
@@ -518,6 +525,26 @@ int Atari800_Initialise(int *argc, char *argv[])
 			Atari800_builtin_game = FALSE;
 			Atari800_keyboard_detached = FALSE;
 		}
+		else if (strcmp(argv[i], "-576xe") == 0) {
+			Atari800_machine_type = Atari800_MACHINE_XLXE;
+			MEMORY_ram_size = 576;
+			Atari800_builtin_basic = TRUE;
+			Atari800_keyboard_leds = FALSE;
+			Atari800_f_keys = FALSE;
+			Atari800_jumper = FALSE;
+			Atari800_builtin_game = FALSE;
+			Atari800_keyboard_detached = FALSE;
+		}
+		else if (strcmp(argv[i], "-1088xe") == 0) {
+			Atari800_machine_type = Atari800_MACHINE_XLXE;
+			MEMORY_ram_size = 1088;
+			Atari800_builtin_basic = TRUE;
+			Atari800_keyboard_leds = FALSE;
+			Atari800_f_keys = FALSE;
+			Atari800_jumper = FALSE;
+			Atari800_builtin_game = FALSE;
+			Atari800_keyboard_detached = FALSE;
+		}
 		else if (strcmp(argv[i], "-xegs") == 0) {
 			Atari800_machine_type = Atari800_MACHINE_XLXE;
 			MEMORY_ram_size = 64;
@@ -559,9 +586,15 @@ int Atari800_Initialise(int *argc, char *argv[])
 #ifdef STEREO_SOUND
 		else if (strcmp(argv[i], "-stereo") == 0) {
 			POKEYSND_stereo_enabled = TRUE;
+#ifdef SOUND_THIN_API
+			Sound_desired.channels = 2;
+#endif /* SOUND_THIN_API */
 		}
 		else if (strcmp(argv[i], "-nostereo") == 0) {
 			POKEYSND_stereo_enabled = FALSE;
+#ifdef SOUND_THIN_API
+			Sound_desired.channels = 1;
+#endif /* SOUND_THIN_API */
 		}
 #endif /* STEREO_SOUND */
 		else if (strcmp(argv[i], "-turbo") == 0) {
@@ -671,6 +704,8 @@ int Atari800_Initialise(int *argc, char *argv[])
 					Log_print("\t-xe              Emulate Atari 130XE");
 					Log_print("\t-320xe           Emulate Atari 320XE (Compy-Shop)");
 					Log_print("\t-rambo           Emulate Atari 320XE (Rambo XL)");
+					Log_print("\t-576xe           Emulate Atari 576XE");
+					Log_print("\t-1088xe          Emulate Atari 1088XE");
 					Log_print("\t-xegs            Emulate Atari XEGS");
 					Log_print("\t-5200            Emulate Atari 5200 Games System");
 					Log_print("\t-nobasic         Turn off Atari BASIC ROM");
@@ -774,6 +809,9 @@ int Atari800_Initialise(int *argc, char *argv[])
 #if !defined(BASIC) && !defined(CURSES_BASIC)
 		|| !Screen_Initialise(argc, argv)
 		|| !UI_Initialise(argc, argv)
+#if defined(AUDIO_RECORDING) || defined(VIDEO_RECORDING)
+		|| !File_Export_Initialise(argc, argv)
+#endif
 #endif
 		/* Initialise Custom Chips */
 		|| !ANTIC_Initialise(argc, argv)
@@ -963,10 +1001,13 @@ int Atari800_Exit(int run_monitor)
 #endif /* CTRL_C_HANDLER */
 #ifndef __PLUS
 	if (!restart) {
+#ifndef LIBATARI800
 		/* We'd better save the configuration before calling the *_Exit() functions -
-		   there's a danger that they might change some emulator settings. */
+		   there's a danger that they might change some emulator settings (unless
+		   we're using libatari800). */
 		if (CFG_save_on_exit)
 			CFG_WriteConfig();
+#endif
 
 		/* Cleanup functions, in reverse order as the init functions in
 		   Atari800_Initialise(). */
@@ -999,8 +1040,8 @@ int Atari800_Exit(int run_monitor)
 #ifdef R_IO_DEVICE
 		RDevice_Exit(); /* R: Device cleanup */
 #endif
-#ifdef SOUND
-		SndSave_CloseSoundFile();
+#if defined(AUDIO_RECORDING) || defined(VIDEO_RECORDING)
+		File_Export_StopRecording();
 #endif
 		MONITOR_Exit();
 #ifdef SDL
@@ -1018,6 +1059,7 @@ void Atari800_ErrExit(void)
 }
 
 #ifndef __PLUS
+#ifndef LIBATARI800
 static void autoframeskip(double curtime, double lasttime)
 {
 	static int afs_lastframe = 0, afs_discard = 0;
@@ -1226,6 +1268,7 @@ static void basic_frame(void)
 }
 
 #endif /* defined(BASIC) || defined(VERY_SLOW) || defined(CURSES_BASIC) */
+#endif /* LIBATARI800 */
 
 void Atari800_Frame(void)
 {
@@ -1262,7 +1305,7 @@ void Atari800_Frame(void)
 		Sound_Continue();
 #endif
 		break;
-#ifndef CURSES_BASIC
+#ifdef SCREENSHOTS
 	case AKEY_SCREENSHOT:
 		Screen_SaveNextScreenshot(FALSE);
 		break;
@@ -1325,10 +1368,18 @@ void Atari800_Frame(void)
 	}
 #endif /* BASIC */
 	POKEY_Frame();
+#ifdef VIDEO_RECORDING
+	File_Export_WriteVideo();
+#endif
 #ifdef SOUND
 	Sound_Update();
 #endif
+#if defined(AUDIO_RECORDING) || defined(VIDEO_RECORDING)
+	/* multimedia stats are drawn here so they don't get recorded in the video */
+	Screen_DrawMultimediaStats();
+#endif
 	Atari800_nframes++;
+#ifndef LIBATARI800
 #ifdef BENCHMARK
 	if (Atari800_nframes >= BENCHMARK) {
 		double benchmark_time = Util_time() - benchmark_start_time;
@@ -1356,6 +1407,7 @@ void Atari800_Frame(void)
 		else
 			Atari800_Sync();
 #endif /* BENCHMARK */
+#endif /* LIBATARI800 */
 }
 
 #endif /* __PLUS */

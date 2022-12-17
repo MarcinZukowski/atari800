@@ -1,8 +1,8 @@
 #!/bin/sh
 # This scripts helps with building the source .tar.gz file
 
-VER_MAJOR=4
-VER_MINOR=2
+VER_MAJOR=5
+VER_MINOR=0
 VER_MICRO=0
 #
 VERSION=$VER_MAJOR"."$VER_MINOR"."$VER_MICRO
@@ -16,6 +16,8 @@ echo "download from GitHub? (y/N)"
 read key
 if [ "x"$key = "xy" ]; then
 	git clone https://github.com/atari800/atari800.git
+	rm -rf atari800/.git atari800/.gitignore
+	rm -rf atari800/.travis atari800/.travis.yml
 fi
 #
 grep "[Vv]ersion "$VERSION atari800/README.TXT >/dev/null
