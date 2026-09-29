@@ -72,12 +72,17 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
   Intermediate values are plain numbers, so mask them yourself: `(a + b) & 0xFF`.
 * `a8.palette` - an `Int32Array` over the current palette, `0x00RRGGBB` per Atari colour;
   `a8.rgb(colour)` returns `[r, g, b]` in 0..255
+* `a8.peek(addr)`, `a8.poke(addr, value)` - memory access that honours bank switching, ROM and
+  hardware registers; use them instead of `a8.mem` for screen memory under the OS ROM or for I/O
+* `a8.cpu.a`, `a8.cpu.x`, `a8.cpu.y`, `a8.cpu.s`, `a8.cpu.p`, `a8.cpu.pc` - the 6502 registers,
+  read/write; they are current inside `onCodeInjection`, where changes take effect on return
 * `a8.antic.dlist`, `a8.antic.hscrol` - ANTIC registers
 * `a8.gtia.colbk`, `a8.gtia.colpf0`..`colpf3`, `a8.gtia.colpm0`..`colpm3` - GTIA colour registers
 * "Fake CPU" functions and constants for use inside `onCodeInjection`:
   * `a8.OP_RTS`, `a8.OP_NOP` - 6502 opcodes
   * `a8.fakeCpuUntilPc(pc)` - run the CPU (without side effects on the machine) until reaching address `pc`
   * `a8.fakeCpuUntilOp(op)` - run the CPU until reaching opcode `op` (e.g. `a8.OP_RTS`)
+  * `a8.fakeCpuUntilAfterOp(op)` - the same, but also execute that opcode (e.g. return from the routine)
 * `a8.printFps(value, fg, bg, x, y)` - counts frames (a change of `value` is a new frame)
   and prints the rate on the Atari screen at `x, y`. Typically called from `onPreGlFrame`
 * `a8.accelerationDisabled()` - true while CTRL is held
@@ -152,7 +157,7 @@ These games are also discussed in [this video on YouTube](https://www.youtube.co
 * Yoomp: [yoomp/init.js](yoomp/init.js), [ext-yoomp.c](../../src/ext/ext-yoomp.c) (old C code, now ported to JavaScript)
   * various 3D balls
   * one high-res background
-* Mercenary: [ext-mercenary.c](../../src/ext/ext-mercenary.c), [mercenary.md](mercenary.md)
+* Mercenary: [mercenary/init.js](mercenary/init.js), [mercenary.md](mercenary/mercenary.md) (originally in C, now JavaScript)
   * accelerated Atari-like line drawing
   * OpenGL-based line drawing (3 types)
 * Zybex: [zybex/init.js](zybex/init.js), [zybex.md](zybex/zybex.md), [ext-zybex.c](../../src/ext/ext-zybex.c) (old C code, now ported to JavaScript)

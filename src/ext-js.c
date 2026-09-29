@@ -41,6 +41,7 @@
 
 #include "antic.h"
 #include "colours.h"
+#include "cpu.h"
 #include "gtia.h"
 #include "memory.h"
 #include "ui.h"
@@ -122,6 +123,83 @@ static JSValue js_a8_fakeCpuUntilOp(JSContext *c, JSValueConst this_val, int arg
 		return JS_EXCEPTION;
 	return JS_NewInt32(c, ext_fakecpu_until_op(op));
 }
+
+static JSValue js_a8_fakeCpuUntilAfterOp(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+	int32_t op;
+	if (JS_ToInt32(c, &op, argv[0]))
+		return JS_EXCEPTION;
+	return JS_NewInt32(c, ext_fakecpu_until_after_op(op));
+}
+
+/* a8.peek(addr) / a8.poke(addr, value): hardware-aware memory access (bank
+   switching, ROM, I/O registers), unlike the raw a8.mem array. */
+static JSValue js_a8_peek(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+	int32_t addr;
+	if (JS_ToInt32(c, &addr, argv[0]))
+		return JS_EXCEPTION;
+	if (addr < 0 || addr > 0xffff)
+		return JS_ThrowRangeError(c, "peek: address %d out of range", addr);
+	return JS_NewInt32(c, MEMORY_GetByte(addr));
+}
+
+static JSValue js_a8_poke(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+	int32_t addr, value;
+	UBYTE b;
+	if (argc < 2)
+		return JS_ThrowTypeError(c, "poke(addr, value) needs 2 arguments");
+	if (JS_ToInt32(c, &addr, argv[0]) || JS_ToInt32(c, &value, argv[1]))
+		return JS_EXCEPTION;
+	if (addr < 0 || addr > 0xffff)
+		return JS_ThrowRangeError(c, "poke: address %d out of range", addr);
+	b = (UBYTE) (value & 0xff);
+	MEMORY_PutByte(addr, b);
+	return JS_UNDEFINED;
+}
+
+/* a8.cpu.a/x/y/s/p/pc: the 6502 registers, read/write. They are current
+   inside onCodeInjection(), where changes take effect on return. */
+enum { CPU_A, CPU_X, CPU_Y, CPU_S, CPU_P, CPU_PC };
+
+static JSValue js_a8_cpu_get(JSContext *c, JSValueConst this_val, int magic)
+{
+	switch (magic) {
+	case CPU_A: return JS_NewInt32(c, CPU_regA);
+	case CPU_X: return JS_NewInt32(c, CPU_regX);
+	case CPU_Y: return JS_NewInt32(c, CPU_regY);
+	case CPU_S: return JS_NewInt32(c, CPU_regS);
+	case CPU_P: return JS_NewInt32(c, CPU_regP);
+	case CPU_PC: return JS_NewInt32(c, CPU_regPC);
+	}
+	return JS_UNDEFINED;
+}
+
+static JSValue js_a8_cpu_set(JSContext *c, JSValueConst this_val, JSValueConst val, int magic)
+{
+	int32_t v;
+	if (JS_ToInt32(c, &v, val))
+		return JS_EXCEPTION;
+	switch (magic) {
+	case CPU_A: CPU_regA = (UBYTE) v; break;
+	case CPU_X: CPU_regX = (UBYTE) v; break;
+	case CPU_Y: CPU_regY = (UBYTE) v; break;
+	case CPU_S: CPU_regS = (UBYTE) v; break;
+	case CPU_P: CPU_regP = (UBYTE) v; break;
+	case CPU_PC: CPU_regPC = (UWORD) v; break;
+	}
+	return JS_UNDEFINED;
+}
+
+static const JSCFunctionListEntry js_a8_cpu_funcs[] = {
+	JS_CGETSET_MAGIC_DEF("a", js_a8_cpu_get, js_a8_cpu_set, CPU_A),
+	JS_CGETSET_MAGIC_DEF("x", js_a8_cpu_get, js_a8_cpu_set, CPU_X),
+	JS_CGETSET_MAGIC_DEF("y", js_a8_cpu_get, js_a8_cpu_set, CPU_Y),
+	JS_CGETSET_MAGIC_DEF("s", js_a8_cpu_get, js_a8_cpu_set, CPU_S),
+	JS_CGETSET_MAGIC_DEF("p", js_a8_cpu_get, js_a8_cpu_set, CPU_P),
+	JS_CGETSET_MAGIC_DEF("pc", js_a8_cpu_get, js_a8_cpu_set, CPU_PC),
+};
 
 static JSValue js_a8_printFps(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv)
 {
@@ -567,6 +645,9 @@ static const JSCFunctionListEntry js_a8_funcs[] = {
 	JS_CFUNC_DEF("register", 1, js_a8_register),
 	JS_CFUNC_DEF("fakeCpuUntilPc", 1, js_a8_fakeCpuUntilPc),
 	JS_CFUNC_DEF("fakeCpuUntilOp", 1, js_a8_fakeCpuUntilOp),
+	JS_CFUNC_DEF("fakeCpuUntilAfterOp", 1, js_a8_fakeCpuUntilAfterOp),
+	JS_CFUNC_DEF("peek", 1, js_a8_peek),
+	JS_CFUNC_DEF("poke", 2, js_a8_poke),
 	JS_CFUNC_DEF("printFps", 5, js_a8_printFps),
 	JS_CFUNC_DEF("accelerationDisabled", 0, js_a8_accelerationDisabled),
 	JS_CFUNC_DEF("rgb", 1, js_a8_rgb),
@@ -575,6 +656,7 @@ static const JSCFunctionListEntry js_a8_funcs[] = {
 	JS_PROP_INT32_DEF("OP_NOP", OP_NOP, JS_PROP_ENUMERABLE),
 	JS_OBJECT_DEF("antic", js_a8_antic_funcs, 2, JS_PROP_ENUMERABLE),
 	JS_OBJECT_DEF("gtia", js_a8_gtia_funcs, 9, JS_PROP_ENUMERABLE),
+	JS_OBJECT_DEF("cpu", js_a8_cpu_funcs, 6, JS_PROP_ENUMERABLE),
 };
 
 /* Wraps existing C memory in a typed array without copying. The memory is

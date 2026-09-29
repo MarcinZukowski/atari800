@@ -207,7 +207,6 @@ atari800_SOURCES += \
 	sdl/sfx.c sdl/sfx.h \
 	ext/ext-altreal.c ext/ext-altreal.h \
 	ext/ext-bjl.c ext/ext-bjl.h \
-	ext/ext-mercenary.c ext/ext-mercenary.h \
 	ext/ext-yoomp.c ext/ext-yoomp.h \
 	ext/ext-zybex.c ext/ext-zybex.h
 endif
