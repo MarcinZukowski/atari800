@@ -14,7 +14,7 @@ const BALL_FILES = [
 // Zero page locations used by the game
 const EQU_BALL_X = 0x0030, EQU_BALL_VX = 0x0031, EQU_BALL_VY = 0x0032;
 
-a8.register({
+export default {
 	name: "Yoomp! JS HACK by Eru",
 
 	fingerprint: { address: 0x3600, bytes: [0x20, 0x00, 0xB0, 0x20, 0xBC, 0x3D] },
@@ -131,4 +131,4 @@ a8.register({
 		this.drawBackground();
 		this.drawBall();
 	},
-});
+};

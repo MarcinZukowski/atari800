@@ -1379,40 +1379,25 @@ if [[ "$with_opengl" = "yes" ]]; then
 fi
 AM_CONDITIONAL([WITH_OPENGL], test "$with_opengl" = "yes")
 
-dnl Check for extension support
+dnl Check for extension support: JavaScript hacks for games, needs QuickJS
 AC_ARG_WITH(ext,
-    AS_HELP_STRING([--with-ext],[Build support for extensions - only in SDL/OPENGL target @<:@default=no@:>@]),
+    AS_HELP_STRING([--with-ext],[Build support for JavaScript game extensions - only in the SDL/OpenGL target, needs QuickJS @<:@default=no@:>@]),
     [],
     [with_ext=no])
 if [[ "$with_ext" != no ]]; then
     if [[ "$a8_target" != default -o "$with_video" != sdl -o "$with_opengl" != yes -o "$with_sound" != sdl ]]; then
         AC_MSG_ERROR([option --with-ext only supported with --target=default --with-video=sdl --with-opengl=yes --with-sound=sdl !])
     fi
-    AC_DEFINE(HAVE_EXT, 1, [Support for extensions.])
+    AC_CHECK_HEADER([quickjs/quickjs.h], [], [
+       AC_MSG_ERROR([--with-ext needs QuickJS: quickjs/quickjs.h not found (install QuickJS, e.g. "brew install quickjs", and point CPPFLAGS at its include directory).])
+    ])
+    AC_CHECK_LIB([quickjs], [JS_NewRuntime], [LIBS="-lquickjs $LIBS"], [
+       AC_MSG_ERROR([--with-ext needs QuickJS: libquickjs not found (point LDFLAGS at its lib directory, e.g. "$(brew --prefix quickjs)/lib/quickjs").])
+    ], [-lm -lpthread])
+    AC_DEFINE(HAVE_EXT, 1, [Support for JavaScript game extensions.])
     CFLAGS="$CFLAGS -DWITH_EXT"
 fi
 AM_CONDITIONAL([WITH_EXT], test "$with_ext" = "yes")
-
-dnl Check for JavaScript (QuickJS) scripting in extensions
-AC_ARG_WITH(ext_js,
-    AS_HELP_STRING([--with-ext-js],[Build support for JavaScript (QuickJS) scripting in extensions @<:@default=no@:>@]),
-    [],
-    [with_ext_js=no])
-if [[ "$with_ext_js" != no ]]; then
-    if [[ "$with_ext" = "no" ]]; then
-        AC_MSG_ERROR([option --with-ext-js only supported with --with-ext !])
-    fi
-    AC_CHECK_HEADER([quickjs/quickjs.h], [], [
-       AC_MSG_ERROR([unable to use QuickJS - quickjs/quickjs.h not found (install QuickJS, e.g. "brew install quickjs", and point CPPFLAGS at its include directory).])
-    ])
-    AC_CHECK_LIB([quickjs], [JS_NewRuntime], [LIBS="-lquickjs $LIBS"], [
-       AC_MSG_ERROR([unable to link with QuickJS - libquickjs not found (point LDFLAGS at its lib directory, e.g. "$(brew --prefix quickjs)/lib/quickjs").])
-    ], [-lm -lpthread])
-
-    AC_DEFINE(HAVE_QUICKJS, 1, [Support for JavaScript scripting in extensions.])
-    CFLAGS="$CFLAGS -DWITH_EXT_JS"
-fi
-AM_CONDITIONAL([WITH_EXT_JS], test "$with_ext_js" = "yes")
 
 dnl Select host/target specific features...
 
@@ -1612,8 +1597,7 @@ fi
 if [[ "$a8_target" = default -a "$with_video" = sdl ]]; then
     echo "Using on-screen keyboard?.............: $WANT_USE_UI_BASIC_ONSCREEN_KEYBOARD"
     echo "Using OpenGL?.........................: $with_opengl"
-    echo "Using extensions?.....................: $with_ext"
-    echo "Using JavaScript in extensions?.......: $with_ext_js"
+    echo "Using JavaScript extensions?..........: $with_ext"
 fi
 if [[ "$a8_target" = default -a "$with_video" = sdl2 ]]; then
     echo "Using on-screen keyboard?.............: $WANT_USE_UI_BASIC_ONSCREEN_KEYBOARD"

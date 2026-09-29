@@ -353,7 +353,7 @@ function doSounds() {
 
 /* ------------------------------ the extension ------------------------------ */
 
-a8.register({
+export default {
 	name: "River Raid JS HACK by Eru",
 
 	fingerprint: { address: 0xB55C, bytes: [0xA4, 0x4D, 0xA2, 0x5D, 0xD0, 0x03] },
@@ -411,4 +411,4 @@ a8.register({
 		// every mode (the C version only did so outside "Atari native")
 		doSounds();
 	},
-});
+};

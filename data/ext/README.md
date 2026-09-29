@@ -6,49 +6,34 @@ It gave me an idea to add a generic extension mechanism to atari800.
 I started playing, and over a course of a few weeks, an hour here, an hour there, I wrote a bunch
 of code and extensions for some Atari games.
 
-## Framework capabilities
+## How it works
 
-Framework is composed of two main parts.
-Generic functionality, and program-specific extension implementation.
+Extensions are JavaScript modules, one per game in `data/ext/<name>/init.js`, run by an
+embedded [QuickJS](https://bellard.org/quickjs/) engine. The emulator side (`src/ext.c`) is
+small: it keeps the list of extensions, activates the one whose memory fingerprint matches
+the running program (TAB opens the extensions menu, or see `A8_EXT_SELECT` under Testing),
+handles the ALT (extensions off) and CTRL (acceleration off) keys, and calls the extension's
+hooks from a few places in the emulator:
 
-Generic functionality (`ext.c`):
+* before an Atari frame is converted for OpenGL (`onPreGlFrame`), e.g. to write onto the Atari screen
+* after the Atari frame was drawn (`onPostGlFrame`), e.g. to render extra content with OpenGL
+* when the CPU is about to execute one of the addresses the extension asked for (`onCodeInjection`).
+  The hook can let the instruction run, run the routine on a "fake CPU" so that it costs no
+  emulated time, or skip it and do the work itself in JavaScript.
 
-* extension library
-* shared key handling (ALT to disable extensions, CTRL to disable acceleration only)
-* FPS helpers
-* menu helpers
-* code-injection / "fake CPU" helpers
-
-Extension-specific functionality and hooks (see `ext_state` in `ext.h`, and the JavaScript view of it below):
-
-* inject code _before_ an Atari frame is rendered (`pre_gl_frame`).
-
-  This allows e.g. modifying Atari memory and screen, such that the changes there are reflected.
-
-* inject code _after_ a frame is rendered (`post_gl_frame`).
-
-  This allows e.g. rendering additional content with OpenGL.
-
-* inject code based on an the executed instruction (or actually,
-  PC address).
-
-  This allows e.g. detecting when a particular code is executed, and then:
-
-  * executing it in a "fake CPU" mode,
-    (where instructions are executed but don't impact Atari state, so are effectively zero-cost).
-  * skipping the execution, and instead doing something in C
+The scripting side (`src/ext-js.c`, `src/sdl/video_gl-js.c`) exposes the `a8` and `gl` globals
+described below; `src/sdl/sfx.c` mixes the extensions' sound effects into the emulator's audio.
 
 ## JavaScript scripting
 
-The extension mechanism also supports scripting in JavaScript, using the
-[QuickJS](https://bellard.org/quickjs/) engine. It is enabled with
-`--with-ext-js` when running `configure` (QuickJS needs to be installed,
-e.g. `brew install quickjs`, and `CPPFLAGS`/`LDFLAGS` need to point at it).
-Not all functionality is exposed; more can easily be added.
+Extensions are enabled with `--with-ext` when running `configure`. QuickJS needs to be
+installed (e.g. `brew install quickjs`) with `CPPFLAGS`/`LDFLAGS` pointing at it.
+Not all emulator functionality is exposed; more can easily be added.
 
 At startup atari800 looks for files matching `data/ext/*/init.js`
-(e.g. [data/ext/zybex/init.js](zybex/init.js)) and evaluates each as an ES module.
-Shared helpers live in [common.js](common.js) and are imported the usual way:
+(e.g. [data/ext/zybex/init.js](zybex/init.js)), evaluates each as an ES module and
+registers its default export as an extension. Shared helpers live in
+[common.js](common.js) and are imported the usual way:
 
 ```js
 import { drawQuad, word, rgb } from "../common.js";
@@ -62,7 +47,6 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
 
 ### `a8` - the emulator
 
-* `a8.register(extension)` - registers an extension, see below
 * `a8.mem` - a `Uint8Array` over the 64 KB of Atari memory, read/write, no copy:
   ```js
   const lives = a8.mem[0x00C0];
@@ -110,8 +94,9 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
 
 ### The extension object
 
-`a8.register()` takes an object with these properties. Hook methods are called with
-`this` bound to that object, so it doubles as the extension's state:
+Each `init.js` exports the extension object as its default export (`export default { ... }`)
+with these properties. Hook methods are called with `this` bound to that object, so it
+doubles as the extension's state:
 
 * `name` - shown in the extensions menu
 * `fingerprint: { address, bytes }` - the extension is activated when the bytes at `address`
@@ -144,10 +129,10 @@ Some notes:
 * A bunch of small injections had to be made in multiple places.
 * The extension code is C99, so `--with-ext` builds drop upstream's `-ansi -pedantic` flags.
 * Developed, and only tested on MacOSX.
-  * A `src/ext/helper` tool exists for simplifying compilation, very specific to my setup
+  * A `tools/ext-helper` script exists for simplifying compilation, very specific to my setup
     ```
-    src/ext/helper bootstrap
-    src/ext/helper install
+    tools/ext-helper bootstrap
+    tools/ext-helper install
     ```
 
 # Games extended (in order of creation)

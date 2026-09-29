@@ -28,10 +28,83 @@
 
 #include "sdl/video_gl-js.h"
 #include "sdl/video_gl-common.h"
-#include "sdl/video_gl-ext.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+/* ------------------------------ texture helpers ------------------------------ */
+
+#define Z_VALUE_2D -2.0f   /* depth used for flat drawing */
+
+typedef struct gl_texture {
+	int width;
+	int height;
+	size_t num_bytes;       /* width * height * 4 (RGBA) */
+	unsigned char *data;
+	GLuint gl_id;
+} gl_texture;
+
+static gl_texture gl_texture_new(int width, int height)
+{
+	gl_texture t;
+	t.width = width;
+	t.height = height;
+	t.num_bytes = (size_t) width * height * 4;
+	t.data = malloc(t.num_bytes);
+	if (t.data == NULL) {
+		fprintf(stderr, "out of memory for a %dx%d texture\n", width, height);
+		exit(1);
+	}
+	gl.GenTextures(1, &t.gl_id);
+	return t;
+}
+
+/* Reads raw RGBA bytes; the caller checked that the file exists. */
+static gl_texture gl_texture_load_rgba(const char *fname, int width, int height)
+{
+	gl_texture t = gl_texture_new(width, height);
+	FILE *f = fopen(fname, "rb");
+	size_t got = f != NULL ? fread(t.data, 1, t.num_bytes, f) : 0;
+	if (f != NULL)
+		fclose(f);
+	if (got != t.num_bytes)
+		printf("Texture %s: read %zu of %zu bytes\n", fname, got, t.num_bytes);
+	else
+		printf("Texture %s loaded, id=%u\n", fname, t.gl_id);
+	return t;
+}
+
+/* Uploads the pixels to OpenGL. */
+static void gl_texture_finalize(const gl_texture *t)
+{
+	GLint filtering = SDL_VIDEO_GL_filtering ? GL_LINEAR : GL_NEAREST;
+	gl.BindTexture(GL_TEXTURE_2D, t->gl_id);
+	gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, t->width, t->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, t->data);
+	gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filtering);
+	gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filtering);
+	gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+}
+
+/* Draws the texture on a quad: texture coordinates, then screen coordinates. */
+static void gl_texture_draw(const gl_texture *t,
+		float tex_l, float tex_r, float tex_t, float tex_b,
+		float scr_l, float scr_r, float scr_t, float scr_b,
+		float z)
+{
+	gl.BindTexture(GL_TEXTURE_2D, t->gl_id);
+	gl.Begin(GL_QUADS);
+	gl.TexCoord2f(tex_l, tex_b);
+	gl.Vertex3f(scr_l, scr_b, z);
+	gl.TexCoord2f(tex_r, tex_b);
+	gl.Vertex3f(scr_r, scr_b, z);
+	gl.TexCoord2f(tex_r, tex_t);
+	gl.Vertex3f(scr_r, scr_t, z);
+	gl.TexCoord2f(tex_l, tex_t);
+	gl.Vertex3f(scr_l, scr_t, z);
+	gl.End();
+}
 
 /* ------------------------------ argument helpers ------------------------------ */
 

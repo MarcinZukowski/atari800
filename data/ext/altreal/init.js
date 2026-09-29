@@ -1,6 +1,6 @@
 // Alternate Reality: The Dungeon - faster rendering by skipping busy code.
 
-a8.register({
+export default {
 	name: "ALT.REAL. JS HACK by Eru",
 
 	fingerprint: { address: 0x29B6, bytes: [0x44, 0x75, 0x6E, 0x67, 0x65, 0x6F, 0x6E] },   // "Dungeon"
@@ -45,4 +45,4 @@ a8.register({
 		if (this.menu.FPS.current === 1)
 			a8.printFps(this.calls7856, 0x9f, 0x90, 0, -2);
 	},
-});
+};

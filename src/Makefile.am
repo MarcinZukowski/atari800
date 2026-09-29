@@ -204,12 +204,8 @@ endif
 if WITH_EXT
 atari800_SOURCES += \
 	ext.c ext.h \
-	sdl/sfx.c sdl/sfx.h
-endif
-if WITH_EXT_JS
-atari800_SOURCES += \
 	ext-js.c ext-js.h \
-	sdl/video_gl-js.c sdl/video_gl-js.h
+	sdl/sfx.c sdl/sfx.h
 endif
 
 if WITH_VIDEO_SDL2
@@ -302,7 +298,7 @@ endif
 if WITH_OPENGL
 atari800_SOURCES += sdl/video_gl.c sdl/video_gl.h sdl/video_gl-common.h
 if WITH_EXT
-atari800_SOURCES += sdl/video_gl-ext.c sdl/video_gl-ext.h
+atari800_SOURCES += sdl/video_gl-js.c sdl/video_gl-js.h
 endif
 endif
 

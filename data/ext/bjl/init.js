@@ -1,6 +1,6 @@
 // Behind Jaggi Lines - faster rendering by skipping busy code.
 
-a8.register({
+export default {
 	name: "BJL JS HACK by Eru",
 
 	fingerprint: { address: 0x41FC, bytes: [0x6A, 0x61, 0x67, 0x67, 0x69] },   // "jaggi"
@@ -28,4 +28,4 @@ a8.register({
 		if (this.menu.FPS.current === 1)
 			a8.printFps(a8.antic.dlist, 0x9f, 0x90, 0, -2);
 	},
-});
+};

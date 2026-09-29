@@ -1,7 +1,7 @@
 // Zybex: scrolling high-resolution background (grayscale or colour).
 import { drawQuad } from "../common.js";
 
-a8.register({
+export default {
 	name: "ZYBEX JS HACK by Eru",
 
 	// Memory fingerprint that turns this extension on
@@ -67,4 +67,4 @@ a8.register({
 		gl.Color4f(1, 1, 1, 1);
 		gl.Disable(gl.BLEND);
 	},
-});
+};

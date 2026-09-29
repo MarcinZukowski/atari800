@@ -1,8 +1,8 @@
 #!/bin/bash -ex
 # Build helper for the extensions fork, specific to a macOS + Homebrew setup.
-#   src/ext/helper bootstrap   configure from scratch into build/
-#   src/ext/helper install     build and install into local/
-#   src/ext/helper clean       remove the objects
+#   tools/ext-helper bootstrap   configure from scratch into build/
+#   tools/ext-helper install     build and install into local/
+#   tools/ext-helper clean       remove the objects
 # If the default Command Line Tools SDK is broken, export SDKROOT first, e.g.
 #   export SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk
 
@@ -24,7 +24,7 @@ function bootstrap()
     --with-video=sdl --with-opengl --enable-opengl-by-default \
     --enable-monitorbreakpoints --enable-monitorprofile --enable-monitortrace \
     --enable-seriosound \
-    --with-sound=sdl --with-ext --with-ext-js
+    --with-sound=sdl --with-ext
   cd -
 }
 

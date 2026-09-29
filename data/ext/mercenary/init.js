@@ -195,7 +195,7 @@ function drawGlLine(line, type) {
 
 /* ------------------------------ the extension ------------------------------ */
 
-a8.register({
+export default {
 	name: "MERCENARY JS HACK by ERU",
 
 	fingerprint: { address: 0x4000, bytes: [0xA6, 0x65, 0xBC, 0x57, 0x6B] },
@@ -276,4 +276,4 @@ a8.register({
 		gl.PopAttrib();
 		gl.Color4f(1, 1, 1, 1);
 	},
-});
+};

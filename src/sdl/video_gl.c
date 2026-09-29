@@ -27,7 +27,6 @@
 #include <stdlib.h>
 
 #include "sdl/video_gl-common.h"
-#include "sdl/video_gl-ext.h"
 
 #include "akey.h"
 #include "memory.h"
