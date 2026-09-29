@@ -1,5 +1,6 @@
 // Yoomp!: 3D balls and a high-resolution tunnel background.
 import { drawQuad, rgb } from "../common.js";
+import { loadObj } from "./obj.js";
 
 const BALL_FILES = [
 	null,   // 0 = the original Atari ball
@@ -38,7 +39,7 @@ a8.register({
 		console.log("Loading Yoomp! resources");
 
 		for (let i = 1; i < BALL_FILES.length; i++)
-			this.balls[i] = gl.loadObj(BALL_FILES[i]);
+			this.balls[i] = loadObj(BALL_FILES[i]);
 
 		this.background = gl.loadTextureRGBA("data/ext/yoomp/rof-gray.rgba", 476, 476);
 
@@ -115,7 +116,7 @@ a8.register({
 			// Match the colour of the ball: $4F5C holds it
 			[cr, cg, cb] = rgb(a8.mem[0x4F5C] | 0x0C);
 		}
-		this.balls[ballNr].renderColorized(cr, cg, cb);
+		this.balls[ballNr].render(cr, cg, cb);
 
 		gl.PopMatrix();
 		gl.Enable(gl.TEXTURE_2D);

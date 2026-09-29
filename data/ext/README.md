@@ -104,8 +104,9 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
   * `width`, `height`, `id` (the OpenGL texture name)
   * `finalize()` - uploads `pixels` to OpenGL; call it before drawing and after every change
   * `draw(texL, texR, texT, texB, scrL, scrR, scrT, scrB, z = -2)` - draws the texture on a quad
-* `gl.loadObj(path)` - loads a Wavefront `.obj` file (and its `.mtl`) and returns an `Obj` with
-  `render()` and `renderColorized(r, g, b)`
+* `gl.drawTriangles(positions, normals)` - draws `GL_TRIANGLES` from flat `Float32Array`s (x, y, z
+  per vertex; `normals` may be omitted) in a single call. [yoomp/obj.js](yoomp/obj.js) loads
+  Wavefront `.obj`/`.mtl` models into that form
 
 ### The extension object
 

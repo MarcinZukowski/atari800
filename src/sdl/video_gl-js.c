@@ -23,8 +23,8 @@
    in video_gl.c (see struct glapi in video_gl-common.h), minus the "gl"
    prefix: gl.Enable(gl.BLEND). Constants drop the "GL_" prefix, like WebGL.
    gl.createTexture()/gl.loadTextureRGBA() give a Texture whose "pixels"
-   Uint8Array is the texture memory itself; gl.loadObj() loads a Wavefront
-   .obj file. */
+   Uint8Array is the texture memory itself; gl.drawTriangles() draws flat
+   vertex arrays in one call. */
 
 #include "sdl/video_gl-js.h"
 #include "sdl/video_gl-common.h"
@@ -222,6 +222,55 @@ static JSValue js_gl_GetIntegerv(JSContext *ctx, JSValueConst this_val, int argc
 	return arr;
 }
 
+/* Returns the data of a Float32Array (any 4-byte typed array) without copying,
+   or NULL with an exception pending. The array keeps the buffer alive. */
+static const float *get_float_array(JSContext *ctx, JSValueConst v, size_t *count)
+{
+	size_t offset = 0, length = 0, elem = 0, size = 0;
+	JSValue buf = JS_GetTypedArrayBuffer(ctx, v, &offset, &length, &elem);
+	uint8_t *data;
+	if (JS_IsException(buf))
+		return NULL;
+	data = JS_GetArrayBuffer(ctx, &size, buf);
+	JS_FreeValue(ctx, buf);
+	if (data == NULL || elem != 4) {
+		JS_ThrowTypeError(ctx, "expected a Float32Array");
+		return NULL;
+	}
+	*count = length / 4;
+	return (const float *) (data + offset);
+}
+
+/* gl.drawTriangles(positions, normals) - draws GL_TRIANGLES from flat arrays
+   of x, y, z per vertex; normals may be omitted. One call per mesh instead of
+   one per vertex. */
+static JSValue js_gl_drawTriangles(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+	const float *pos, *nrm = NULL;
+	size_t npos = 0, nnrm = 0, i;
+	NEED(1);
+	pos = get_float_array(ctx, argv[0], &npos);
+	if (pos == NULL)
+		return JS_EXCEPTION;
+	if (npos % 9 != 0)
+		return JS_ThrowRangeError(ctx, "drawTriangles: positions must hold 3 vertices per triangle");
+	if (argc > 1 && !JS_IsUndefined(argv[1]) && !JS_IsNull(argv[1])) {
+		nrm = get_float_array(ctx, argv[1], &nnrm);
+		if (nrm == NULL)
+			return JS_EXCEPTION;
+		if (nnrm != npos)
+			return JS_ThrowRangeError(ctx, "drawTriangles: normals and positions differ in length");
+	}
+	gl.Begin(GL_TRIANGLES);
+	for (i = 0; i < npos; i += 3) {
+		if (nrm != NULL)
+			gl.Normal3f(nrm[i], nrm[i + 1], nrm[i + 2]);
+		gl.Vertex3f(pos[i], pos[i + 1], pos[i + 2]);
+	}
+	gl.End();
+	return JS_UNDEFINED;
+}
+
 /* ------------------------------ Texture class ------------------------------ */
 
 static JSClassID js_texture_class_id;
@@ -354,64 +403,6 @@ static const JSCFunctionListEntry js_texture_proto_funcs[] = {
 	JS_CGETSET_MAGIC_DEF("id", js_texture_get, NULL, TEX_ID),
 };
 
-/* ------------------------------ Obj class ------------------------------ */
-
-static JSClassID js_obj_class_id;
-
-static const JSClassDef js_obj_class = {
-	"Obj",
-	/* models are loaded once and kept; nothing to finalize */
-};
-
-/* gl.loadObj(path) -> Obj */
-static JSValue js_gl_loadObj(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
-{
-	const char *path;
-	struct gl_obj *o;
-	JSValue obj;
-	FILE *f;
-	NEED(1);
-	path = JS_ToCString(ctx, argv[0]);
-	if (path == NULL)
-		return JS_EXCEPTION;
-	f = fopen(path, "rb");
-	if (f == NULL) {
-		JSValue e = JS_ThrowReferenceError(ctx, "loadObj: cannot open %s", path);
-		JS_FreeCString(ctx, path);
-		return e;
-	}
-	fclose(f);
-	o = gl_obj_load(path);
-	JS_FreeCString(ctx, path);
-	obj = JS_NewObjectClass(ctx, js_obj_class_id);
-	JS_SetOpaque(obj, o);
-	return obj;
-}
-
-static JSValue js_obj_render(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
-{
-	struct gl_obj *o = JS_GetOpaque2(ctx, this_val, js_obj_class_id);
-	if (o == NULL)
-		return JS_EXCEPTION;
-	gl_obj_render(o);
-	return JS_UNDEFINED;
-}
-
-static JSValue js_obj_renderColorized(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
-{
-	struct gl_obj *o = JS_GetOpaque2(ctx, this_val, js_obj_class_id);
-	if (o == NULL)
-		return JS_EXCEPTION;
-	NEED(3); ARG_F(0, r); ARG_F(1, g); ARG_F(2, b);
-	gl_obj_render_colorized(o, r, g, b);
-	return JS_UNDEFINED;
-}
-
-static const JSCFunctionListEntry js_obj_proto_funcs[] = {
-	JS_CFUNC_DEF("render", 0, js_obj_render),
-	JS_CFUNC_DEF("renderColorized", 3, js_obj_renderColorized),
-};
-
 /* ------------------------------ the gl object ------------------------------ */
 
 #define C(name) JS_PROP_INT32_DEF(#name, GL_##name, JS_PROP_ENUMERABLE)
@@ -451,7 +442,7 @@ static const JSCFunctionListEntry js_gl_funcs[] = {
 	JS_CFUNC_DEF("GetIntegerv", 1, js_gl_GetIntegerv),
 	JS_CFUNC_DEF("createTexture", 2, js_gl_createTexture),
 	JS_CFUNC_DEF("loadTextureRGBA", 3, js_gl_loadTextureRGBA),
-	JS_CFUNC_DEF("loadObj", 1, js_gl_loadObj),
+	JS_CFUNC_DEF("drawTriangles", 2, js_gl_drawTriangles),
 
 	/* capabilities */
 	C(BLEND), C(DEPTH_TEST), C(LIGHTING), C(LIGHT0), C(LIGHT1), C(FOG), C(SCISSOR_TEST),
@@ -492,13 +483,6 @@ void SDL_VIDEO_GL_JS_Init(JSContext *ctx, JSValueConst global)
 	JS_SetPropertyFunctionList(ctx, proto, js_texture_proto_funcs,
 		sizeof(js_texture_proto_funcs) / sizeof(js_texture_proto_funcs[0]));
 	JS_SetClassProto(ctx, js_texture_class_id, proto);
-
-	JS_NewClassID(&js_obj_class_id);
-	JS_NewClass(rt, js_obj_class_id, &js_obj_class);
-	proto = JS_NewObject(ctx);
-	JS_SetPropertyFunctionList(ctx, proto, js_obj_proto_funcs,
-		sizeof(js_obj_proto_funcs) / sizeof(js_obj_proto_funcs[0]));
-	JS_SetClassProto(ctx, js_obj_class_id, proto);
 
 	glo = JS_NewObject(ctx);
 	JS_SetPropertyFunctionList(ctx, glo, js_gl_funcs, sizeof(js_gl_funcs) / sizeof(js_gl_funcs[0]));

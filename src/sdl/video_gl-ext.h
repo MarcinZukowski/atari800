@@ -26,9 +26,4 @@ void gl_texture_draw(gl_texture *t,
 		float scr_l, float scr_r, float scr_t, float scr_b,
 		float z);
 
-struct gl_obj;
-struct gl_obj* gl_obj_load(const char *path);
-void gl_obj_render(struct gl_obj *o);
-void gl_obj_render_colorized(struct gl_obj *o, float multR, float multG, float multB);
-
 #endif  /* SDL_VIDEO_GL_EXT_H */

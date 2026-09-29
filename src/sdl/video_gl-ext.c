@@ -1,17 +1,9 @@
 #include "sdl/video_gl-ext.h"
 #include "sdl/video_gl-common.h"
 
-#include <libgen.h>
-#include <math.h>
+#include <assert.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <sys/param.h>
-
-#include "memory.h"
-
-#define TINYOBJ_LOADER_C_IMPLEMENTATION
-char *dynamic_fgets(char **buf, size_t *size, FILE *file);
-#include "3rd-party/tinyobj_loader_c.h"
+#include <stdlib.h>
 
 /* gl_texture code ******************************************************************* */
 
@@ -81,111 +73,4 @@ void gl_texture_draw(gl_texture *t,
 	gl.TexCoord2f(tex_l, tex_t);
 	gl.Vertex3f(scr_l, scr_t, z);
 	gl.End();
-}
-
-
-/* gl_obj code ******************************************************************* */
-
-typedef struct gl_obj {
-	size_t num_shapes;
-	size_t num_materials;
-
-	tinyobj_shape_t *shapes;
-	tinyobj_material_t *materials;
-	tinyobj_attrib_t attrib;
-} gl_obj;
-
-/* Needed by TinyObj */
-static void gl_obj_load_file(void *ctx, const char * filename, const int is_mtl, const char *obj_filename, char ** buffer, size_t * len)
-{
-	long string_size = 0, read_size = 0;
-	FILE * handler = fopen(filename, "r");
-
-	if (handler) {
-		fseek(handler, 0, SEEK_END);
-		string_size = ftell(handler);
-		rewind(handler);
-		*buffer = (char *) malloc(sizeof(char) * (string_size + 1));
-		read_size = fread(*buffer, sizeof(char), (size_t) string_size, handler);
-		(*buffer)[string_size] = '\0';
-		if (string_size != read_size) {
-			free(buffer);
-			*buffer = NULL;
-		}
-		fclose(handler);
-	}
-
-	*len = read_size;
-}
-
-struct gl_obj* gl_obj_load(const char *path)
-{
-	gl_obj* o = malloc(sizeof(struct gl_obj));
-	assert(o);
-
-	tinyobj_attrib_init(&o->attrib);
-
-	/* Enter into the file's directory, as we might need to load additional files from there */
-	char *olddir = alloca(MAXPATHLEN+1);
-	char *dname = alloca(strlen(path)+1);
-	char *bname = alloca(strlen(path)+1);
-
-	olddir = getcwd(olddir, MAXPATHLEN+1);
-	dname = dirname_r(path, dname);
-	bname = basename_r(path, bname);
-
-	printf("Loading obj: %s\n", path);
-
-	chdir(dname);
-
-	int result = tinyobj_parse_obj(&o->attrib, &o->shapes, &o->num_shapes, &o->materials, &o->num_materials,
-			bname, gl_obj_load_file, NULL, TINYOBJ_FLAG_TRIANGULATE);
-	assert(result == TINYOBJ_SUCCESS);
-
-	chdir(olddir);
-
-	printf("%zd shapes, %zd materials\n", o->num_shapes, o->num_materials);
-	printf("shape: %s %d %d\n", o->shapes[0].name, o->shapes[0].length, o->shapes[0].face_offset);
-	printf("attribs: #v:%d #n:%d #tc:%d #f:%d #fnv: %d\n",
-		o->attrib.num_vertices, o->attrib.num_normals, o->attrib.num_texcoords, o->attrib.num_faces, o->attrib.num_face_num_verts);
-
-	return o;
-}
-
-/* Helper function */
-static void gl_obj_vertex(tinyobj_attrib_t *a, int idx)
-{
-	int v_idx = a->faces[idx].v_idx;
-	gl.Normal3f(a->normals[3 * v_idx], a->normals[3 * v_idx + 1], a->normals[3 * v_idx + 2]);
-	gl.Vertex3f(a->vertices[3 * v_idx], a->vertices[3 * v_idx + 1], a->vertices[3 * v_idx + 2]);
-}
-
-void gl_obj_render_colorized(gl_obj *o, float multR, float multG, float multB)
-{
-	tinyobj_attrib_t *a = &o->attrib;
-	int last_matid = -1;
-
-	int f;
-	for (f = 0; f < a->num_face_num_verts; f++) {
-		assert(a->face_num_verts[f] == 3);
-		int matid = a->material_ids[f];
-		if (f == 0 || matid != last_matid) {
-			if (f) {
-				gl.End();
-			}
-			last_matid = matid;
-			tinyobj_material_t mat = o->materials[matid];
-			gl.Color4f(mat.diffuse[0] * multR, mat.diffuse[1] * multG, mat.diffuse[2] * multB, 1);
-			gl.Begin(GL_TRIANGLES);
-		}
-		gl_obj_vertex(a, 3 * f + 0);
-		gl_obj_vertex(a, 3 * f + 1);
-		gl_obj_vertex(a, 3 * f + 2);
-	}
-	gl.End();
-}
-
-void gl_obj_render(gl_obj *o)
-{
-	gl_obj_render_colorized(o, 1.0f, 1.0f, 1.0f);
 }
