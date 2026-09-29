@@ -1,15 +1,385 @@
-Version ?.?.? (????/??/??)
+Version 7.2.1 (2026/09/13) — build fixes
+========================================
+
+ Build/CI:
+ ---------
+  * Fixed -Werror build failures with newer GCC (dead VAPI sector
+    count, DEBUG-only baud parsing, embedded-shader strncpy,
+    undeclared variable in DEBUG2 code, dead DOS accumulator)
+  * Fixed the default ncurses build, which failed to link
+    (status-text calls without recording support)
+  * macOS CI: x86_64 slice built on a native Intel runner;
+    libpng and lame installed explicitly so both slices configure
+    identically, with merge-time diagnostics on skew
+
+
+Version 7.2.0 (2026/09/12) — on-screen keyboard and better joystick handling
+============================================================================
+
+ Core:
+ -----
+  * More accurate emulation: cycle-precise POKEY timer IRQs and
+    VSCROL DLI timing; fixes the "Rewind 2" demo (#274)
+  * Altirra OS updated to 3.49, Altirra BASIC to 1.59
+  * F1-F12 special keys (open-menu, OPTION, SELECT, START, etc.) can now
+    be rebound via the UI
+  * On-screen keyboard improvements: enabled by default, rebindable
+    F11 hotkey, SDL2 controller button mapping, console key support
+  * Dropped the /etc/atari800.cfg system-wide fallback on Unix
+  * Fixed "Save Configuration" doing nothing on builds without
+    screenshots
+  * Acid800 suite wired into "make check" so every change is tested
+
+ SDL joystick handling:
+ ----------------------
+  * Hat or axes picked automatically from what the device reports;
+    the -joy0hat..-joy3hat options were removed
+  * Port settings renamed from JOY_%d_* to JOY_PORT_%d_* (old keys
+    still accepted)
+  * Ports remember their joysticks (and auto-detected defaults) across
+    runs, even while disconnected
+  * Small sticks default to fire trigger and wide diagonals
+  * F1 menu and on-screen keyboard work with any host joystick, no
+    port binding needed
+  * Fixed SDL1 build
+
+ Falcon/FireBee:
+ ---------------
+  * Precise POKEY IRQs, fixed sound latency, uSound v2 API
+  * Stack/flags in LDFLAGS, mintelf target support re-introduced
+
+ Android (Colleen):
+ ------------------
+  * Hid the navigation buttons, made the console keys overlay
+    less dim
+  * Four drive icons shown in the menu only on very wide screens
+
+ Build/CI:
+ ---------
+  * Falcon/FireBee and 32-bit builds added to CI
+  * -Werror enabled, build warnings fixed
+  * macOS universal (arm64 + x86_64) DMG fixed
+
+
+Version 7.1.2 (2026/07/26) — keyboard joystick config fix
+=======================================================================
+
+ Core:
+ -----
+  * Fixed keyboard joystick configuration dialog stuck in infinite loop
+
+
+Version 7.1.1 (2026/07/26) — SDL2 joystick fixes
+=======================================================================
+
+ Core:
+ -----
+  * Fixed keyboard joystick keys not working in SDL2 (only numpad keys worked)
+  * Fixed joystick port mode "none" not persisting across restarts
+
+
+Version 7.1.0 (2026/07/25) — implemented cycle-precise POKEY interrupts
+=======================================================================
+
+ Core:
+ -----
+  * Implemented cycle-precise POKEY interrupts; Project-M now works correctly
+
+ Android:
+ --------
+  * Vertical, always-on console key overlay in landscape mode
+  * Menu bar icons padded away from rounded screen edges
+  * Disk drive mounting buttons (D1-D4) with mount status indicator
+  * Fixed gzip disk image mounting (.atr.gz, .xfd.gz)
+
+ CI:
+ ---
+  * AppImage build improvements and fine-tuning
+  * Fixed bashism, HTTPS certs, automatic release
+
+
+Version 7.0.0 (2026/06/27) — the first Atari800 with built-in Internet downloads
+================================================================================
+
+ New features:
+ -------------
+  * Auto-download missing OS/BASIC ROMs from the Internet
+  * Mount zipped disk images directly from the Internet
+  * Portable mode — config file and data storage next to the executable
+
+ Changes to config file search order:
+ ------------------------------------
+  1. --config argument — exact path given on command line
+  2. Portable exe dir — exe_dir/.atari800.cfg if exe dir is writable
+  3. $HOME default — ~/.atari800.cfg (if neither of the above applies)
+
+  plus $HOME now respects MS Windows specifics (USERPROFILE etc.)
+
+  If the resolved path (1, 2, or 3) doesn't exist:
+  4. HOME fallback — try ~/.atari800.cfg (only in portable mode)
+  5. System-wide — /etc/atari800.cfg (only if steps 1-4 all failed)
+  6. Fresh defaults — create new config at the path from step 1/2/3
+
+ Platform specific:
+ ------------------
+  * Windows: 32/64-bit builds, installer executable, portable zip archive
+  * Windows: app icon, MP3 recording support
+  * Windows: win32-no-network build for XP compatibility
+  * macOS: ready-to-run .dmg archive
+  * Linux: AppImage builds (x86_64 + i386)
+  * Android: auto-download ROMs, upgrade dialog
+
+
+Version 6.1.0 (2026/06/20)
 ==========================
 
  New features:
  -------------
+  * Alt+J opens Controller Configuration directly
+  * Save Configuration File moved to root menu
+  * Screenshot entries consolidated (Shift+F10 hint in label)
+
+Platform specific:
+------------------
+
+  * SDL: Alt+J hotkey added
+
+
+Version 6.0.0 (2026/06/19)
+==========================
+
+ New features:
+ -------------
+  * SDL2 support — SDL2 is now the primary SDL target. Selected automatically
+    when both SDL1 and SDL2 are available. Includes:
+    - OpenGL shader support and improved rendering
+    - SDL2 controller button configuration (map buttons to actions, D-pad UI)
+    - Correct keyboard handling (CAPS-Lock, control letters, HELP with modifiers)
+  * NetSIO / FujiNet support — network SIO over UDP, enabling connectivity with
+    FujiNet devices. Supports high-speed divisors, PROCEED signal, port sharing
+    (SO_REUSEADDR), and Windows (Winsock2). Configurable port via -netsio_port.
+  * Paddle controller support (SDL2-only):
+    - New JOY_MODE_PADDLE mode on any Atari port
+    - Per-port configurable pot axes and fire buttons
+    - Config keys: JOY_PORT_{0-3}_PADDLE_AXES, JOY_PORT_{0-3}_PADDLE_BUTTONS
+  * Joystick configuration reorganised by Atari port (SDL2):
+    - Each of the four Atari ports can be independently assigned an input source
+      (None, Keyboard 1/2, host joystick, paddle, parallel port)
+    - New config keys: JOY_PORT_{0-3}_{MODE,PARAM,NAME}
+    - Host joysticks opened into a flat pool, assigned by name for persistence
+    - Automatic smart defaults: if host joysticks are detected they are assigned
+      to ports; otherwise port 0 defaults to keyboard
+  * Support for J(atar)Carts & DCart cartridge types
+  * Alternative key mapping for Atari 5200 Bounty Bob Strikes Back!
+  * Turbo speed selection and quick save/load state
+  * libatari800 API extensions: mount_disk(), unmount_disk(), disable_drive(),
+    disk activity callbacks, SIO patch control
+  * Monitor command enhancements: summaries and error codes added
+
+ Changes:
+ --------
+  * Sound system refactored:
+    - VOL_ONLY_SOUND code removed (was unused and poor quality)
+    - SYNCHRONIZED_SOUND and SOUND_THIN_API now forced on
+    - SERIO_SOUND code removed
+  * CPU emulation refactored for readability
+  * Delayed NMI handling implemented per Altirra Hardware Reference Manual
+  * SDL2: Removed -joy-distinct option (no longer needed with per-port assignment)
+  * SDL2: Removed -joyswap / Alt+J swap joysticks shortcut
+  * SDL: window stays open while using the monitor
+  * SDL: joystick subsystem initialized only when needed
+  * Falcon: -interlace parameter removed (use -refresh instead)
+  * Falcon/FireBee: switched to m68k-atari-mintelf-gcc, usound routines
+  * CAS/XFD detection order corrected
+  * Host device letter input validation
+
+ Bug fixes:
+ ---------
+  * Fix ATX handling on command line (bug since 2009, fixes #218)
+  * Fix XF551 Get Status command (SuperDOS 5.1 timeout, fixes #190)
+  * Fix Corina and other size-based BIN file loading (fixes #258)
+  * Fix harmful typo in gtia.c (fixes #163)
+  * Fix zero-length Fuji chunk read in img_tape.c
+  * Fix Falcon/FireBee build
+  * Fix compilation with --without-opengl and --with-sound=no
+  * Fix make clean
+  * Various compiler warning fixes
+
+Platform specific:
+ ------------------
+  * Android: Complete overhaul — renamed to cz.pstehlik.colleen,
+    SAF-based storage (no more FileSelector), Material Design icons,
+    high-DPI console key scaling, auto-rotation, notch/cutout support,
+    state save/load reworked, CMake/Gradle build system,
+    BT and USB joysticks supported (up to four).
+  * win32: DirectX/DirectDraw/GDI backend removed (use SDL on Windows).
+  * Windows: NetSIO support via Winsock2 (netsiowin.c).
+  * Falcon/FireBee: keyboard fixes, sound improvements, compiler update.
+  * Dreamcast: redundant sound flag removed.
+  * CI: Windows, macOS 14 arm64, and Ubuntu 20.04 build workflows added.
+
+
+Version 5.2.0 (2023/12/29)
+==========================
+
+ New features:
+ -------------
+  * possibility of renaming the host device "letter" from previously hardcoded
+    H: to any letter but C: (cassette), E:, K: and S:
+    So if you have e.g. a program with hardcoded "D:" (as for diskette) you
+    can now use it on a host device as well by renaming the host device to D:
+    either via the Emulation configuration -> Host device settings menu
+    or using command line option
+
+    -Hdevicename <X>
+
+  * little thing but useful (for me at least): tooltip in the settings
+    menu that reminds users there are virtual host devices with
+    automatic ATASCII<->ASCII conversions (mainly end-of-line character).
+
+    Extremely useful for all text files including ATARI BASIC source code
+    that can be stored using LIST "H6:PROGRAM.LST" and read back using
+    ENTER "H6:PROGRAM.LST" (H6 = H1 with ASCII conversion, etc.).
+
+
+Version 5.1.0 (2023/12/28) - released at SILK
+==========================
+
+Thanks to all the contributors (see git log for each commit author)
+
+ New features:
+ -------------
+  * New command line options:
+
+   -playbacknoexit = don't exit the emulator after playback finishes
+
+   -joy-distinct
+
+    Allows larger number of joysticks by not combining multiple physical
+    devices into a single emulated joystick. For example this allows using
+    keyboard to emulate one or two joysticks, and to use these in conjunction
+    with physical SDL joysticks / controllers in order to play with more people
+    than there are SDL joysticks. The same logic gets applied to LPT joysticks,
+    these come after joysticks from keyboard emulation.
+
+    Furthermore, the logic also gets applied to put SDL joysticks after LPT
+    joystics even when the command line flag isn't set. Since LPT joysticks
+    take precedence over SDL joysticks on the same emulated device, this takes
+    a device that was completely ignored before and makes it useful now.
+
+    The assignments are fixed at program start-up, after config file and command
+    line flags have been taken into account. If the UI is used to enable or
+    disable a keyboard-emulated joystick, this can cause an emulated joystick
+    to be controlled by multiple physical devices, or by none.
+
+  * Swap also SDL joysticks on AltL+J
+
+    This swaps all physical devices connected to the first two emulated
+    joysticks: the keyboard keys, the SDL devices, and the LPT devices.
+
+    After the swap the real joystick / hat setting in the UI will appear swapped
+    as well, but the keyboard setting won't (fixes #156).
+
+  * Show all input events on a single line during recording
+
+    This way the recording file alternates between two forms of lines: input
+    lines which contain all keyboard and joystick events in one line, and output
+    lines with the screen content digest. By filtering out the former, the
+    latter can be aggregated nicely, e.g. using a command like this:
+
+    zcat ${file:?} | grep -vE '^[0-9A-F]{8} *$' | uniq -c
+
+    Consecutive frames of equal input state will be represented as a single row,
+    with a repeat count giving an idea for how long the state was maintained.
+
+  * RAM cartridges implementation (#184)
+    - Many RAMCART and one SiDiCar cartridges
+    - Support for writeable cartridges
+    - CART monitor command
+    - Make blank cartridge UI option
+    - Reserved CART file ids for additional cartridge types currently unemulated by Atari800,
+      added also the description of the types
+
+  * added XEX reading in monitor (useful for patches)
+
+  * Added H: device rename; save it in setup file (#204)
+
+ Changes:
+ --------
+  * Altirra OS updated to v3.41
+  * Altirra BASIC updated to v1.58
+  * Fix buffer over-read in generate_partial_pmpl_colls (#165)
+  * Atari ST/TT/Falcon optimizations
+  * Fixed keystrokes for inserting/deleting of line/character (#179)
+  * SIO now resets BRKKEY (fixes Arsantica 3 demo)
+  * Fix for issue #199 (BBSB warp doesn't work)
+  * Fixes CTRL and CAPS keys when using SDL12-compat library.
+  * DOC/README.RPI explains clearly support for various RaspberryPis
+
+
+Version 5.0.0 (2022/05/28) - released at Atariada.cz (yay!)
+==========================
+
+Big thanks to all contributors (see git log for each commit author)
+
+ New features:
+ -------------
+  * AVI video recording (Alt+V hotkey) by Rob McMullen
+    -vcodec command line arg can select video codec
+    -aname and -vname CL args set patterns for sound and video recording
+    -horiz-area & -vert-area command line args for controlling the image area
+    -showstats (and -no-showstats) CL args and related config file param
+    -compression-level for configuring PNG and ZMBV compression
+
+  * MP3 audio and other audio codecs for audio recording (Alt+W hotkey)
+    -acodec can select audio codec
+
   * New cartridge types supported:
     - 71: Super Cart 64 KB 5200 cartridge (32K banks)
     - 72: Super Cart 128 KB 5200 cartridge (32K banks)
     - 73: Super Cart 256 KB 5200 cartridge (32K banks)
     - 74: Super Cart 512 KB 5200 cartridge (32K banks)
     - 75: Atarimax 1 MB Flash cartridge (new)
+    - 94: Ram-Cart 64 KB cartridge
+    - 95: Ram-Cart 128 KB cartridge
+    - 96: Double Ram-Cart 2x128/256 KB cartridge
+    - 97: Ram-Cart 1 MB cartridge
+    - 98: Ram-Cart 2 MB cartridge
+    - 99: Ram-Cart 4 MB cartridge
+    - 100: Ram-Cart 8 MB cartridge
+    - 101: Ram-Cart 16 MB cartridge
+    - 102: Ram-Cart 32 MB cartridge
+    - 103: SiDiCar 32 KB cartridge
     See DOC/cart.txt for details.
+
+  * support for remapping of all function keys (START, SELECT, OPTION etc)
+  * support for comments in config file
+  * tool for creating cart files from ROM files
+  * support for 64-512K Atari 5200 bank-switchable carts with Bryan's design
+  * support for the alternate variant of MaxFlash 1 MB.
+  * support for single RaspberryPi OS package with HW specific binaries
+
+ Changes:
+ --------
+  * video triple buffering changed to double buffering
+  * fixed #74 by using proper getcwd()
+  * gamma values in NTSC filter presets updated
+  * MacOS build enables R: by default
+  * fixed saving of config file
+  * using zlib-provided crc32 if HAVE_LIBZ is defined (#72)
+  * Altirra OS updated to v3.28
+  * renamed "Switchable 5200" cartridges to "Super Cart"
+  * fixed segfault when a 5200 Super Cart cartridge is removed
+  * avoided unnecessary memory copying of 5200 Super Carts
+  * fixed #88 issue in opening a cartridge
+  * BUILD instructions and new README for Android
+  * fixed segfault when exiting monitor
+  * fixed BBSB's lift not working
+  * avoided unnecessary memory copying in Bounty Bob cartridges
+  * allow configuring --with-audio=win in non-DirectX targets
+  * allow configuring --with-audio=sdl and --with-video <> sdl
+  * atari_x11.c: don't auto-repeat the 'screenshot' key
+  * build compatible with dash
 
 
 Version 4.2.0 (2019/12/28) - released at SILK

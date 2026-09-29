@@ -74,17 +74,19 @@ waitForChar2:
 	stx		ch
 	
 	;do keyboard click (we do this even for ignored ctrl+shift+keys)
+	.if _KERNEL_XLXE
+	ldy		noclik
+	bne		no_click
+	.endif
+
 	ldy		#12
 	jsr		Bell
+no_click:
 
 	;ignore char if both ctrl and shift are pressed
 	cmp		#$c0
 	bcs		waitForChar
-	
-	;trap Ctrl-3 and return EOF
-	cmp		#$9a
-	beq		isCtrl3
-			
+				
 	;translate char
 	tay
 	lda		(keydef),y
@@ -98,6 +100,7 @@ waitForChar2:
 	bcc		toggle_shift	;$82 - caps lock
 	cmp		#$85
 	bcc		shift_ctrl_on	;$83 - shift caps lock / $84 - ctrl caps lock
+	beq		isCtrl3			;$85 - EOF
 	
 valid_key:
 	;check for alpha key
@@ -162,20 +165,27 @@ KeyboardSpecial = CIOExitNotSupported
 ;
 .proc	KeyboardIRQ
 	;reset software repeat timer
-	mva		#$30	srtimr
+	mva		krpdel	srtimr
 	
 	;read new key
 	lda		kbcode
+
+	;save key
+	pha
 
 	;check for HELP
 	and		#$3f
 	cmp		#$11
 	bne		not_help
+
+	;restore HELP key with original modifiers
+	pla
 	sta		helpfg
-	beq		xit2
+	bne		xit2
 
 not_help:
-	lda		kbcode	
+	;restore key
+	pla
 	
 	;check if it is the same as the prev key
 	cmp		ch1

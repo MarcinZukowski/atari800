@@ -7,7 +7,7 @@ Current active members of the Atari800 development team:
     Tomasz Krasuski     (core developer)
     Mark Grebe          (Mac OSX)
     Kostas Nakos        (Windows CE, Android)
-    James Wilkinson     (DOS, BeOS, Win32)
+    James Wilkinson     (DOS, BeOS)
     Christian Groessler (Sega Dreamcast)
     Andrey Dj           (Raspberry Pi)
     Miro Kropacek       (Atari Falcon)
@@ -254,8 +254,11 @@ Jindrich Kubec <kubecj@asw.cz>
     - hours of testing on real Atari800XL
     - research on real cartridges
 
-Jerzy Kut <mono@atari.pl>
+Jerzy Kut <jerzykut@poczta.onet.pl>
     - MapRAM memory expansion for the XL/XE
+    - Ram-Cart 64K/128K/1M/2M/4M/8M/16M/32M
+      and Double Ram-Cart 2x128K/256K cartridges support
+    - SiDiCar 32K cartridge support
 
 Chris Lam <lamcw@sun.aston.ac.uk>
     - RGB values for each Atari colour
@@ -307,6 +310,10 @@ Perry McFarlane <ce596@freenet.toronto.on.ca>
     - SIO: support for .pro images
     - various bugfixes in all areas of Atari800
     - and much much more, including general source clean up in 2.1.0
+
+Rob McMullen <feedback@playermissile.com>
+    - libatari800 compile target (atari800 as a library)
+    - multimedia framework, audio codecs, video codecs, and AVI video support
 
 Petr Mojzisek <mojzisek@bimbo.fjfi.cvut.cz>
     - rawkey support for svgalib
@@ -436,3 +443,6 @@ Marcin Zukowski <eru@ibb.waw.pl>
     - fix in ANTIC, GTIA
     - slight monitor improvement
     - fix in Atrax cartridge bank switching
+
+Martin von Gagern <martin@von-gagern.net>
+    - allow SDL joysticks to come after keyboard-emulated joysticks

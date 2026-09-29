@@ -22,20 +22,23 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-package name.nick.jubanka.colleen;
+package cz.pstehlik.colleen;
 
 import java.io.File;
 import java.io.InputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 
+import android.app.Activity;
 import android.preference.PreferenceActivity;
 import android.os.Bundle;
 import android.preference.Preference;
 import android.util.Log;
 import android.content.SharedPreferences;
 import android.preference.Preference.OnPreferenceClickListener;
-import android.net.Uri;
 import android.content.Intent;
+import android.net.Uri;
 import android.app.AlertDialog;
 import android.webkit.WebView;
 import android.app.Dialog;
@@ -45,15 +48,13 @@ import android.widget.Toast;
 import android.content.res.Resources;
 import android.preference.CheckBoxPreference;
 
-
+@SuppressWarnings("deprecation")
 public final class Preferences extends PreferenceActivity implements Preference.OnPreferenceChangeListener
 {
 	private static final String TAG = "Preferences";
 	private static final String[] PREF_KEYS = { "up", "down", "left", "right", "fire",
 												"actiona", "actionb", "actionc" };
-	private static final String PD_RESNAME = "pd2012";
-	private static final int ACTIVITY_FSEL_ROMPATH = 1;
-	private static final int ACTIVITY_FSEL_STATEPATH = 2;
+	private static final int ACTIVITY_IMPORT_ROMS = 4;
 	private static final int DLG_ABOUT = 1;
 	private static final int DLG_RESET = 2;
 	private static final int DLG_OVRWR = 3;
@@ -75,20 +76,19 @@ public final class Preferences extends PreferenceActivity implements Preference.
 			kp.updateSum();
 		}
 
-		for (final String pref: new String[] {"rompath", "statepath"}) {
-			findPreference(pref).setOnPreferenceClickListener(new OnPreferenceClickListener() {
-				@Override
-				public boolean onPreferenceClick(Preference p) {
-					String val = _sp.getString(pref, null);
-					Uri u = (val == null) ? null : Uri.fromFile(new File(val));
-					startActivityForResult(new Intent(FileSelector.ACTION_OPEN_PATH, u,
-										   Preferences.this, FileSelector.class),
-										   pref.equals("rompath") ? ACTIVITY_FSEL_ROMPATH :
-																	ACTIVITY_FSEL_STATEPATH);
-					return true;
-				}
-			});
-		}
+		/* Import OS ROM: open SAF file picker with multi-select */
+		findPreference("importroms").setOnPreferenceClickListener(new OnPreferenceClickListener() {
+			@Override
+			public boolean onPreferenceClick(Preference p) {
+				startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT)
+					.addCategory(Intent.CATEGORY_OPENABLE)
+					.setType("*/*")
+					.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+					.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
+					ACTIVITY_IMPORT_ROMS);
+				return true;
+			}
+		});
 
 		findPreference("about").setOnPreferenceClickListener(new OnPreferenceClickListener() {
 			@Override
@@ -102,7 +102,16 @@ public final class Preferences extends PreferenceActivity implements Preference.
 			@Override
 			public boolean onPreferenceClick(Preference p) {
 				startActivity(new Intent(Intent.ACTION_VIEW,
-							  Uri.parse("http://pocketatari.atari.org/android/index.html#manual")));
+							  Uri.parse("https://atari800.github.io/Atari800forAndroid.html#manual")));
+				return true;
+			}
+		});
+
+		findPreference("quit").setOnPreferenceClickListener(new OnPreferenceClickListener() {
+			@Override
+			public boolean onPreferenceClick(Preference p) {
+				setResult(Activity.RESULT_FIRST_USER);
+				finish();
 				return true;
 			}
 		});
@@ -115,61 +124,50 @@ public final class Preferences extends PreferenceActivity implements Preference.
 			}
 		});
 
-		if (_sp.getString("statepath", null) != null)
-			enableStateSave();
 		findPreference("savestate").setOnPreferenceChangeListener(this);
-
-		Preference p = findPreference("launchpd");
-		if (p != null) {
-			p.setOnPreferenceClickListener(new OnPreferenceClickListener() {
-				@Override
-				public boolean onPreferenceClick(Preference p) {
-					Resources res = Preferences.this.getResources();
-					int id = res.getIdentifier(PD_RESNAME, "raw", Preferences.this.getPackageName());
-					if (id != 0) {
-						InputStream is = res.openRawResource(id);
-						byte pddata[];
-						try {
-							pddata = new byte[is.available()];
-							is.read(pddata);
-							is.close();
-						} catch (IOException e) { 
-							Log.d(TAG, "IO exception while reading resouce");
-							return true;
-						}
-						if (! NativeBootPD(pddata, pddata.length))
-							Toast.makeText(Preferences.this, R.string.pdbooterror, Toast.LENGTH_LONG).show();
-						else {
-							((CheckBoxPreference) Preferences.this.findPreference("plandef")).setChecked(true);
-							Toast.makeText(Preferences.this, R.string.pdreminder, Toast.LENGTH_LONG).show();
-							Preferences.this.finish();
-						}
-					} else {
-						Log.d(TAG, "PD2012 resource not found");
+		findPreference("loadstate").setOnPreferenceClickListener(new OnPreferenceClickListener() {
+			@Override
+			public boolean onPreferenceClick(Preference p) {
+				File savesDir = getDir("saves", MODE_PRIVATE);
+				final String[] files = savesDir.list(new java.io.FilenameFilter() {
+					@Override
+					public boolean accept(File dir, String name) {
+						return name.endsWith(".a8s");
 					}
+				});
+				if (files == null || files.length == 0) {
+					Toast.makeText(Preferences.this, R.string.loadstatenone, Toast.LENGTH_SHORT).show();
 					return true;
 				}
-			});
-			if (getResources().getIdentifier(PD_RESNAME, "raw", getPackageName()) == 0)
-				p.setEnabled(false);
-		}
+				new AlertDialog.Builder(Preferences.this)
+					.setTitle(R.string.loadstatedlg)
+					.setItems(files, new DialogInterface.OnClickListener() {
+						@Override
+						public void onClick(DialogInterface d, int which) {
+							String path = new File(savesDir, files[which]).getAbsolutePath();
+							if (NativeLoadState(path))
+								Toast.makeText(Preferences.this,
+									String.format(getString(R.string.loadstateok), files[which]),
+									Toast.LENGTH_SHORT).show();
+							else
+								Toast.makeText(Preferences.this, R.string.loadstateerror,
+									Toast.LENGTH_SHORT).show();
+						}
+					})
+					.show();
+				return true;
+			}
+		});
+
+		if (_sp.getBoolean("a800fns", false) == true)
+			findPreference("a800fns").setSummary(getString(R.string.pref_a800fns_sum_ena));
+		findPreference("a800fns").setOnPreferenceChangeListener(this);
 
 		findPreference("forceAT").setEnabled(NativeOSLSound() || ((CheckBoxPreference) findPreference("forceAT")).isChecked());
 	}
 
-	private void enableStateSave() {
-		Preference p = findPreference("savestate");
-		p.setEnabled(true);
-		p.setSummary(getString(R.string.pref_savestate_sum_ena));
-	}
-
 	private boolean saveState(boolean force) {
-		String path = _sp.getString("statepath", null);
-		if (path == null) {
-			Log.d(TAG, "state save path is null");
-			Toast.makeText(this, R.string.savestateerror, Toast.LENGTH_LONG).show();
-			return true;
-		}
+		String path = getDir("saves", MODE_PRIVATE).getAbsolutePath();
 
 		if (!force && new File(path, _svstfname).exists())
 			return false;
@@ -189,6 +187,12 @@ public final class Preferences extends PreferenceActivity implements Preference.
 			_svstfname = (String) v + ".a8s";
 			if (!saveState(false))
 				showDialog(DLG_OVRWR);
+			return true;
+		} else if (p.getKey().equals("a800fns")) {
+			if ((Boolean) v)
+				p.setSummary(getString(R.string.pref_a800fns_sum_ena));
+			else
+				p.setSummary(getString(R.string.pref_a800fns_sum_dis));
 			return true;
 		} else {
 			int k = (Integer) v;
@@ -214,18 +218,55 @@ public final class Preferences extends PreferenceActivity implements Preference.
 
 	@Override
 	protected void onActivityResult(int reqc, int resc, Intent data) {
-		String pref = "rompath";
-		if (resc != RESULT_OK)	return;
+		Log.d(TAG, "onActivityResult: reqc=" + reqc + " resc=" + resc + " data=" + data);
+		if (resc != RESULT_OK || data == null) {
+			return;
+		}
+
 		switch (reqc) {
-		case ACTIVITY_FSEL_STATEPATH:
-			pref = "statepath";
-			enableStateSave();
-			// fallthrough
-		case ACTIVITY_FSEL_ROMPATH:
-			SharedPreferences.Editor e = _sp.edit();
-			e.putString(pref, data.getData().getPath());
-			e.commit();
+		case ACTIVITY_IMPORT_ROMS:
+		{
+			File romsDir = getDir("roms", MODE_PRIVATE);
+			ArrayList<Uri> uris = new ArrayList<Uri>();
+			if (data.getData() != null)
+				uris.add(data.getData());
+			if (data.getClipData() != null) {
+				for (int i = 0; i < data.getClipData().getItemCount(); i++)
+					uris.add(data.getClipData().getItemAt(i).getUri());
+			}
+			int count = 0;
+			for (Uri uri : uris) {
+				try {
+					InputStream in = getContentResolver().openInputStream(uri);
+					if (in == null) continue;
+					String fname = uri.getLastPathSegment();
+					if (fname == null) fname = "rom_" + count;
+					fname = Uri.decode(fname);
+					int colonIdx = fname.lastIndexOf(':');
+					if (colonIdx >= 0) fname = fname.substring(colonIdx + 1);
+					fname = fname.replace('/', '_').replace('\\', '_');
+					File outFile = new File(romsDir, fname);
+					FileOutputStream out = new FileOutputStream(outFile);
+					byte[] buf = new byte[65536];
+					int n;
+					while ((n = in.read(buf)) >= 0)
+						out.write(buf, 0, n);
+					in.close();
+					out.close();
+					count++;
+				} catch (Exception e) {
+					Log.d(TAG, "Import ROM error: " + e.getMessage());
+				}
+			}
+			if (count > 0) {
+				String rp = romsDir.getAbsolutePath();
+				SharedPreferences.Editor e = _sp.edit();
+				e.putString("rompath", rp);
+				e.commit();
+				Toast.makeText(this, String.format("Imported %d ROM file(s)", count), Toast.LENGTH_SHORT).show();
+			}
 			break;
+		}
 		}
 	}
 
@@ -284,8 +325,7 @@ public final class Preferences extends PreferenceActivity implements Preference.
 		return d;
 	}
 
-
 	private native boolean NativeSaveState(String fname);
-	private native boolean NativeBootPD(byte data[], int len);
+	private native boolean NativeLoadState(String fname);
 	private native boolean NativeOSLSound();
 }

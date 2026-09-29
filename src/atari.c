@@ -22,7 +22,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#define _POSIX_C_SOURCE 199309L /* for nanosleep */
+#define _POSIX_C_SOURCE 200809L /* for nanosleep */
 
 #include "afile.h"
 #include "config.h"
@@ -56,8 +56,15 @@
 #include <SDL.h>
 #endif
 
+#include "acidtest.h"
 #include "akey.h"
 #include "antic.h"
+#ifdef HAVE_DOWNLOAD
+#ifdef HAVE_DIRENT_H
+#include <dirent.h>
+#endif
+#include "download.h"
+#endif
 #include "artifact.h"
 #include "atari.h"
 #include "binload.h"
@@ -90,6 +97,9 @@
 #include "colours.h"
 #include "screen.h"
 #endif
+#if defined(AUDIO_RECORDING) || defined(VIDEO_RECORDING)
+#include "file_export.h"
+#endif
 #ifndef BASIC
 #include "statesav.h"
 #ifndef __PLUS
@@ -98,7 +108,6 @@
 #endif /* BASIC */
 #if defined(SOUND) && !defined(__PLUS)
 #include "pokeysnd.h"
-#include "sndsave.h"
 #include "sound.h"
 #endif
 #ifdef R_IO_DEVICE
@@ -145,9 +154,12 @@
 #ifdef SDL
 #include "sdl/init.h"
 #endif
-#ifdef DIRECTX
-#include "win32\main.h"
-#endif
+#ifdef NETSIO
+#include "netsio.h"
+
+#define NETSIO_STARTUP_WAIT_TIMEOUT_MS 5000
+#define NETSIO_STARTUP_WAIT_POLL_MS 10
+#endif /* NETSIO */
 
 int Atari800_machine_type = Atari800_MACHINE_XLXE;
 
@@ -170,6 +182,7 @@ int Atari800_nframes = 0;
 int Atari800_refresh_rate = 1;
 int Atari800_collisions_in_skipped_frames = FALSE;
 int Atari800_turbo = FALSE;
+int Atari800_turbo_speed = 0; /* percentage speed or 0 for max turbo */
 int Atari800_start_in_monitor = FALSE;
 int Atari800_auto_frameskip = FALSE;
 
@@ -177,10 +190,14 @@ int Atari800_auto_frameskip = FALSE;
 static double benchmark_start_time;
 #endif
 
+#ifdef HAVE_DOWNLOAD
+static char dl_dir[FILENAME_MAX] = "";
+#endif
+
 #ifdef CTRL_C_HANDLER
 volatile sig_atomic_t sigint_flag = FALSE;
 
-static RETSIGTYPE sigint_handler(int num)
+static void sigint_handler(int num)
 {
 	sigint_flag = TRUE;
 	/* Avoid restoring the original signal handler. */
@@ -239,6 +256,10 @@ void Atari800_Warmstart(void)
 #ifdef __PLUS
 	HandleResetEvent();
 #endif
+#ifdef NETSIO
+	if (netsio_enabled)
+		netsio_warm_reset();
+#endif /* NETSIO */
 }
 
 void Atari800_Coldstart(void)
@@ -271,6 +292,10 @@ void Atari800_Coldstart(void)
 		BIT3_Reset();
 	}
 #endif
+#ifdef NETSIO
+	if(netsio_enabled)
+		netsio_cold_reset();
+#endif /* NETSIO */
 }
 
 int Atari800_LoadImage(const char *filename, UBYTE *buffer, int nbytes)
@@ -348,6 +373,27 @@ static void PreInitialise(void)
 #endif
 }
 
+#ifdef HAVE_DOWNLOAD
+static void PurgeDownloadDir(const char *dir)
+{
+	DIR *d;
+	struct dirent *entry;
+
+	d = opendir(dir);
+	if (d == NULL)
+		return;
+	while ((entry = readdir(d)) != NULL) {
+		char path[FILENAME_MAX];
+		if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+			continue;
+		Util_catpath(path, dir, entry->d_name);
+		remove(path);
+	}
+	closedir(d);
+	rmdir(dir);
+}
+#endif
+
 int Atari800_Initialise(int *argc, char *argv[])
 {
 	int i, j;
@@ -379,17 +425,20 @@ int Atari800_Initialise(int *argc, char *argv[])
 #endif /* _WX_ */
 	PreInitialise();
 #else /* __PLUS */
-	const char *rtconfig_filename = NULL;
+	const char *cfg_source_path = NULL;
 	int got_config;
 	int help_only = FALSE;
+	char atari800_exe_dir[FILENAME_MAX] = "";
+	char portable_cfg[FILENAME_MAX] = "";
 
 	PreInitialise();
 
+#ifndef ANDROID
 	if (*argc > 1) {
 		for (i = j = 1; i < *argc; i++) {
 			if (strcmp(argv[i], "-config") == 0) {
 				if (i + 1 < *argc)
-					rtconfig_filename = argv[++i];
+					cfg_source_path = argv[++i];
 				else {
 					Log_print("Missing argument for '%s'", argv[i]);
 					return FALSE;
@@ -414,27 +463,34 @@ int Atari800_Initialise(int *argc, char *argv[])
 		}
 		*argc = j;
 	}
-#ifndef ANDROID
-	got_config = CFG_LoadConfig(rtconfig_filename);
-#else
-	got_config = TRUE; /* pretend we got a config file -- not needed in Android */
-#endif
+
+	if (*argc > 0 && argv[0] != NULL)
+		Util_splitpath(argv[0], atari800_exe_dir, NULL);
+
+	if (cfg_source_path == NULL && atari800_exe_dir[0] != '\0') {
+		char checkfile[FILENAME_MAX];
+		FILE *ft;
+		Util_catpath(checkfile, atari800_exe_dir, ".atari800-check");
+		ft = fopen(checkfile, "w");
+		if (ft != NULL) {
+			fclose(ft);
+			remove(checkfile);
+			Log_print("Portable path detected: %s", atari800_exe_dir);
+			Util_catpath(portable_cfg, atari800_exe_dir, DEFAULT_CFG_NAME);
+			cfg_source_path = portable_cfg;
+		}
+	}
+
+	got_config = CFG_LoadConfig(cfg_source_path);
 
 	/* try to find ROM images if the configuration file is not found
 	   or it does not specify some ROM paths (blank paths count as specified) */
-#ifndef ANDROID
-	{
-		char current_dir[FILENAME_MAX];
-		SYSROM_FindInDir(Util_getcwd(current_dir, FILENAME_MAX), TRUE);
-	}
+	SYSROM_FindInDir(CFG_data_dir, TRUE);
 #if defined(unix) || defined(__unix__) || defined(__linux__)
 	SYSROM_FindInDir("/usr/share/atari800", TRUE);
 #endif
-	if (*argc > 0 && argv[0] != NULL) {
-		char atari800_exe_dir[FILENAME_MAX];
+	if (atari800_exe_dir[0] != '\0') {
 		char atari800_exe_rom_dir[FILENAME_MAX];
-		/* the directory of the Atari800 program */
-		Util_splitpath(argv[0], atari800_exe_dir, NULL);
 		SYSROM_FindInDir(atari800_exe_dir, TRUE);
 		/* "rom" and "ROM" subdirectories of this directory */
 		Util_catpath(atari800_exe_rom_dir, atari800_exe_dir, "rom");
@@ -445,15 +501,13 @@ int Atari800_Initialise(int *argc, char *argv[])
 		SYSROM_FindInDir(atari800_exe_rom_dir, TRUE);
 #endif
 	}
+#else
+	got_config = TRUE; /* pretend we got a config file -- not needed in Android */
 #endif /* ANDROID */
 
 	/* finally if nothing is found, set some defaults to make
 	   the configuration file easier to edit */
 	SYSROM_SetDefaults();
-
-	/* if no configuration file read, try to save one with the defaults */
-	if (!got_config)
-		CFG_WriteConfig();
 
 #endif /* __PLUS */
 
@@ -518,6 +572,26 @@ int Atari800_Initialise(int *argc, char *argv[])
 			Atari800_builtin_game = FALSE;
 			Atari800_keyboard_detached = FALSE;
 		}
+		else if (strcmp(argv[i], "-576xe") == 0) {
+			Atari800_machine_type = Atari800_MACHINE_XLXE;
+			MEMORY_ram_size = 576;
+			Atari800_builtin_basic = TRUE;
+			Atari800_keyboard_leds = FALSE;
+			Atari800_f_keys = FALSE;
+			Atari800_jumper = FALSE;
+			Atari800_builtin_game = FALSE;
+			Atari800_keyboard_detached = FALSE;
+		}
+		else if (strcmp(argv[i], "-1088xe") == 0) {
+			Atari800_machine_type = Atari800_MACHINE_XLXE;
+			MEMORY_ram_size = 1088;
+			Atari800_builtin_basic = TRUE;
+			Atari800_keyboard_leds = FALSE;
+			Atari800_f_keys = FALSE;
+			Atari800_jumper = FALSE;
+			Atari800_builtin_game = FALSE;
+			Atari800_keyboard_detached = FALSE;
+		}
 		else if (strcmp(argv[i], "-xegs") == 0) {
 			Atari800_machine_type = Atari800_MACHINE_XLXE;
 			MEMORY_ram_size = 64;
@@ -559,21 +633,61 @@ int Atari800_Initialise(int *argc, char *argv[])
 #ifdef STEREO_SOUND
 		else if (strcmp(argv[i], "-stereo") == 0) {
 			POKEYSND_stereo_enabled = TRUE;
+			Sound_desired.channels = 2;
 		}
 		else if (strcmp(argv[i], "-nostereo") == 0) {
 			POKEYSND_stereo_enabled = FALSE;
+			Sound_desired.channels = 1;
 		}
 #endif /* STEREO_SOUND */
 		else if (strcmp(argv[i], "-turbo") == 0) {
 			Atari800_turbo = TRUE;
 		}
-		else {
+#ifdef NETSIO
+		else if (strcmp(argv[i], "-netsio") == 0) {
+			/* Optional UDP port argument (default 9997). */
+			unsigned int port = 9997;
+			/* Disable patched SIO for all devices */
+			ESC_enable_sio_patch = Devices_enable_h_patch = Devices_enable_p_patch = Devices_enable_r_patch = FALSE;
+			if (i + 1 < *argc && argv[i + 1][0] != '-') {
+				int p = Util_sscandec(argv[i + 1]);
+				if (p >= 1 && p <= 65535) {
+					port = (unsigned int) p;
+					++i; /* consume the port argument */
+				}
+				else {
+					Log_print("Invalid netsio port '%s', using default 9997", argv[i + 1]);
+					++i; /* consume the invalid argument to avoid confusing other parsers */
+				}
+			}
+
+			if (netsio_init((uint16_t)port) < 0) {
+				Log_print("netsio: init failed");
+			} else {
+				int waited_ms = 0;
+				Log_print("netsio initialized with port %d", port);
+				while (!netsio_enabled && waited_ms < NETSIO_STARTUP_WAIT_TIMEOUT_MS) {
+					Util_sleep((double)NETSIO_STARTUP_WAIT_POLL_MS / 1000.0);
+					waited_ms += NETSIO_STARTUP_WAIT_POLL_MS;
+				}
+				if (netsio_enabled)
+					Log_print("netsio connected after %d ms", waited_ms);
+				else
+					Log_print("netsio not connected after %d ms, continuing startup",
+					          NETSIO_STARTUP_WAIT_TIMEOUT_MS);
+			}
+		}
+#endif /* NETSIO */
+			else {
 			/* parameters that take additional argument follow here */
 			int i_a = (i + 1 < *argc);		/* is argument available? */
 			int a_m = FALSE;			/* error, argument missing! */
 
 			if (strcmp(argv[i], "-run") == 0) {
 				if (i_a) run_direct = argv[++i]; else a_m = TRUE;
+			}
+			else if (strcmp(argv[i], "-acid800") == 0) {
+				if (i_a) ACIDTEST_Init(argv[++i]); else a_m = TRUE;
 			}
 #ifdef R_IO_DEVICE
 			else if (strcmp(argv[i], "-rdevice") == 0) {
@@ -654,6 +768,20 @@ int Atari800_Initialise(int *argc, char *argv[])
 			else if (strcmp(argv[i], "-bpc") == 0)
 				if (i_a) MONITOR_BPC(argv[++i]); else a_m = TRUE;
 #endif /* MONITOR_BREAK */
+#ifdef HAVE_DOWNLOAD
+			else if (strcmp(argv[i], "-download-roms") == 0) {
+				static const char *rom_exts[] = {".rom", NULL};
+				char rom_dir[FILENAME_MAX];
+				Util_catpath(rom_dir, CFG_data_dir, "rom");
+				Log_print("Downloading ROMs to %s ...", rom_dir);
+				if (Download_And_Extract(i_a ? argv[++i] : ROM_URL, rom_exts, rom_dir) == NULL) {
+					Log_print("Downloading ROMs failed");
+					return FALSE;
+				}
+				Log_print("Searching in %s", rom_dir);
+				SYSROM_FindInDir(rom_dir, FALSE);
+			}
+#endif /* HAVE_DOWNLOAD */
 			else {
 				/* all options known to main module tried but none matched */
 
@@ -671,6 +799,8 @@ int Atari800_Initialise(int *argc, char *argv[])
 					Log_print("\t-xe              Emulate Atari 130XE");
 					Log_print("\t-320xe           Emulate Atari 320XE (Compy-Shop)");
 					Log_print("\t-rambo           Emulate Atari 320XE (Rambo XL)");
+					Log_print("\t-576xe           Emulate Atari 576XE");
+					Log_print("\t-1088xe          Emulate Atari 1088XE");
 					Log_print("\t-xegs            Emulate Atari XEGS");
 					Log_print("\t-5200            Emulate Atari 5200 Games System");
 					Log_print("\t-nobasic         Turn off Atari BASIC ROM");
@@ -693,11 +823,27 @@ int Atari800_Initialise(int *argc, char *argv[])
 #ifdef R_IO_DEVICE
 					Log_print("\t-rdevice [<dev>] Enable R: emulation (using serial device <dev>)");
 #endif
+#ifdef NETSIO
+					Log_print("\t-netsio [port]   Enable NetSIO emulation (for FujiNet-PC support). Optional UDP port, default 9997");
+#endif
+#ifdef STEREO_SOUND
+					Log_print("\t-stereo          Turn on emulation of two POKEYs");
+					Log_print("\t-nostereo        Turn off emulation of two POKEYs");
+#endif
 					Log_print("\t-turbo           Run emulated Atari as fast as possible");
+					Log_print("\t-acid800 <file>  Run the Acid800 suite, compare with expected results in <file>");
+					Log_print("\t-monitor         Start emulated Atari in the monitor");
+#ifdef MONITOR_BREAK
+					Log_print("\t-bbrk            Break on BRK instruction");
+					Log_print("\t-bpc <addr>      Break on PC=<addr>");
+#endif
 #ifdef MONITOR_HINTS
 					Log_print("\t-label-file <f>  Load monitor labels from file <f>");
 #endif
 					Log_print("\t-v               Show version/release number");
+#ifdef HAVE_DOWNLOAD
+					Log_print("\t-download-roms <url> Download and extract ROM archive from <url>");
+#endif
 				}
 
 				/* copy this option for platform/module specific evaluation */
@@ -774,6 +920,9 @@ int Atari800_Initialise(int *argc, char *argv[])
 #if !defined(BASIC) && !defined(CURSES_BASIC)
 		|| !Screen_Initialise(argc, argv)
 		|| !UI_Initialise(argc, argv)
+#if defined(AUDIO_RECORDING) || defined(VIDEO_RECORDING)
+		|| !File_Export_Initialise(argc, argv)
+#endif
 #endif
 		/* Initialise Custom Chips */
 		|| !ANTIC_Initialise(argc, argv)
@@ -791,6 +940,16 @@ int Atari800_Initialise(int *argc, char *argv[])
 		Atari800_ErrExit();
 		return FALSE;
 	}
+
+	/* If no configuration file was read, save one with the defaults.  This
+	   has to wait until the platform is initialised, or the file would
+	   describe none of the connected input devices. */
+#ifdef LIBATARI800
+	(void) got_config;
+#else
+	if (!got_config)
+		CFG_WriteConfig();
+#endif
 
 #if SUPPORTS_CHANGE_VIDEOMODE
 #ifndef DONT_DISPLAY
@@ -817,14 +976,37 @@ int Atari800_Initialise(int *argc, char *argv[])
 	/* Auto-start files left on the command line */
 	j = 1; /* diskno */
 	for (i = 1; i < *argc; i++) {
+		const char *filename = argv[i];
+#ifdef HAVE_DOWNLOAD
+		char dl_buf[FILENAME_MAX+2] = "";
+#endif
 		if (j > 8) {
 			/* The remaining arguments are not necessary disk images, but ignore them... */
 			Log_print("Too many disk image filenames on the command line (max. 8).");
 			break;
 		}
-		switch (AFILE_OpenFile(argv[i], i == 1, j, FALSE)) {
+#ifdef HAVE_DOWNLOAD
+		if (strncmp(argv[i], "http://", 7) == 0 || strncmp(argv[i], "https://", 8) == 0) {
+			static const char *img_exts[] = { ".atr", ".xfd", ".atx", ".pro", ".dcm", ".xex", ".bas", ".lst", ".cas", ".rom", ".car", ".bin", NULL };
+			if (dl_dir[0] == '\0')
+				Util_catpath(dl_dir, CFG_data_dir, ".atari800_dl");
+			if (dl_dir[0] != '\0') {
+				const char *first = Download_And_Extract(argv[i], img_exts, dl_dir);
+				if (first != NULL) {
+					Log_print("Downloaded %s to %s", first, dl_dir);
+					snprintf(dl_buf, sizeof(dl_buf), "%s/%s", dl_dir, first);
+					filename = dl_buf;
+				}
+			}
+			if (filename == argv[i]) {
+				Log_print("Error downloading \"%s\"", argv[i]);
+				continue;
+			}
+		}
+#endif /* HAVE_DOWNLOAD */
+		switch (AFILE_OpenFile(filename, i == 1, j, FALSE)) {
 			case AFILE_ERROR:
-				Log_print("Error opening \"%s\"", argv[i]);
+				Log_print("Error opening \"%s\"", filename);
 				break;
 			case AFILE_ATR:
 			case AFILE_XFD:
@@ -832,6 +1014,7 @@ int Atari800_Initialise(int *argc, char *argv[])
 			case AFILE_XFD_GZ:
 			case AFILE_DCM:
 			case AFILE_PRO:
+			case AFILE_ATX:
 				j++;
 				break;
 			default:
@@ -899,7 +1082,7 @@ int Atari800_Initialise(int *argc, char *argv[])
 	benchmark_start_time = Util_time();
 #endif
 
-#if defined (SOUND) && defined(SOUND_THIN_API)
+#ifdef SOUND
 	if (Sound_enabled) {
 		/* Up to this point the Sound_enabled flag indicated that we _want_ to
 		   enable sound. From now on, the flag will indicate whether audio
@@ -913,7 +1096,27 @@ int Atari800_Initialise(int *argc, char *argv[])
 			/* Start sound if opening audio output was successful. */
 				Sound_Continue();
 	}
-#endif /* defined (SOUND) && defined(SOUND_THIN_API) */
+#endif /* SOUND */
+
+#ifdef HAVE_DOWNLOAD
+	/* never in the Acid800 check: it must boot the built-in OS everywhere */
+	if (!ACIDTEST_enabled
+	 && (Atari800_os_version < 0 || Atari800_os_version >= SYSROM_LOADABLE_SIZE)) {
+		static const char *rom_exts[] = {".rom", NULL};
+		char rom_dir[FILENAME_MAX];
+		Util_catpath(rom_dir, CFG_data_dir, "rom");
+		Log_print("Downloading ROMs to %s ...", rom_dir);
+		if (Download_And_Extract(ROM_URL, rom_exts, rom_dir) != NULL) {
+			Log_print("Searching in %s", rom_dir);
+			SYSROM_FindInDir(rom_dir, FALSE);
+			CFG_WriteConfig();
+			Atari800_InitialiseMachine();
+		}
+		else {
+			Log_print("Downloading ROMs failed");
+		}
+	}
+#endif /* HAVE_DOWNLOAD */
 
 	return TRUE;
 }
@@ -963,10 +1166,13 @@ int Atari800_Exit(int run_monitor)
 #endif /* CTRL_C_HANDLER */
 #ifndef __PLUS
 	if (!restart) {
+#ifndef LIBATARI800
 		/* We'd better save the configuration before calling the *_Exit() functions -
-		   there's a danger that they might change some emulator settings. */
+		   there's a danger that they might change some emulator settings (unless
+		   we're using libatari800). */
 		if (CFG_save_on_exit)
 			CFG_WriteConfig();
+#endif
 
 		/* Cleanup functions, in reverse order as the init functions in
 		   Atari800_Initialise(). */
@@ -999,8 +1205,8 @@ int Atari800_Exit(int run_monitor)
 #ifdef R_IO_DEVICE
 		RDevice_Exit(); /* R: Device cleanup */
 #endif
-#ifdef SOUND
-		SndSave_CloseSoundFile();
+#if defined(AUDIO_RECORDING) || defined(VIDEO_RECORDING)
+		File_Export_StopRecording();
 #endif
 		MONITOR_Exit();
 #ifdef SDL
@@ -1008,6 +1214,10 @@ int Atari800_Exit(int run_monitor)
 #endif /* SDL */
 	}
 #endif /* __PLUS */
+#ifdef HAVE_DOWNLOAD
+	if (dl_dir[0] != '\0')
+		PurgeDownloadDir(dl_dir);
+#endif
 	return restart;
 }
 
@@ -1018,6 +1228,7 @@ void Atari800_ErrExit(void)
 }
 
 #ifndef __PLUS
+#ifndef LIBATARI800
 static void autoframeskip(double curtime, double lasttime)
 {
 	static int afs_lastframe = 0, afs_discard = 0;
@@ -1058,13 +1269,16 @@ void Atari800_Sync(void)
 	double deltatime = 1.0 / ((Atari800_tv_mode == Atari800_TV_PAL) ? Atari800_FPS_PAL : Atari800_FPS_NTSC);
 	double curtime;
 
-#ifdef SYNCHRONIZED_SOUND
+#if defined(SOUND) && !defined(__PLUS)
 	deltatime *= Sound_AdjustSpeed();
 #endif
 #ifdef ALTERNATE_SYNC_WITH_HOST
 	if (! UI_is_active)
 		deltatime *= Atari800_refresh_rate;
 #endif
+	if (Atari800_turbo && Atari800_turbo_speed > 0) {
+		deltatime /= Atari800_turbo_speed / 100.0;
+	}
 	lasttime += deltatime;
 	curtime = Util_time();
 	if (Atari800_auto_frameskip)
@@ -1226,6 +1440,7 @@ static void basic_frame(void)
 }
 
 #endif /* defined(BASIC) || defined(VERY_SLOW) || defined(CURSES_BASIC) */
+#endif /* LIBATARI800 */
 
 void Atari800_Frame(void)
 {
@@ -1262,7 +1477,7 @@ void Atari800_Frame(void)
 		Sound_Continue();
 #endif
 		break;
-#ifndef CURSES_BASIC
+#ifdef SCREENSHOTS
 	case AKEY_SCREENSHOT:
 		Screen_SaveNextScreenshot(FALSE);
 		break;
@@ -1308,6 +1523,7 @@ void Atari800_Frame(void)
 		Screen_DrawAtariSpeed(Util_time());
 		Screen_DrawDiskLED();
 		Screen_Draw1200LED();
+		Screen_DrawStatusText();
 #endif /* CURSES_BASIC */
 #ifdef DONT_DISPLAY
 		Atari800_display_screen = FALSE;
@@ -1325,10 +1541,20 @@ void Atari800_Frame(void)
 	}
 #endif /* BASIC */
 	POKEY_Frame();
+	if (ACIDTEST_enabled)
+		ACIDTEST_Frame();
+#ifdef VIDEO_RECORDING
+	File_Export_WriteVideo();
+#endif
 #ifdef SOUND
 	Sound_Update();
 #endif
+#if defined(AUDIO_RECORDING) || defined(VIDEO_RECORDING)
+	/* multimedia stats are drawn here so they don't get recorded in the video */
+	Screen_DrawMultimediaStats();
+#endif
 	Atari800_nframes++;
+#ifndef LIBATARI800
 #ifdef BENCHMARK
 	if (Atari800_nframes >= BENCHMARK) {
 		double benchmark_time = Util_time() - benchmark_start_time;
@@ -1341,7 +1567,7 @@ void Atari800_Frame(void)
 #ifdef ALTERNATE_SYNC_WITH_HOST
 	if (refresh_counter == 0)
 #endif
-		if (Atari800_turbo) {
+		if (Atari800_turbo && Atari800_turbo_speed == 0) {
 			/* No need to draw Atari frames with frequency higher than display
 			   refresh rate. */
 			static double last_display_screen_time = 0.0;
@@ -1356,6 +1582,7 @@ void Atari800_Frame(void)
 		else
 			Atari800_Sync();
 #endif /* BENCHMARK */
+#endif /* LIBATARI800 */
 }
 
 #endif /* __PLUS */
@@ -1499,15 +1726,8 @@ void Atari800_SetTVMode(int mode)
 		VIDEOMODE_SetVideoSystem(mode);
 #endif
 #ifdef SOUND
-#ifdef SOUND_THIN_API
 		if (Sound_enabled)
 			POKEYSND_Init(POKEYSND_FREQ_17_EXACT, Sound_out.freq, Sound_out.channels, Sound_out.sample_size == 2 ? POKEYSND_BIT16 : 0);
-#elif defined(SUPPORTS_SOUND_REINIT)
-		Sound_Reinit();
-#endif /* defined(SUPPORTS_SOUND_REINIT) */
 #endif /* SOUND */
-#if defined(DIRECTX)
-		SetTVModeMenuItem(mode);
-#endif
 	}
 }

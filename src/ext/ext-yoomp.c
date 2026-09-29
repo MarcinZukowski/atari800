@@ -39,7 +39,7 @@ static int config_ball_nr = 1;
 static int config_lua_script_on = 0;
 #endif
 
-static void xx_load_ball()
+static void xx_load_ball(void)
 {
 	int i;
 	for (i = 1; i < NUM_BALLS; i++) {
@@ -47,7 +47,7 @@ static void xx_load_ball()
 	}
 }
 
-static void xx_load_background()
+static void xx_load_background(void)
 {
 	glt_background = gl_texture_load_rgba("data/ext/yoomp/rof-gray.rgba", 476, 476);
 
@@ -79,7 +79,7 @@ static void xx_load_background()
 	gl_texture_finalize(&glt_background);
 }
 
-static void xx_draw_background()
+static void xx_draw_background(void)
 {
 	float L = -0.77;
 	float R = -L;
@@ -113,7 +113,7 @@ static void xx_draw_background()
 
 static float xx_last = 0;
 
-static void xx_render_ball()
+static void xx_render_ball(void)
 {
 	gl.Disable(GL_TEXTURE_2D);
 
@@ -167,7 +167,7 @@ static void xx_render_ball()
 	gl.Disable(GL_LIGHT0);
 }
 
-static void xx_init()
+static void xx_init(void)
 {
 	xx_load_background();
 	xx_load_ball();
@@ -176,7 +176,7 @@ static void xx_init()
 /** ************************************************* LUA *************************************** */
 #ifdef WITH_EXT_LUA
 
-static void lua_draw_background()
+static void lua_draw_background(void)
 {
 	struct lua_State *L = lua_ext_get_state();
 	if (!L) {
@@ -233,7 +233,7 @@ static UI_tMenuItem menu[] = {
 	UI_MENU_END
 };
 
-static void refresh_config()
+static void refresh_config(void)
 {
 	menu[0].suffix = config_background_on ? "ON" : "OFF";
 	menu[1].suffix = yoomp_balls[config_ball_nr].name;

@@ -4,9 +4,6 @@ Plans for future versions
 Keyboard and controllers
 ------------------------
 
-* map host joysticks to Atari ports in the emulation core in order to make
-  the configuration available in UI and config file
-
 * pass the state of all host keys to the emulation core in order to configure
   keysticks in UI and config file
 
@@ -25,9 +22,7 @@ Keyboard and controllers
 Emulation core
 --------------
 
-* Java midlet
-
-* cycle-exact POKEY interrupts (timers, serial I/O, keyboard)
+* cycle-exact POKEY interrupts (serial I/O, keyboard)
 
 * precisely emulate serial I/O rates
 

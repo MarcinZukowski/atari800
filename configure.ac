@@ -21,16 +21,17 @@ dnl   along with Atari800; if not, write to the Free Software
 dnl   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 AC_PREREQ(2.57)
-AC_INIT(Atari800, 4.2.0, pstehlik@sophics.cz)
+AC_INIT(Atari800, 7.2.1, pstehlik@sophics.cz)
+AC_USE_SYSTEM_EXTENSIONS
 AC_CONFIG_SRCDIR(src/atari.c)
-AC_CONFIG_HEADER(src/config.h)
+AC_CONFIG_HEADERS([src/config.h])
 AC_CONFIG_MACRO_DIR([m4])
 
 
 dnl Set a8_target...
 
 case "$target" in
-    default | falcon | firebee | ps2 | rpi | android | windx | x11 | x11-shm | x11-motif | x11-xview | x11-xview-shm | libatari800)
+    default | falcon | firebee | ps2 | rpi | android | x11 | x11-shm | x11-motif | x11-xview | x11-xview-shm | libatari800)
         a8_target="$target"
         ;;
     shm | motif | xview | xview-shm)
@@ -48,18 +49,22 @@ case "$target" in
         echo "Possible values for the '--target' option are:"
         echo "    default          (autodetect available graphics and sound libraries)"
         echo "    android          (Android devices)"
-        echo "    falcon           (Atari Falcon: set --host=m68k-atari-mint)"
-        echo "    firebee          (FireBee: set --host=m68k-atari-mint)"
+        echo "    falcon           (Atari Falcon: set --host=m68k-atari-mint(elf))"
+        echo "    firebee          (FireBee: set --host=m68k-atari-mint(elf))"
         echo "    ps2              (Sony PlayStation 2)"
-        echo "    rpi              (Raspberry Pi: set --host=arm-linux)"
-        echo "    windx            (Windows with DirectX only)"
         echo "    libatari800      (Atari800 as a library (developers only))"
         echo "    x11              (Standard X11)"
         echo "    (x11-)motif      (Motif on X11)"
         echo "    (x11-)shm        (Standard X11 with shared memory extensions)"
         echo "    (x11-)xview      (XView on X11)"
         echo "    (x11-)xview-shm  (XView on X11, with shared memory extensions)"
-        echo
+        echo "Legacy Target:"
+        echo "    rpi              (Raspberry Pi. Still available, but works only"
+        echo "                     with Stretch and Buster versions of Pi OS."
+        echo "                     Depends upon Broadcom libraries, brcmGLESv and"
+        echo "                     brcmEGL, which were dropped from Bullseye."
+        echo "                     Pis running Bullseye and later may be treated"
+        echo "                     as default targets.)"
         exit 1;
         ;;
 esac
@@ -76,6 +81,8 @@ m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
 
 WANT_IDE="yes"
 WANT_POKEYREC="yes"
+SUPPORTS_RDEVICE="yes"
+SUPPORTS_NETSIO="yes"
 
 dnl Set a8_host...
 
@@ -112,7 +119,7 @@ case $host_os in
     darwin*)
         a8_host="macos"
         ;;
-    mint)
+    mint*)
         if [[ "$a8_target" = "firebee" ]]; then
             a8_host=firebee
             a8_target=default
@@ -164,30 +171,26 @@ if [[ "$a8_target" = "rpi" ]]; then
     LDFLAGS="$LDFLAGS -Wl,--unresolved-symbols=ignore-in-shared-libs -L${RPI_SDK}/lib"
 fi
 if [[ "$a8_target" = "android" ]]; then
-	CC="arm-linux-androideabi-gcc"
-	CPP="arm-linux-androideabi-cpp"
 	AC_NO_EXECUTABLES
-	CPPFLAGS="$CPPFLAGS -I$ANDROID_NDK_ROOT/platforms/android-9/arch-arm/usr/include/"
 	WANT_IDE=no
 	with_readline=no
 	WANT_EVENT_RECORDING=no
 	AC_DEFINE(HAVE_GETTIMEOFDAY,1)
-
-	# Take care of the ndk-build script name difference on Windows version of Android NDK.
-	if [[ "$build_os" = "cygwin" -o "$build_os" = "mingw32" ]]; then
-		NDK_BUILD=ndk-build.cmd
-	else
-		NDK_BUILD=ndk-build
-	fi
-	AC_SUBST(NDK_BUILD)
 fi
 if [[ "$a8_host" = "falcon" ]]; then
-	CFLAGS="-m68020-60 -O2 -fomit-frame-pointer -Wall"
-	LDFLAGS="-m68020-60"
+    CFLAGS="-m68020-60 -O2 -fomit-frame-pointer -Wall"
+    LDFLAGS="$LDFLAGS -m68020-60"
+    SUPPORTS_RDEVICE=no
+    SUPPORTS_NETSIO=no
 fi
 if [[ "$a8_host" = "firebee" ]]; then
-	CFLAGS="-mcpu=5475 -O2 -fomit-frame-pointer -Wall"
-	LDFLAGS="-mcpu=5475"
+    CFLAGS="-mcpu=5475 -O2 -fomit-frame-pointer -Wall"
+    LDFLAGS="$LDFLAGS -mcpu=5475"
+    SUPPORTS_RDEVICE=no
+    SUPPORTS_NETSIO=no
+fi
+if [[ "$a8_host" = "falcon" -o "$a8_host" = "firebee" ]]; then
+    LDFLAGS="$LDFLAGS -Wl,--msuper-memory -Wl,--stack,256k"
 fi
 if [[ "$a8_target" = "libatari800" ]]; then
     with_readline=no
@@ -202,9 +205,58 @@ AC_PROG_INSTALL
 AC_PROG_RANLIB
 AC_CHECK_TOOLS(WINDRES, [windres], :)
 
+
+dnl The A8_ADD_INCLUDE_PATH macro searches for include files in subdirectories of
+dnl a list of paths plus standard include paths. E.g. /usr/include/PACKAGE/package.h
+dnl is not found automatically because only /usr/include is searched, not
+dnl /usr/include/PACKAGE. This function takes standard include paths plus any
+dnl additional include paths in argument $3 and for each path there, looks in
+dnl any existing subdirs specified in argument $4. If found, the subdir is added
+dnl to the $CPPFLAGS variable. If not found in any path combination, the code in
+dnl $5 is executed.
+dnl         $1    = the name of the feature for informational messages
+dnl         $2    = header file to use as test for presense
+dnl         $3    = the list of possible include directory paths to use as prefixes
+dnl                 to the combined path
+dnl         $4    = the list of possible include subdirectories
+dnl         $5    = code to execute if include not found
+AC_DEFUN([A8_ADD_INCLUDE_PATH], [
+    AC_CHECK_HEADER([$2],[],[
+        _a8_saved_cppflags=$CPPFLAGS
+        _a8_found=no
+        for _a8_dir in ${prefix}/include $3; do
+            for _a8_subdir in $4; do
+                _a8_fulldir="$_a8_dir/$_a8_subdir"
+                test ! -d "$_a8_fulldir" && continue
+                AC_MSG_CHECKING([for $1 headers in])
+                AC_MSG_RESULT([$_a8_fulldir])
+                AS_UNSET([AS_TR_SH([ac_cv_header_$2])])
+                CPPFLAGS="$_a8_saved_cppflags -I$_a8_fulldir"
+                AC_CHECK_HEADER([$2],[_a8_found="yes"; break],[])
+            done
+            if [[ "$_a8_found" = "yes" ]]; then
+                break
+            fi
+        done
+        if [[ "$_a8_found" != "yes" ]]; then
+            CPPFLAGS=$_a8_saved_cppflags
+            $5
+        fi
+        AS_UNSET(_a8_found)
+        AS_UNSET(_a8_dir)
+        AS_UNSET(_a8_subdir)
+        AS_UNSET(_a8_fulldir)
+        AS_UNSET(_a8_saved_cppflags)
+    ])
+])
+
+
 AC_DEFUN([AM_PROG_AS], []) dnl dummy to make automake happy, since vasm is used instead
-CCAS=vasm
-CCASFLAGS="-quiet -devpac -opt-allbra -Faout"
+CCAS=vasmm68k_mot
+CCASFLAGS="-quiet -devpac -opt-allbra -Faout -underscore"
+if echo | $CC -dM -E - | grep __ELF__ > /dev/null; then
+CCASFLAGS="-quiet -devpac -opt-allbra -Felf -elfregs"
+fi
 
 a8_use_sdl=no
 dnl Check if SDL library exists. If it's found, set a8_use_sdl to yes and AC_DEFINE the SDL symbol.
@@ -218,6 +270,7 @@ AC_DEFUN([TRY_USE_SDL],
         AM_PATH_SDL($SDL_VERSION,
         [
             AC_DEFINE(SDL,1,[Target: SDL library.])
+            AC_DEFINE(SUPPORTS_PLATFORM_SLEEP,1,[Platform-specific sleep function.])
             AC_DEFINE(SUPPORTS_PLATFORM_TIME,1,[Platform-specific time function.])
             LIBS="$LIBS $SDL_LIBS"
             CPPFLAGS="$CPPFLAGS $SDL_CFLAGS"
@@ -234,6 +287,40 @@ dnl Don't make this a windowed app, make it a console app.
                 LIBS=${LIBS/-mwindows/}
             fi
             a8_use_sdl=yes
+        ])
+    fi
+])
+
+a8_use_sdl2=no
+dnl Check if SDL2 library exists. If it's found, set a8_use_sdl to yes and AC_DEFINE the SDL2 symbol.
+dnl If called multiple times, it will check for the library only once.
+dnl Usage: TRY_USE_SDL2()
+AC_DEFUN([TRY_USE_SDL2],
+[
+    if [[ "$a8_use_sdl2" = no ]]; then
+        dnl Check for SDL2
+        SDL2_VERSION=2.26.0
+        AM_PATH_SDL2($SDL2_VERSION,
+        [
+            AC_DEFINE(SDL2,1,[Target: SDL2 library.])
+            AC_DEFINE(SUPPORTS_PLATFORM_SLEEP,1,[Platform-specific sleep function.])
+            AC_DEFINE(SUPPORTS_PLATFORM_TIME,1,[Platform-specific time function.])
+            LIBS="$LIBS $SDL2_LIBS"
+            CFLAGS="$CFLAGS -std=c99"
+            CPPFLAGS="$CPPFLAGS $SDL2_CFLAGS"
+            if [[ "$a8_host" = "win" ]]; then
+dnl Defer redefinition of main - do it later, in src/Makefile.am. Otherwise
+dnl the autoconf tests would not work.
+                CPPFLAGS=${CPPFLAGS/-Dmain=SDL_main/}
+dnl Avoid making stdout.txt on Windows sdl target by discarding libSDLmain and
+dnl compiling our own src/sdl/SDL_win32_main.c (copied from libSDL dources),
+dnl with the NO_STDIO_REDIRECT macro defined.
+                LIBS=${LIBS/-lSDLmain/}
+                CPPFLAGS="$CPPFLAGS -DNO_STDIO_REDIRECT"
+dnl Don't make this a windowed app, make it a console app.
+                LIBS=${LIBS/-mwindows/}
+            fi
+            a8_use_sdl2=yes
         ])
     fi
 ])
@@ -286,18 +373,16 @@ if [[ "$a8_target" = "android" ]]; then
 else
     AC_HEADER_DIRENT
 fi
-AC_HEADER_STDC
-AC_HEADER_TIME
 AC_TYPE_UINTPTR_T
 AC_CHECK_HEADERS([direct.h errno.h file.h signal.h sys/time.h time.h unistd.h unixio.h])
 AC_HEADER_TIOCGWINSZ
 SUPPORTS_SOUND_OSS=yes
 AC_CHECK_HEADERS([fcntl.h sys/ioctl.h sys/soundcard.h],,SUPPORTS_SOUND_OSS=no)
-SUPPORTS_RDEVICE=yes
 if [[ "$a8_host" = "win" ]]; then
+    dnl NetSIO on Windows uses netsiowin.c (Winsock2); SUPPORTS_NETSIO remains yes
     AC_CHECK_HEADERS([windows.h winsock2.h],,SUPPORTS_RDEVICE=no)
 else
-    AC_CHECK_HEADERS([arpa/inet.h netdb.h netinet/in.h sys/socket.h termios.h],,SUPPORTS_RDEVICE=no)
+    AC_CHECK_HEADERS([arpa/inet.h netdb.h netinet/in.h sys/socket.h termios.h],,SUPPORTS_RDEVICE=no; SUPPORTS_NETSIO=no)
 fi
 
 
@@ -308,18 +393,42 @@ if [[ "$a8_target" = "android" ]]; then
     echo "hardcoding libz"
     LIBS="-lz $LIBS"
     AC_DEFINE(HAVE_LIBZ)
+    SUPPORTS_LIBZ="yes"
     dnl libm is automatically appended by the build system
 elif [[ "$a8_target" = "libatari800" ]]; then
     AC_CHECK_LIB(m,cos,[LIBS="-lm $LIBS"])
     AC_CHECK_FUNCS(setjmp)
+    SUPPORTS_LIBZ="no"
 else
-	AC_CHECK_LIB(z,gzopen)
-	AC_CHECK_LIB(png,png_get_libpng_ver)
+    dnl needs SUPPORTS_LIBZ shell variable for file_export test below
+	AC_CHECK_LIB(z,gzopen,[SUPPORTS_LIBZ=yes],[SUPPORTS_LIBZ=no])
+    if [[ "$SUPPORTS_LIBZ" = "yes" ]]; then
+        AC_DEFINE(HAVE_LIBZ,1,[Supports zlib compression library.])
+        LIBS="-lz $LIBS"
+    fi
+
+    dnl Need SUPPORTS_LIBPNG shell variable for PNG video codec test below
+	AC_CHECK_LIB(png,png_get_libpng_ver,[SUPPORTS_LIBPNG=yes],[SUPPORTS_LIBPNG=no])
+    if [[ "$SUPPORTS_LIBPNG" = "yes" ]]; then
+        AC_DEFINE(HAVE_LIBPNG,1,[Supports PNG image compression library.])
+    fi
+
 	AC_CHECK_LIB(m,cos,[LIBS="-lm $LIBS"])
 	AC_CHECK_LIB(ossaudio,_oss_ioctl,[LIBS="-lossaudio $LIBS"])
-fi
 
-dnl Set OBJS and libraries depending on host and target...
+	dnl Check for libcurl (download feature)
+	AC_ARG_ENABLE(download,AS_HELP_STRING([--disable-download],[Disable download support (default=auto)]),,enable_download=auto)
+	WANT_DOWNLOAD=no
+	if [[ "$enable_download" != "no" ]]; then
+		AC_CHECK_HEADER([curl/curl.h],
+			[AC_CHECK_LIB([curl],[curl_easy_init],
+				[AC_DEFINE(HAVE_DOWNLOAD,1,[Enable download feature.])
+				 LIBS="-lcurl $LIBS"
+				 WANT_DOWNLOAD=yes],
+				[if [[ "$enable_download" = "yes" ]]; then AC_MSG_FAILURE([curl library not found]); fi])],
+			[if [[ "$enable_download" = "yes" ]]; then AC_MSG_FAILURE([curl/curl.h not found]); fi])
+	fi
+fi
 
 case "$a8_target" in
     default)
@@ -336,6 +445,7 @@ dnl BeOS has a real issue with redundant-decls
     falcon)
         AC_DEFINE(SUPPORTS_PLATFORM_SLEEP,1,[Platform-specific sleep function.])
         AC_DEFINE(SUPPORTS_PLATFORM_TIME,1,[Platform-specific time function.])
+        AC_DEFINE(SUPPORTS_PLATFORM_CONFIGINIT,1,[Platform-specific default values.])
         AC_DEFINE(FALCON,1,[Target: Atari Falcon system.])
         AC_CHECK_LIB(gem, appl_init)
         ;;
@@ -375,26 +485,9 @@ dnl BeOS has a real issue with redundant-decls
         AC_DEFINE(DIRTYRECT,1,[Define to use dirty screen partial repaints.])
         dnl AC_DEFINE(NODIRTYCOMPARE,1,[Define to skip memory comparisons - Requires DIRTYRECT.])
         ;;
-    windx)
-        AC_DEFINE(DIRECTX,1,[Target: Windows with DirectX.])
-        AC_DEFINE(SUPPORTS_PLATFORM_CONFIGURE,1,[Additional config file options.])
-        AC_DEFINE(SUPPORTS_PLATFORM_CONFIGSAVE,1,[Save additional config file options.])
-        AC_DEFINE(SUPPORTS_PLATFORM_PALETTEUPDATE,1,[Update the Palette if it changed.])
-        AC_DEFINE(SUPPORTS_SOUND_REINIT,1,[Reinitialise the sound system.])
-        A8_NEED_LIB(ddraw)
-        A8_NEED_LIB(dinput)
-        A8_NEED_LIB(dsound)
-        A8_NEED_LIB(dxguid)
-        A8_NEED_LIB(d3d9)
-        A8_NEED_LIB(gdiplus)
-        A8_NEED_LIB(stdc++)
-        A8_NEED_LIB(ws2_32)
-        A8_NEED_LIB(gdi32)
-        CFLAGS="$CFLAGS -ansi -pedantic -Wmissing-declarations -Wmissing-prototypes -Wredundant-decls -Wstrict-prototypes -Winline"
-        LDFLAGS="$LDFLAGS -mwindows"
-        ;;
     libatari800)
         AC_DEFINE(LIBATARI800,1,[Target: Atari800 as a library.])
+        AC_DEFINE(SUPPORTS_PLATFORM_CONFIGURE,1,[Additional config file options.])
         ;;
     x11*)
         AC_DEFINE(X11,1,[Target: Standard X11.])
@@ -444,7 +537,6 @@ AM_CONDITIONAL([CONFIGURE_TARGET_ANDROID], test "$a8_target" = android)
 AM_CONDITIONAL([CONFIGURE_TARGET_FALCON], test "$a8_target" = falcon)
 AM_CONDITIONAL([CONFIGURE_TARGET_PS2], test "$a8_target" = ps2)
 AM_CONDITIONAL([CONFIGURE_TARGET_RPI], test "$a8_target" = rpi)
-AM_CONDITIONAL([CONFIGURE_TARGET_WINDX], test "$a8_target" = windx)
 AM_CONDITIONAL([CONFIGURE_TARGET_LIBATARI800], test "$a8_target" = libatari800)
 AM_CONDITIONAL([CONFIGURE_TARGET_X11], test "$WANT_X11" = yes)
 
@@ -455,17 +547,18 @@ AC_C_BIGENDIAN
 AC_C_CONST
 AC_C_INLINE
 AC_C_VOLATILE
-AC_PROG_GCC_TRADITIONAL
 AC_STRUCT_TM
-AC_TYPE_SIGNAL
 AC_TYPE_SIZE_T
 
 
 dnl Set usage of unaligned word accesses...
 
-AC_ARG_ENABLE(unalignedwords,AC_HELP_STRING(--enable-unalignedwords,[Override usage of unaligned words]))
+AC_ARG_ENABLE(unalignedwords,AS_HELP_STRING(--enable-unalignedwords,[Override usage of unaligned words]))
 if [[ "$enable_unalignedwords" != "yes" -a "$enable_unalignedwords" != "no" ]]; then
     case $host_cpu in
+        aarch64* | arm64*)
+            enable_unalignedwords=yes
+            ;;
         alpha* | arm* | hppa* | ia64 | mips* | sparc*)
             enable_unalignedwords=no
             ;;
@@ -524,12 +617,12 @@ AC_DEFUN([AX_FUNC_MKDIR],
 [AC_CHECK_FUNCS([mkdir _mkdir])
 AC_CACHE_CHECK([whether mkdir takes one argument],
                [ac_cv_mkdir_takes_one_arg],
-[AC_TRY_COMPILE([
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 #include <sys/stat.h>
 #if HAVE_UNISTD_H
 #  include <unistd.h>
 #endif
-], [mkdir (".");],
+]], [[mkdir (".");]])],
 [ac_cv_mkdir_takes_one_arg=yes], [ac_cv_mkdir_takes_one_arg=no])])
 if test x"$ac_cv_mkdir_takes_one_arg" = xyes; then
   AC_DEFINE([MKDIR_TAKES_ONE_ARG], 1,
@@ -569,16 +662,16 @@ else
     fi
 fi
 if [[ "$a8_host" != "win" -a "$a8_target" != "android" ]]; then
-    AC_CHECK_FUNCS([gethostbyaddr gethostbyname inet_ntoa socket],,SUPPORTS_RDEVICE=no)
+    AC_CHECK_FUNCS([gethostbyaddr gethostbyname inet_ntoa socket],,SUPPORTS_RDEVICE=no; SUPPORTS_NETSIO=no)
 fi
 
 dnl Select/detect video interface.
 
 AC_ARG_WITH([video],
-    [AC_HELP_STRING([--with-video@<:@=no|yes|curses|ncurses|pdcurses|dosvga|sdl|javanvm@:>@],[Select video interface to use @<:@default=check@:>@])],
+    [AS_HELP_STRING([--with-video@<:@=no|yes|curses|ncurses|pdcurses|dosvga|sdl|sdl2|javanvm@:>@],[Select video interface to use @<:@default=check@:>@])],
     [
         case "$withval" in
-            no | yes | check | curses | ncurses | pdcurses | dosvga | sdl | javanvm)
+            no | yes | check | curses | ncurses | pdcurses | dosvga | sdl | sdl2 | javanvm)
                 ;;
             *)
                 AC_MSG_ERROR([unrecognized value for --with-video: "$withval"])
@@ -601,6 +694,14 @@ if [[ "$a8_target" = default ]]; then
                 with_video=dosvga
             elif [[ "$with_video" = dosvga ]]; then
                 AC_MSG_ERROR([--with-video=dosvga was given, but host system is not DOS!])
+            fi
+        fi
+        if [[ "$with_video" = check -o "$with_video" = yes -o "$with_video" = sdl2 ]]; then
+            TRY_USE_SDL2()
+            if [[ "$a8_use_sdl2" = yes ]]; then
+                with_video=sdl2
+            elif [[ "$with_video" = sdl2 ]]; then
+                AC_MSG_FAILURE([--with-video=sdl2 was given, but SDL2 library not found!])
             fi
         fi
         if [[ "$with_video" = check -o "$with_video" = yes -o "$with_video" = sdl ]]; then
@@ -651,8 +752,25 @@ if [[ "$a8_target" = default ]]; then
             AC_DEFINE(SUPPORTS_PLATFORM_PALETTEUPDATE,1,[Update the Palette if it changed.])
             AC_DEFINE(SUPPORTS_PLATFORM_SLEEP,1,[Platform-specific sleep function.])
             ;;
+        sdl2)
+            AC_DEFINE(GUI_SDL,1,[Use SDL for graphics and input.])
+            AC_DEFINE(SUPPORTS_PLATFORM_CONFIGINIT,1,[Platform-specific default values.])
+            AC_DEFINE(SUPPORTS_PLATFORM_CONFIGURE,1,[Additional config file options.])
+            AC_DEFINE(SUPPORTS_PLATFORM_CONFIGSAVE,1,[Save additional config file options.])
+            AC_DEFINE(SUPPORTS_PLATFORM_PALETTEUPDATE,1,[Update the Palette if it changed.])
+            AC_DEFINE(SUPPORTS_CHANGE_VIDEOMODE,1,[Can change video modes on the fly.])
+            AC_DEFINE(SUPPORTS_ROTATE_VIDEOMODE,1,[Can display the screen rotated sideways.])
+            AC_DEFINE(PLATFORM_MAP_PALETTE,1,[Platform-specific mapping of RGB palette to display surface.])
+            WANT_XEP80_EMULATION=yes
+            WANT_NTSC_FILTER=yes
+            WANT_PAL_BLENDING=yes
+            AC_DEFINE(PBI_PROTO80,1,[A prototype 80 column card for the 1090 expansion box.])
+            AC_DEFINE(AF80,1,[The Austin Franklin 80 column card.])
+            AC_DEFINE(BIT3,1,[The Bit3 Full View 80 column card.])
+            ;;
         sdl)
             AC_DEFINE(GUI_SDL,1,[Use SDL for graphics and input.])
+            AC_DEFINE(SUPPORTS_PLATFORM_CONFIGINIT,1,[Platform-specific default values.])
             AC_DEFINE(SUPPORTS_PLATFORM_CONFIGURE,1,[Additional config file options.])
             AC_DEFINE(SUPPORTS_PLATFORM_CONFIGSAVE,1,[Save additional config file options.])
             AC_DEFINE(SUPPORTS_PLATFORM_PALETTEUPDATE,1,[Update the Palette if it changed.])
@@ -686,6 +804,7 @@ if [[ "$a8_target" = default ]]; then
 fi
 AM_CONDITIONAL(WITH_VIDEO_JAVANVM, test "$with_video" = javanvm)
 AM_CONDITIONAL(WITH_VIDEO_SDL, test "$with_video" = sdl)
+AM_CONDITIONAL(WITH_VIDEO_SDL2, test "$with_video" = sdl2)
 AM_CONDITIONAL(WITH_VIDEO_DOSVGA, test "$with_video" = dosvga)
 AM_CONDITIONAL(WITH_VIDEO_CURSES, test "$with_video" = curses -o "$with_video" = ncurses -o "$with_video" = pdcurses)
 AM_CONDITIONAL(WITH_VIDEO_LIBATARI800, test "$a8_target" = libatari800)
@@ -694,7 +813,7 @@ AM_CONDITIONAL(WITH_VIDEO_NO, test "$with_video" = no)
 
 dnl Select optional Atari800 features...
 
-dnl The A8_OPTION macro automates the calling of AC_ARG_ENABLE, AC_HELP_STRING and AC_DEFINE.
+dnl The A8_OPTION macro automates the calling of AC_ARG_ENABLE, AS_HELP_STRING and AC_DEFINE.
 dnl         $1    = the name of the feature, what follows "--enable-".
 dnl         $2    = "yes" or "no", determines if feature defaults to being active or not.
 dnl         $3    = The right side of the help line.
@@ -703,13 +822,13 @@ dnl         $4    = The symbol name which goes to config.h, the C #define symbol
 dnl                 A symbol called "WANT_$4" is defined for use in this configure.ac.
 dnl         $5    = The help string which shows up in config.h for the $4 symbol.
 AC_DEFUN([A8_OPTION],[
-    AC_ARG_ENABLE($1,AC_HELP_STRING(--enable-$1,$3),WANT_$4=$enableval,WANT_$4=$2)
+    AC_ARG_ENABLE($1,AS_HELP_STRING(--enable-$1,$3),WANT_$4=$enableval,WANT_$4=$2)
     if [[ "$WANT_$4" = "yes" ]]; then
         AC_DEFINE($4,1,$5)
     fi
 ])
 
-if [[ "$a8_target" == "libatari800" ]]; then
+if [[ "$a8_target" = "libatari800" ]]; then
     WANT_NEW_CYCLE_EXACT=yes
     WANT_VERY_SLOW=no
     WANT_CRASH_MENU=no
@@ -860,13 +979,33 @@ A8_OPTION(pbi_bb,yes,
      )
 AM_CONDITIONAL([WANT_PBI_BB], test "$WANT_PBI_BB" = "yes")
 
+if [[ "$SUPPORTS_NETSIO" = "yes" ]]; then
+A8_OPTION(netsio,yes,
+       [Support NetSIO Protocol I/O interface (FujiNet) (default=ON)],
+       NETSIO,[Define to enable NetSIO Protocol/FujiNet support.]
+       )
+fi
+AM_CONDITIONAL([WANT_NETSIO], test "$WANT_NETSIO" = "yes")
+
+if test "x$WANT_NETSIO" = "xyes"; then
+    if test "x$a8_host" != "xwin"; then
+        AC_CHECK_LIB([pthread], [pthread_create], [], [AC_MSG_ERROR([pthread library not found])])
+    else
+        dnl Windows NetSIO uses Winsock2 (netsiowin.c), not pthread
+        A8_NEED_LIB(ws2_32)
+    fi
+    AC_DEFINE([NETSIO], [1], [Define to enable NetSIO (FujiNet) support])
+    CFLAGS="$CFLAGS -DNETSIO"
+    AC_SUBST([CFLAGS])
+fi
+
 dnl Select/detect sound interface.
 
 AC_ARG_WITH([sound],
-    [AC_HELP_STRING([--with-sound@<:@=no|yes|dossb|oss|falcon|win|sdl|sdlmixer|javanvm@:>@],[Select sound interface to use @<:@default=check@:>@])],
+    [AS_HELP_STRING([--with-sound@<:@=no|yes|dossb|oss|falcon|sdl|sdl2|sdlmixer|javanvm@:>@],[Select sound interface to use @<:@default=check@:>@])],
     [
         case "$withval" in
-            no | yes | check | dossb | oss | falcon | win | sdl | sdlmixer | javanvm)
+            no | yes | check | dossb | oss | falcon | sdl | sdl2 | sdlmixer | javanvm)
                 ;;
             *)
                 AC_MSG_ERROR([unrecognized value for --with-sound: "$withval"])
@@ -878,7 +1017,8 @@ AC_ARG_WITH([sound],
 if [[ "$a8_target" = libatari800 ]]; then
     if [[ "$with_sound" = check -o "$with_sound" = yes ]]; then
         with_sound=libatari800
-        WANT_SOUND_THIN_API=yes
+        WANT_SOUND_CALLBACK=no
+        WANT_CONSOLE_SOUND=yes
     else
         AC_MSG_ERROR([--with-audio option not needed to build libatari800!])
     fi
@@ -890,16 +1030,6 @@ elif [[ "$a8_target" != "ps2" -a "$a8_target" != "android" ]]; then
             elif [[ "$with_sound" = javanvm ]]; then
                 AC_MSG_ERROR([--with-sound=javanvm was given, but host system is not NestedVM!])
             fi
-        fi
-        if [[ "$with_sound" = check -o "$with_sound" = yes -o "$with_sound" = win ]]; then
-            AC_CHECK_LIB([winmm], [main],
-                [LIBS="-lwinmm $LIBS"
-                 with_sound=win
-                ],
-                [if [[ "$with_sound" = win ]]; then
-                    AC_MSG_FAILURE([--with-sound=win was given, but WinMM library not found!])
-                 fi
-                ])
         fi
         if [[ "$with_sound" = check -o "$with_sound" = yes -o "$with_sound" = falcon ]]; then
             if [[ "$a8_host" = falcon -o "$a8_host" = firebee ]]; then
@@ -915,10 +1045,18 @@ elif [[ "$a8_target" != "ps2" -a "$a8_target" != "android" ]]; then
                 AC_MSG_ERROR([--with-sound=dossb was given, but host system is not DOS!])
             fi
         fi
-        if [[ "$with_sound" = check -o "$with_sound" = yes -o "$with_sound" = sdl -o "$with_sound" = sdlmixer]]; then
+        if [[ "$with_sound" = check -o "$with_sound" = yes -o "$with_sound" = sdl2 ]]; then
+            TRY_USE_SDL2()
+            if [[ "$a8_use_sdl2" = yes ]]; then
+                with_sound=sdl2
+            elif [[ "$with_sound" = sdl2 ]]; then
+                AC_MSG_FAILURE([--with-sound=sdl2 was given, but SDL2 library not found!])
+            fi
+        fi
+        if [[ "$with_sound" = check -o "$with_sound" = yes -o "$with_sound" = sdl -o "$with_sound" = sdlmixer ]]; then
             TRY_USE_SDL()
             if [[ "$a8_use_sdl" = yes ]]; then
-                if [[ "$with_sound" == sdlmixer]];  then
+                if [[ "$with_sound" = sdlmixer ]];  then
                     dnl For sdlmixer, check the headers
                     AC_CHECK_HEADER([SDL_mixer.h], [], [
                        AC_MSG_ERROR([Need SDL_mixer.h for --with-sound=sdlmixer to work])
@@ -927,7 +1065,7 @@ elif [[ "$a8_target" != "ps2" -a "$a8_target" != "android" ]]; then
                     dnl For autodetected, set pure SDL as it's safer
                     with_sound=sdl
                 fi
-            elif [[ "$with_sound" = sdl -o "$with_sound" = sdlmixer]]; then
+            elif [[ "$with_sound" = sdl -o "$with_sound" = sdlmixer ]]; then
                 AC_MSG_FAILURE([--with-sound=$with_sound was given, but SDL library not found!])
             fi
         fi
@@ -943,25 +1081,16 @@ elif [[ "$a8_target" != "ps2" -a "$a8_target" != "android" ]]; then
         with_sound=no
     fi
     case "$with_sound" in
-        javanvm)
-            WANT_SOUND_THIN_API=yes
-            ;;
         sdl | sdlmixer)
-            WANT_SOUND_THIN_API=yes
             WANT_SOUND_CALLBACK=yes
             ;;
-        win)
-            AC_DEFINE(SUPPORTS_SOUND_REINIT,1,[Reinitialise the sound system.])
+        sdl2)
+            WANT_SOUND_CALLBACK=yes
             ;;
         falcon)
             AC_DEFINE(POKEYSND_SIGNED_SAMPLES,1,[Use 8-bit signed samples.])
-            WANT_SOUND_THIN_API=yes
-            ;;
-        oss)
-            WANT_SOUND_THIN_API=yes
             ;;
         dossb)
-            WANT_SOUND_THIN_API=yes
             WANT_SOUND_CALLBACK=yes
             ;;
         no)
@@ -977,10 +1106,11 @@ AM_CONDITIONAL([WITH_SOUND_FALCON], test "$with_sound" = falcon)
 AM_CONDITIONAL([WITH_SOUND_OSS], test "$with_sound" = oss)
 AM_CONDITIONAL([WITH_SOUND_SDL], test "$with_sound" = sdl)
 AM_CONDITIONAL([WITH_SOUND_SDLMIXER], test "$with_sound" = sdlmixer)
-AM_CONDITIONAL([WITH_SOUND_WIN], test "$with_sound" = win)
+AM_CONDITIONAL([WITH_SOUND_SDL2], test "$with_sound" = sdl2)
 AM_CONDITIONAL([WITH_SOUND_DOSSB], test "$with_sound" = dossb)
 AM_CONDITIONAL([WITH_SOUND_LIBATARI800], test "$with_sound" = libatari800)
 AM_CONDITIONAL([A8_USE_SDL], test "$a8_use_sdl" = yes)
+AM_CONDITIONAL([A8_USE_SDL2], test "$a8_use_sdl2" = yes)
 
 dnl Set sound support options...
 
@@ -988,22 +1118,13 @@ if [[ "$with_sound" != no ]]; then
 
     AC_DEFINE(SOUND, 1, [Define to activate sound support.])
 
-    if [[ "$WANT_SOUND_THIN_API" = "yes" ]]; then
-        AC_DEFINE(SOUND_THIN_API,1,[Use new sound API.])
-        A8_OPTION(synchronized_sound,yes,
-                  [Use synchronized sound (default=ON)],
-                  SYNCHRONIZED_SOUND,[Define to use synchronized sound.]
-                 )
-        if [[ "$WANT_SOUND_CALLBACK" = "yes" ]]; then
-            AC_DEFINE(SOUND_CALLBACK,1,[Platform updates sound buffer by callback function.])
-        fi
-    else
-        WANT_SYNCHRONIZED_SOUND="no"
+    if [[ "$WANT_SOUND_CALLBACK" = "yes" ]]; then
+        AC_DEFINE(SOUND_CALLBACK,1,[Platform updates sound buffer by callback function.])
     fi
 
     A8_OPTION(nonlinear_mixing,yes,
-              [Use nonlinear POKEY mixing (default=ON)],
-              NONLINEAR_MIXING,[Define to use nonlinear POKEY mixing.]
+              [Use nonlinear mixing on high fidelity POKEY (default=ON)],
+              NONLINEAR_MIXING,[Define to use nonlinear mixing on high fidelity POKEY.]
              )
 
     A8_OPTION(interpolatesound,yes,
@@ -1016,25 +1137,10 @@ if [[ "$with_sound" != no ]]; then
               STEREO_SOUND,[Define to allow stereo sound.]
              )
 
-    if [[ "$WANT_SYNCHRONIZED_SOUND" != "yes" ]]; then
-        A8_OPTION(volonlysound,yes,
-                  [Use volume only sound (digitized sound effects) (default=ON)],
-                  VOL_ONLY_SOUND,[Define to allow volume only sound.]
-                 )
-    fi
-    if [[ "$WANT_SYNCHRONIZED_SOUND" = "yes" -o "$WANT_VOL_ONLY_SOUND" = "yes" ]]; then
-        A8_OPTION(consolesound,yes,
-                  [Use console sound (keyboard clicks) (default=ON)],
-                  CONSOLE_SOUND,[Define to allow console sound (keyboard clicks).]
-                 )
-        A8_OPTION(seriosound,no,
-                  [Use serial in/out sound (default=OFF)],
-                  SERIO_SOUND,[Define to allow serial in/out sound.]
-                 )
-    else
-        WANT_CONSOLE_SOUND="no"
-        WANT_SERIO_SOUND="no"
-    fi
+    A8_OPTION(consolesound,yes,
+              [Use console sound (keyboard clicks) (default=ON)],
+              CONSOLE_SOUND,[Define to allow console sound (keyboard clicks).]
+             )
 
     A8_OPTION(clipsound,no,
               [Use sound clipping (default=OFF)],
@@ -1048,29 +1154,128 @@ if [[ "$with_sound" != no ]]; then
               [Emulate the Alien Group Voice Box (default=ON)],
               VOICEBOX,[Define to emulate the Alien Group Voice Box.]
              )
+    A8_OPTION(audiorecording,"yes",
+            [Support audio recording to sound or AVI files (default=ON)],
+            AUDIO_RECORDING,[Define to enable support for audio recording to files.]
+            )
 
-    if [[ "$with_sound" == "libatari800" ]]; then
-        WANT_SOUND_CALLBACK=no
-        WANT_CONSOLE_SOUND=yes
-        WANT_SERIO_SOUND=yes
-        WANT_SYNCHRONIZED_SOUND=no
-        WANT_VOL_ONLY_SOUND="no"
+    if [[ "$WANT_AUDIO_RECORDING" = "yes" ]]; then
+        supported_audio_codecs="pcm adpcm mulaw"
+        AC_ARG_WITH(mp3,
+            [AS_HELP_STRING(--with-mp3@<:@=no|yes|lame@:>@,[Select mp3 audio @<:@default=check@:>@])],
+            [
+                case "$withval" in
+                    no | yes | check | lame)
+                        ;;
+                    *)
+                        AC_MSG_ERROR([unrecognized value for --with-mp3: "$withval"])
+                        ;;
+                esac
+            ],
+            [with_mp3=check])
+        if [[ "$with_mp3" != "no" ]]; then
+            if [[ "$with_mp3" = check -o "$with_mp3" = yes -o "$with_mp3" = lame ]]; then
+                AC_CHECK_LIB(mp3lame, lame_init, [
+                    A8_ADD_INCLUDE_PATH([lame],[lame.h],[/usr/include /usr/local/include /opt/homebrew/include],[lame],[
+                        if [[ "$with_mp3" = yes -o "$with_mp3" = "lame" ]]; then
+                            AC_MSG_ERROR([lame.h not found, modify CPPFLAGS or use --with-mp3=check])
+                        fi
+                        with_mp3="no"
+                    ])
+                    if [[ $with_mp3 != no ]]; then
+                        LIBS="-lmp3lame $LIBS"
+                        AC_DEFINE(AUDIO_CODEC_MP3,1,[Supports mp3 audio])
+                        supported_audio_codecs="$supported_audio_codecs mp3"
+                        with_mp3="libmp3lame"
+                    fi
+                ], [
+                    if [[ "$with_mp3" = yes -o "$with_mp3" = "lame" ]]; then
+                        AC_MSG_ERROR([unable to find libmp3lame, modify LDFLAGS or use --with-mp3=check])
+                    fi
+                    with_mp3="no"
+                ])
+            fi
+        fi
+    else
+        with_mp3="no"
     fi
 else
     WANT_NONLINEAR_MIXING="no"
-    WANT_SYNCHRONIZED_SOUND="no"
     WANT_INTERPOLATE_SOUND="no"
     WANT_STEREO_SOUND="no"
-    WANT_VOL_ONLY_SOUND="no"
     WANT_CONSOLE_SOUND="no"
-    WANT_SERIO_SOUND="no"
     WANT_CLIP_SOUND="no"
     WANT_PBI_XLD_SOUND="no"
+    WANT_AUDIO_RECORDING="no"
+    WANT_AUDIO_CODEC_MP3="no"
 fi
 AM_CONDITIONAL([WANT_PBI_XLD], test "$WANT_PBI_XLD" = "yes")
 AM_CONDITIONAL([WANT_VOICEBOX], test "$WANT_VOICEBOX" = "yes")
 AM_CONDITIONAL([WANT_PBI_XLD_OR_VOICEBOX], test "$WANT_PBI_XLD" = "yes" -o "$WANT_VOICEBOX" = "yes")
 AM_CONDITIONAL([WANT_PBI_MIO_OR_BB], test "$WANT_PBI_MIO" = "yes" -o "$WANT_PBI_BB" = "yes")
+AM_CONDITIONAL([WITH_AUDIO_CODECS], test "$WANT_AUDIO_RECORDING" = "yes")
+AM_CONDITIONAL([WITH_AUDIO_CODEC_MP3], test "$with_mp3" != "no")
+
+if [[ "$with_video" != no -a "$WANT_CURSES_BASIC" != yes ]]; then
+    A8_OPTION(videorecording,"yes",
+            [Support video recording to AVI files (default=ON)],
+            VIDEO_RECORDING,[Define to enable support for AVI video/audio recording.]
+            )
+    A8_OPTION(screenshots,"yes",
+            [Support saving screenshots to files (default=ON)],
+            SCREENSHOTS,[Define to enable support for screenshot file saving.]
+            )
+    if [[ "$WANT_SCREENSHOTS" = "yes" ]]; then
+        supported_image_formats="pcx"
+        if [[ "$SUPPORTS_LIBPNG" = "yes" ]]; then
+            supported_image_formats="$supported_image_formats png"
+        fi
+    fi
+    if [[ "$WANT_SCREENSHOTS" = "yes" -o "WANT_VIDEO_RECORDING" = "yes" ]]; then
+        if [[ "$SUPPORTS_LIBPNG" = "yes" ]]; then
+            LIBS="$LIBS -lpng"
+        fi
+    fi
+else
+    WANT_VIDEO_RECORDING="no"
+    WANT_SCREENSHOTS="no"
+fi
+
+AM_CONDITIONAL([WITH_MULTIMEDIA], test "$WANT_AUDIO_RECORDING" = "yes" -o "$WANT_VIDEO_RECORDING" = "yes")
+AM_CONDITIONAL([WITH_IMAGE_CODECS], test "$WANT_SCREENSHOTS" = "yes" -o "$WANT_VIDEO_RECORDING" = "yes")
+AM_CONDITIONAL([WITH_IMAGE_CODEC_PNG], test "$SUPPORTS_LIBPNG" = "yes")
+
+dnl file_export.c is needed when sound is enabled (for WAV recording) or when AVI recording
+dnl is enabled, or for screenshots when screen.c is compiled into the code.
+AM_CONDITIONAL([WITH_FILE_EXPORT], test "$WANT_AUDIO_RECORDING" = "yes" -o "$WANT_VIDEO_RECORDING" = "yes" -o "$WANT_SCREENSHOTS" = "yes" -o "$SUPPORTS_LIBZ" = "yes")
+
+dnl Set video recording configuration options
+
+if [[ "$WANT_VIDEO_RECORDING" = "yes" ]]; then
+    supported_video_codecs="rle"
+    if [[ "$SUPPORTS_LIBPNG" = "yes" ]]; then
+        A8_OPTION(pngcodec,"yes",
+                [Support PNG video codec (default=ON)],
+                VIDEO_CODEC_PNG,[Define to enable support for PNG video codec.]
+                )
+        if [[ "$WANT_VIDEO_CODEC_PNG" = "yes" ]]; then
+            supported_video_codecs="$supported_video_codecs png"
+        fi
+    else
+        WANT_VIDEO_CODEC_PNG=no
+    fi
+    A8_OPTION(zmbvcodec,"yes",
+            [Support ZMBV video codec (default=ON)],
+            VIDEO_CODEC_ZMBV,[Define to enable support for ZMBV video codec.]
+            )
+    if [[ "$WANT_VIDEO_CODEC_ZMBV" = "yes" ]]; then
+        supported_video_codecs="$supported_video_codecs zmbv"
+    fi
+fi
+
+AM_CONDITIONAL([WITH_VIDEO_CODECS], test "$WANT_VIDEO_RECORDING" = "yes")
+AM_CONDITIONAL([WITH_VIDEO_CODEC_PNG], test "$WANT_VIDEO_RECORDING" = "yes" -a "$WANT_VIDEO_CODEC_PNG" = "yes")
+AM_CONDITIONAL([WITH_VIDEO_CODEC_ZMBV], test "$WANT_VIDEO_RECORDING" = "yes" -a "$WANT_VIDEO_CODEC_ZMBV" = "yes")
 
 A8_OPTION(ide,$WANT_IDE,
           [Provide IDE emulation (default=ON)],
@@ -1081,19 +1286,20 @@ if [[ "$WANT_IDE" = "yes" ]]; then
     AC_FUNC_FSEEKO
 fi
 AM_CONDITIONAL([WANT_IDE], test "$WANT_IDE" = "yes")
+AM_CONDITIONAL([WANT_DOWNLOAD], test "$WANT_DOWNLOAD" = "yes")
 
 A8_OPTION(pokeyrec,$WANT_POKEYREC,
           [Provide Pokey registers recording (default=ON)],
           POKEYREC,[Define to add Pokey registers recording.]
          )
-if [[ "$WANT_POKEYREC" == "yes" ]]; then
+if [[ "$WANT_POKEYREC" = "yes" ]]; then
     AC_SYS_LARGEFILE
 fi
 AM_CONDITIONAL([WANT_POKEYREC], test "$WANT_POKEYREC" = "yes")
 
-if [[ "$a8_use_sdl" = yes ]]; then
-    A8_OPTION(onscreenkeyboard,no,
-              [Enable on-screen keyboard (default=OFF)],
+if test "$a8_use_sdl" = yes || test "$a8_use_sdl2" = yes; then
+    A8_OPTION(onscreenkeyboard,yes,
+              [Enable on-screen keyboard (default=ON)],
               USE_UI_BASIC_ONSCREEN_KEYBOARD,[Define to enable on-screen keyboard.]
              )
 fi
@@ -1102,7 +1308,7 @@ dnl Select/detect features based on external software...
 
 dnl Check for existence of the readline library and headers.
 AC_ARG_WITH(readline,
-    [AC_HELP_STRING(--with-readline,[Use libreadline for input in monitor @<:@default=check@:>@])],
+    [AS_HELP_STRING(--with-readline,[Use libreadline for input in monitor @<:@default=check@:>@])],
     [],
     [with_readline=check])
 
@@ -1144,11 +1350,12 @@ fi
 
 dnl Check for availability of the OpenGL header.
 AC_ARG_WITH(opengl,
-    AC_HELP_STRING(--with-opengl,[Build support for OpenGL hardware video acceleration - only in SDL target @<:@default=check@:>@]),
+    AS_HELP_STRING(--with-opengl,[Build support for OpenGL hardware video acceleration - only in SDL target @<:@default=check@:>@]),
     [],
     [with_opengl=check])
 
-if [[ "$a8_target" != default -o "$with_video" != sdl ]]; then
+dnl Check both sdl and sdl2
+if [[ "$a8_target" != default -o \( "$with_video" != sdl -a "$with_video" != sdl2 \) ]]; then
     if [[ "$with_opengl" = "yes" ]]; then
         AC_MSG_ERROR([option --with-opengl only supported with --target=default --with-video=sdl!])
     fi
@@ -1167,18 +1374,23 @@ if [[ "$with_opengl" != no ]]; then
     with_opengl=$have_opengl
 fi
 
+dnl The opengl-by-default option was created in PR #118 to allow packages to be built
+dnl for the Raspberry Pi 4 which would install and run properly without the user having
+dnl to turn on acceleration by hand.  The need for this disappeared in Pi OS Bullseye
+dnl with the introduction of an efficient KMS video driver, but the option remains, and
+dnl may used for any target that requires acceleration to run properly.
 if [[ "$with_opengl" = "yes" ]]; then
     AC_DEFINE(HAVE_OPENGL, 1, [Support for OpenGL graphics acceleration.])
     A8_OPTION(opengl-by-default,no,
               [Set VIDEO_ACCEL=1 in the config file created on first run after installation to enable OpenGL hardware acceleration (OpenGL-aware targets) (default set VIDEO_ACCEL=0)],
-              VIDEO_ACCEL_ON_BY_DEFAULT,[Define for targets too slow to run without OpenGL video acceleration, supported only with --with-opengl]
+              VIDEO_ACCEL_ON_BY_DEFAULT,[Define for targets that require acceleration to run properly, supported only with --with-opengl.]
              )
 fi
 AM_CONDITIONAL([WITH_OPENGL], test "$with_opengl" = "yes")
 
 dnl Check for extension support
 AC_ARG_WITH(ext,
-    AC_HELP_STRING(--with-ext,[Build support for extensions - only in SDL/OPENGL target @<:@default=no@:>@]),
+    AS_HELP_STRING([--with-ext],[Build support for extensions - only in SDL/OPENGL target @<:@default=no@:>@]),
     [],
     [with_ext=no])
 if [[ "$with_ext" != no ]]; then
@@ -1193,7 +1405,7 @@ AM_CONDITIONAL([WITH_EXT], test "$with_ext" = "yes")
 
 dnl Check for Lua scripting in extensions
 AC_ARG_WITH(ext_lua,
-    AC_HELP_STRING(--with-ext-lua,[Build support for Lua scripting in extensions @<:@default=no@:>@]),
+    AS_HELP_STRING([--with-ext-lua],[Build support for Lua scripting in extensions @<:@default=no@:>@]),
     [],
     [with_ext_lua=no])
 if [[ "$with_ext_lua" != no ]]; then
@@ -1228,13 +1440,6 @@ if [[ "$a8_host" = "linux" ]]; then
                       LINUX_JOYSTICK,[Define to use LINUX joystick.]
                       )
     esac
-fi
-
-if [[ "$a8_target" = "windx" ]]; then
-    A8_OPTION(cursorblock,no,
-              [Using cursor/ctrl keys for keyboard joystick (windx targets only) (default=OFF)],
-              USE_CURSORBLOCK,[Define for using cursor/ctrl keys for keyboard joystick.]
-             )
 fi
 
 if [[ "$WANT_XEP80_EMULATION" = "yes" ]]; then
@@ -1273,9 +1478,32 @@ if [[ "$SUPPORTS_RDEVICE" = "yes" ]]; then
             fi
             WANT_R_SERIAL="no"
         fi
+        if [[ "$WANT_R_NETWORK" != "yes" -a "$WANT_R_SERIAL" != "yes" ]]; then
+            AC_MSG_ERROR([--enable-riodevice needs --enable-rnetwork and/or --enable-rserial])
+        fi
     fi
 fi
 AM_CONDITIONAL([WANT_R_IO_DEVICE], test "$WANT_R_IO_DEVICE" = "yes")
+
+dnl Treat compiler warnings as errors. Appended here, after every
+dnl target-specific CFLAGS assignment, so that none of them can drop it.
+dnl The extension code (--with-ext) is not -ansi -pedantic clean yet, so
+dnl -Werror is off by default there; it can be forced with --enable-werror.
+
+AC_ARG_ENABLE([werror],
+    AS_HELP_STRING([--disable-werror],[Do not treat compiler warnings as errors @<:@default=yes, no with --with-ext@:>@]),
+    [],
+    [enable_werror=auto])
+if [[ "$enable_werror" = auto ]]; then
+    if [[ "$with_ext" != no ]]; then
+        enable_werror=no
+    else
+        enable_werror=yes
+    fi
+fi
+if [[ "$enable_werror" = yes ]]; then
+    CFLAGS="$CFLAGS -Werror"
+fi
 
 dnl Wrapup: export and write Makefile...
 
@@ -1292,9 +1520,6 @@ DOC/Makefile
 src/Makefile
 tools/Makefile
 ])
-if [[ "$a8_target" = "android" ]]; then
-	AC_CONFIG_FILES(src/android/jni/Android.mk)
-fi
 AC_OUTPUT
 
 
@@ -1315,6 +1540,10 @@ if [[ "$a8_target" = default ]]; then
     esac
 fi
 if [[ "$a8_target" != "default" -o "$with_video" != no ]]; then
+    echo "Using screenshots?....................: $WANT_SCREENSHOTS"
+    if [[ "$WANT_SCREENSHOTS" = "yes" ]]; then
+        echo "    Supported screenshot formats......: $supported_image_formats"
+    fi
     if [[ "$WANT_CURSES_BASIC" != "yes" ]]; then
         echo "Using cycle exact?....................: $WANT_NEW_CYCLE_EXACT"
         echo "Using the very slow computer support?.: $WANT_VERY_SLOW"
@@ -1339,24 +1568,33 @@ echo "Using MIO emulation?..................: $WANT_PBI_MIO"
 echo "Using Black Box emulation?............: $WANT_PBI_BB"
 echo "Using IDE emulation?..................: $WANT_IDE"
 echo "Using Pokey registers recording?......: $WANT_POKEYREC"
+if [[ "$SUPPORTS_NETSIO" = "yes" ]]; then
+    echo "Using NetSIO/FujiNet emulation?.......: $WANT_NETSIO"
+fi
 echo "Interface for sound...................: $with_sound"
 if [[ "$with_sound" != no ]]; then
     echo "    Using nonlinear mixing?...........: $WANT_NONLINEAR_MIXING"
-    echo "    Using synchronized sound?.........: $WANT_SYNCHRONIZED_SOUND"
     echo "    Using sound interpolation?........: $WANT_INTERPOLATE_SOUND"
     echo "    Using stereo sound?...............: $WANT_STEREO_SOUND"
-    echo "    Using volume only sound?..........: $WANT_VOL_ONLY_SOUND"
-    if [[ "$WANT_VOL_ONLY_SOUND" = "yes" ]]; then
-        echo "        Using console sound?..........: $WANT_CONSOLE_SOUND"
-        echo "        Using serial I/O sound?.......: $WANT_SERIO_SOUND"
-    else
-        echo "        (Volume only sound sub-options disabled)"
-    fi
+    echo "    Using console sound?..............: $WANT_CONSOLE_SOUND"
     echo "    Using 1400XL/1450XLD emulation?...: $WANT_PBI_XLD"
     echo "    Using sound clipping?.............: $WANT_CLIP_SOUND"
+    echo "    Using audio recording?............: $WANT_AUDIO_RECORDING"
+    if [[ "$WANT_AUDIO_RECORDING" = "yes" ]]; then
+        echo "        Supported audio codecs........: $supported_audio_codecs"
+        if [[ "$with_mp3" != "no" ]]; then
+            echo "        Library for mp3 audio.........: $with_mp3"
+        fi
+    fi
 else
     echo "    (Sound sub-options disabled)"
 fi
+echo "Using video recording?................: $WANT_VIDEO_RECORDING"
+if [[ "$WANT_VIDEO_RECORDING" = "yes" ]]; then
+    echo "    Supported video codecs............: $supported_video_codecs"
+fi
+echo "Using download?.......................: $WANT_DOWNLOAD"
+
 if [[ "$a8_host" = "falcon" ]]; then
     echo "Using M68K assembler CPU core?........: $WANT_FALCON_CPUASM"
 fi
@@ -1365,9 +1603,6 @@ if [[ "$a8_host" = "linux" ]]; then
         x11*)
             echo "Using Linux joystick?.................: $WANT_LINUX_JOYSTICK"
     esac
-fi
-if [[ "$a8_target" = "windx" ]]; then
-    echo "Using cursor/ctrl keys?...............: $WANT_USE_CURSORBLOCK"
 fi
 if [[ "$SUPPORTS_RDEVICE" = "yes" ]]; then
     echo "Using R: device?......................: $WANT_R_IO_DEVICE"
@@ -1382,6 +1617,11 @@ if [[ "$a8_target" = default -a "$with_video" = sdl ]]; then
     echo "Using extensions?.....................: $with_ext"
     echo "Using Lua scripting in extensions?....: $with_ext_lua"
 fi
+if [[ "$a8_target" = default -a "$with_video" = sdl2 ]]; then
+    echo "Using on-screen keyboard?.............: $WANT_USE_UI_BASIC_ONSCREEN_KEYBOARD"
+    echo "Using OpenGL?.........................: $with_opengl"
+fi
+echo "Treating warnings as errors?..........: $enable_werror"
 echo
 echo "Main build variables:"
 echo "    CC......: \"$CC\""

@@ -129,7 +129,6 @@ no_send_frame:
 	
 	;setup for receiving complete
 	ldx		#$ff
-	stx		timflg
 	stx		nocksm
 
 	;setup frame delay for complete
@@ -147,6 +146,9 @@ no_send_frame:
 	lda		#1
 	jsr		setvbv
 
+	lda		#1
+	sta		timflg
+
 	ldx		#<temp
 	stx		bufrlo
 	inx
@@ -160,10 +162,16 @@ no_send_frame:
 	;Check if we received a C ($43) or E ($45) -- we must NOT abort immediately
 	;on a device error, as the device still sends back data we need to read, and
 	;Music Studio relies on the data coming back from a CRC error.
+	;
+	;We also need to accept ACK ($41) here, due to a bug in the stock OS that
+	;we need to replicate. The Zero Adjust step in the Indus GT diagnostics
+	;fails if we don't replicate this bug.
+	;
 	lda		temp
-	cmp		#$43
-	beq		completeOK
 	cmp		#$45
+	beq		completeOK
+	ora		#$02
+	cmp		#$43
 	beq		completeOK
 	
 	;we received crap... fail it now
@@ -224,10 +232,11 @@ no_receive_frame:
 	jsr		SIOReceiveStop
 
 	;Now check whether we got a device error earlier. If we did, return
-	;that instead of success.
+	;that instead of success. Check for Error, because we need to accept
+	;either ACK or Complete as stated above.
 	lda		temp
-	cmp		#'C'
-	bne		device_error
+	cmp		#'E'
+	beq		device_error
 	
 	;nope, we're good... exit OK.
 	ldy		#SIOSuccess
@@ -244,14 +253,16 @@ no_receive_frame:
 .proc SIOWaitForACK
 	;setup 2 frame delay for ack
 	ldx		#$ff
-	stx		timflg
 	stx		nocksm
-	inx					;X=0
-	lda		#1
-	ldy		#2
+	inx					;X=0 (MSB of timeout duration)
+	lda		#1			;set timer 1
+	ldy		#2			;LSB of timeout duration
 	sty		bufrhi		;>temp = 2
 	sty		bfenhi		;>temp+1 = 2
 	jsr		setvbv
+
+	lda		#1
+	sta		timflg
 
 	;setup for receiving ACK
 	ldx		#<temp
@@ -431,6 +442,7 @@ wait:
 break_detected:
 	ldy		#$80
 	sty		status
+	dec		brkkey			;reset brkkey to $FF (init value)
 	
 send_completed:
 	;shut off transmission IRQs
@@ -493,7 +505,8 @@ wait:
 	bmi		error			;bail if so
 	lda		recvdn			;check for receive complete
 	beq		wait			;keep waiting if not
-	tya						;set flags from status
+	ldy		status			;set flags from status, and reload in case recvdn
+							;was hit first after IRQ set status
 	
 error:
 	;Mask interrupts, but exit with them masked. We do this in order to
@@ -770,8 +783,8 @@ isread:
 	sta		sskctl
 
 	;set timeout (approx; no NTSC/PAL switching yet)
-	mva		#$ff timflg
 	lda		#1
+	sta		timflg
 	ldx		#>3600
 	ldy		#<3600
 	jsr		VBISetVector
@@ -779,8 +792,8 @@ isread:
 	;wait for beginning of frame
 	lda		#$10		;test bit 4 of SKSTAT
 waitzerostart:
-	bit		timflg
-	bpl		timeout
+	ldy		timflg
+	beq		timeout
 	bit		skstat
 	bne		waitzerostart
 	
@@ -793,15 +806,15 @@ waitzerostart:
 	lda		#$10		;test bit 4 of SKSTAT
 	ldx		#10			;test 10 pairs of bits
 waitone:
-	bit		timflg
-	bpl		timeout
+	ldy		timflg
+	beq		timeout
 	bit		skstat
 	beq		waitone
 	dex
 	beq		waitdone
 waitzero:
-	bit		timflg
-	bpl		timeout
+	ldy		timflg
+	beq		timeout
 	bit		skstat
 	bne		waitzero
 	beq		waitone
@@ -890,10 +903,15 @@ no_frames:
 	sta		audf4
 	sta		cbaudh
 		
-	;kick pokey into init mode to reset serial input shift hw
+	;Reset pokey serial input shift hw.
+	;
+	;Clearing bits 0-1 sets init mode, which resets the serial I/O shift
+	;register machines and is the main thing we need. Bits 4-6 are of lesser
+	;importance as they only reset the phase of the serial clocks.
+	;
 	ldx		sskctl
 	txa
-	and		#$fc
+	and		#$8c
 	sta		skctl
 	
 	;reset serial port status

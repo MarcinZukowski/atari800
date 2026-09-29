@@ -11,6 +11,9 @@
 
 #define Atari800_TITLE  "Atari 800 Emulator, Version " PACKAGE_VERSION
 
+/* URL for automatic ROM download. */
+#define ROM_URL "http://www.emulators.com/freefile/pcxf380.zip"
+
 #ifndef FALSE
 #define FALSE  0
 #endif
@@ -117,6 +120,8 @@ extern int Atari800_collisions_in_skipped_frames;
 
 /* Set to TRUE to run emulated Atari as fast as possible */
 extern int Atari800_turbo;
+/* Percentage speed or 0 for max turbo */
+extern int Atari800_turbo_speed;
 
 /* Set to TRUE to start in the monitor. It's up to each port's
 	main.c to implement this (initially only SDL supports it). */

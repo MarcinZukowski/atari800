@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen
 		xmlns:android="http://schemas.android.com/apk/res/android"
-		xmlns:jub="http://schemas.android.com/apk/res/name.nick.jubanka.colleen">
+		xmlns:jub="http://schemas.android.com/apk/res-auto">
 
 	<PreferenceCategory android:title="@string/preftitle_graphics">
 		<CheckBoxPreference
@@ -15,7 +15,7 @@
 			android:summary="@string/pref_aspect_sum"
 			android:entries="@array/aspect"
 			android:entryValues="@array/aspect_values"
-			android:defaultValue="0"/>
+			android:defaultValue="3"/>
 		<CheckBoxPreference
 			android:key="bilinear"
 			android:title="@string/pref_bilinear"
@@ -40,7 +40,7 @@
 			android:title="@string/pref_collisions"
 			android:summary="@string/pref_collisions_sum"
 			android:defaultValue="true"/>
-		<name.nick.jubanka.colleen.SliderPreference
+		<cz.pstehlik.colleen.SliderPreference
 			android:key="crophoriz"
 			android:title="@string/pref_crophoriz"
 			android:summary="@string/pref_crophoriz_sum"
@@ -48,7 +48,7 @@
 			jub:suffix=""
 			jub:min="320"
 			jub:max="336"/>
-		<name.nick.jubanka.colleen.SliderPreference
+		<cz.pstehlik.colleen.SliderPreference
 			android:key="cropvert"
 			android:title="@string/pref_cropvert"
 			android:summary="@string/pref_cropvert_sum"
@@ -56,7 +56,7 @@
 			jub:suffix=""
 			jub:min="192"
 			jub:max="240"/>
-		<name.nick.jubanka.colleen.SliderPreference
+		<cz.pstehlik.colleen.SliderPreference
 			android:key="portpad"
 			android:title="@string/pref_portpad"
 			android:summary="@string/pref_portpad_sum"
@@ -82,17 +82,17 @@
 			android:entryValues="@array/machine_values"
 			android:defaultValue="7"/>
 		<Preference
-			android:key="rompath"
-			android:title="@string/pref_rompath"
-			android:summary="@string/pref_rompath_sum"/>
+			android:key="importroms"
+			android:title="@string/pref_importroms"
+			android:summary="@string/pref_importroms_sum"/>
 		<Preference
-			android:key="statepath"
-			android:title="@string/pref_statepath"
-			android:summary="@string/pref_statepath_sum"/>
+			android:key="loadstate"
+			android:title="@string/pref_loadstate"
+			android:summary="@string/pref_loadstate_sum"/>
 		<EditTextPreference
 			android:key="savestate"
 			android:title="@string/pref_savestate"
-			android:summary="@string/pref_savestate_sum_dis"
+			android:summary="@string/pref_savestate_sum_ena"
 			android:dialogMessage="@string/pref_savestate_msg"
 			android:positiveButtonText="@string/save"
 			android:negativeButtonText="@string/cancel"
@@ -100,7 +100,7 @@
 			android:maxLines="1"
 			android:inputType="textNoSuggestions"
 			android:imeOptions="actionDone"
-			android:enabled="false"/>
+			android:enabled="true"/>
 		<CheckBoxPreference
 			android:key="basic"
 			android:title="@string/pref_basic"
@@ -126,6 +126,11 @@
 			android:title="@string/pref_browser"
 			android:summary="@string/pref_browser_sum"
 			android:defaultValue="true"/>
+		<CheckBoxPreference
+			android:key="a800fns"
+			android:title="@string/pref_a800fns"
+			android:summary="@string/pref_a800fns_sum_dis"
+			android:defaultValue="false"/>
 	</PreferenceCategory>
 
 	<PreferenceCategory android:title="@string/preftitle_input">
@@ -140,44 +145,44 @@
 			android:summary="@string/pref_keydefscr_sum"
 			android:dependency="softjoy">
 			<PreferenceCategory android:title="@string/preftitle_keymap_joystick">
-				<name.nick.jubanka.colleen.KeymapPreference
+				<cz.pstehlik.colleen.KeymapPreference
 					android:key="up"
 					android:title="@string/pref_up"
 					android:defaultValue="254"
 					jub:ext="false"/>
-				<name.nick.jubanka.colleen.KeymapPreference
+				<cz.pstehlik.colleen.KeymapPreference
 					android:key="down"
 					android:title="@string/pref_down"
 					android:defaultValue="253"
 					jub:ext="false"/>
-				<name.nick.jubanka.colleen.KeymapPreference
+				<cz.pstehlik.colleen.KeymapPreference
 					android:key="left"
 					android:title="@string/pref_left"
 					android:defaultValue="252"
 					jub:ext="false"/>
-				<name.nick.jubanka.colleen.KeymapPreference
+				<cz.pstehlik.colleen.KeymapPreference
 					android:key="right"
 					android:title="@string/pref_right"
 					android:defaultValue="251"
 					jub:ext="false"/>
-				<name.nick.jubanka.colleen.KeymapPreference
+				<cz.pstehlik.colleen.KeymapPreference
 					android:key="fire"
 					android:title="@string/pref_fire"
 					android:defaultValue="50"
 					jub:ext="false"/>
 			</PreferenceCategory>
 			<PreferenceCategory android:title="@string/preftitle_keymap_actions">
-				<name.nick.jubanka.colleen.KeymapPreference
+				<cz.pstehlik.colleen.KeymapPreference
 					android:key="actiona"
 					android:title="@string/pref_actiona"
 					android:defaultValue="-1,-1"
 					jub:ext="true"/>
-				<name.nick.jubanka.colleen.KeymapPreference
+				<cz.pstehlik.colleen.KeymapPreference
 					android:key="actionb"
 					android:title="@string/pref_actionb"
 					android:defaultValue="-1,-1"
 					jub:ext="true"/>
-				<name.nick.jubanka.colleen.KeymapPreference
+				<cz.pstehlik.colleen.KeymapPreference
 					android:key="actionc"
 					android:title="@string/pref_actionc"
 					android:defaultValue="-1,-1"
@@ -199,9 +204,9 @@
 			android:key="joyvisible"
 			android:title="@string/pref_joyvisible"
 			android:summary="@string/pref_joyvisible_sum"
-			android:dependency="plandef"
+			android:dependency="koalapad"
 			android:defaultValue="true"/>
-		<name.nick.jubanka.colleen.SliderPreference
+		<cz.pstehlik.colleen.SliderPreference
 			android:key="joyopacity"
 			android:title="@string/pref_joyopacity"
 			android:summary="@string/pref_joyopacity_sum"
@@ -209,11 +214,11 @@
 			android:defaultValue="25"
 			jub:min="10"
 			jub:max="90"/>
-		<name.nick.jubanka.colleen.SliderPreference
+		<cz.pstehlik.colleen.SliderPreference
 			android:key="joysize"
 			android:title="@string/pref_joysize"
 			android:summary="@string/pref_joysize_sum"
-			android:dependency="plandef"
+			android:dependency="koalapad"
 			android:defaultValue="15"
 			jub:min="10"
 			jub:max="32"/>
@@ -221,35 +226,35 @@
 			android:key="joyrighth"
 			android:title="@string/pref_joyrighth"
 			android:summary="@string/pref_joyrighth_sum"
-			android:dependency="plandef"
+			android:dependency="koalapad"
 			android:defaultValue="false"/>
 		<CheckBoxPreference
 			android:key="anchor"
 			android:title="@string/pref_anchor"
 			android:summary="@string/pref_anchor_sum"
-			android:dependency="plandef"
+			android:dependency="koalapad"
 			android:defaultValue="false"/>
-		<name.nick.jubanka.colleen.SliderPreference
+		<cz.pstehlik.colleen.SliderPreference
 			android:key="joymidx"
 			android:title="@string/pref_joymidx"
 			android:summary="@string/pref_joymidx_sum"
-			android:dependency="plandef"
+			android:dependency="koalapad"
 			android:defaultValue="65"
 			jub:min="50"
 			jub:max="80"/>
-		<name.nick.jubanka.colleen.SliderPreference
+		<cz.pstehlik.colleen.SliderPreference
 			android:key="joydeadband"
 			android:title="@string/pref_joydeadband"
 			android:summary="@string/pref_joydeadband_sum"
-			android:dependency="plandef"
+			android:dependency="koalapad"
 			android:defaultValue="35"
 			jub:min="20"
 			jub:max="60"/>
-		<name.nick.jubanka.colleen.SliderPreference
+		<cz.pstehlik.colleen.SliderPreference
 			android:key="joygrace"
 			android:title="@string/pref_joygrace"
 			android:summary="@string/pref_joygrace_sum"
-			android:dependency="plandef"
+			android:dependency="koalapad"
 			android:defaultValue="50"
 			jub:min="10"
 			jub:max="99"/>
@@ -258,13 +263,18 @@
 			android:title="@string/pref_paddle"
 			android:summary="@string/pref_paddle_sum"
 			android:disableDependentsState="true"
-			android:dependency="plandef"
+			android:dependency="koalapad"
 			android:defaultValue="false"/>
 		<CheckBoxPreference
-			android:key="plandef"
-			android:title="@string/pref_plandef"
-			android:summary="@string/pref_plandef_sum"
+			android:key="koalapad"
+			android:title="@string/pref_koalapad"
+			android:summary="@string/pref_koalapad_sum"
 			android:disableDependentsState="true"
+			android:defaultValue="false"/>
+		<CheckBoxPreference
+			android:key="multijoy"
+			android:title="@string/pref_multijoy"
+			android:summary="@string/pref_multijoy_sum"
 			android:defaultValue="false"/>
 	</PreferenceCategory>
 
@@ -282,7 +292,7 @@
 			android:entryValues="@array/mixrate_values"
 			android:defaultValue="44100"
 			android:dependency="sound"/>
-		<name.nick.jubanka.colleen.SliderPreference
+		<cz.pstehlik.colleen.SliderPreference
 			android:key="mixbufsize"
 			android:title="@string/pref_mixbufsize"
 			android:summary="@string/pref_mixbufsize_sum"
@@ -311,12 +321,6 @@
 			android:enabled="false"/>
 	</PreferenceCategory>
 
-	<PreferenceCategory android:title="@string/preftitle_extras">
-		<Preference
-			android:key="launchpd"
-			android:title="@string/pref_launchpd"
-			android:summary="@string/pref_launchpd_sum"/>
-	</PreferenceCategory>
 
 	<PreferenceCategory android:title="@string/preftitle_about">
 		<Preference
@@ -327,6 +331,10 @@
 			android:key="help"
 			android:title="@string/pref_help"
 			android:summary="@string/pref_help_sum"/>
+		<Preference
+			android:key="quit"
+			android:title="@string/pref_quit"
+			android:summary="@string/pref_quit_sum"/>
 	</PreferenceCategory>
 
 		<!--

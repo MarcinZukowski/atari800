@@ -322,15 +322,15 @@ clear_parms:
 	eor		gprior
 	sta		gprior
 	
-	;if a GTIA mode is active or we're in mode 0, force off split mode
-	cmp		#$40
+	;if a GTIA mode is active, force off split mode
+	;if we're in mode 0, force off the no-clear flag (per OS Manual p.57)
+	cmp		#$40		;test for GTIA mode and store in carry
+	txa					;test for GR.0
+	beq		is_gr0		;disable split screen and no-clear for GR.0
+
 	lda		icax1z
-	bcs		kill_split
-	cpx		#0
-	bne		not_gtia_mode_or_gr0
-kill_split:
-	and		#$ef
-not_gtia_mode_or_gr0:
+	scc:and	#$ef		;disable split screen for GTIA mode
+is_gr0:
 
 	;save off the split screen and clear flags in a more convenient form
 	asl
@@ -707,13 +707,18 @@ standard_colors:
 ;	  vertical wrap)
 ;	- Does NOT update OLDROW/OLDCOL
 ;
+; Behavior in all modes:
+;	- DOES update OLDADR
+;
+; Dependencies:
+;	- Darg relies on a Get Byte changing OLDADR so the next Put Byte
+;	  doesn't overwrite the last location when restoring the cursor.
+;
 .proc ScreenGetByte
 	jsr		ScreenCheckPosition
 	bmi		xit
 	
 	;compute addressing
-	ldy		rowcrs
-	jsr		ScreenComputeToAddrX0
 	lda		colcrs
 	ldx		dindex
 	ldy		ScreenEncodingTab,x
@@ -721,12 +726,17 @@ standard_colors:
 	tax
 	lda		colcrs+1
 	jsr		ScreenSetupPixelAddr.phase2
+	stx		frmadr
+	ldy		rowcrs
+	ldx		shfamt
+	jsr		ScreenComputeAddrToOldAdr
 	
 	;retrieve byte containing pixel
-	ldy		shfamt
-	lda		(toadr),y
+	ldy		#0
+	lda		(oldadr),y
 	
 	;shift down
+	ldx		frmadr
 	jsr		ScreenAlignPixel
 
 	;convert from Internal to ATASCII - must be done before we mask
@@ -1550,11 +1560,15 @@ no_cursor:
 	;check against the full height!
 	lda		botscr
 	ldx		dindex
-	beq		rowcheck_gr0
+	bne		rowcheck_not_gr0
+	bit		swpflg
+	bmi		rowcheck_gr0
+rowcheck_not_gr0:
 	ldy		ScreenHeightShifts,x
 	lda		ScreenHeights,y
 rowcheck_gr0:
-	;while we know it's GR.0, clamp RMARGN to 39 (required for ARTILLERY.BAS)
+	;Clamp RMARGN to 39 (required for ARTILLERY.BAS). Yes, this still happens
+	;even if the screen is not GR.0 and we're plotting above the screen split.
 	ldy		#39
 	cpy		rmargn
 	bcs		rmargn_ok
@@ -1726,7 +1740,6 @@ with_x:
 	rol		adress+1		;row*2
 	asl
 	rol		adress+1		;row*4
-	clc
 	adc		adress			;row*5
 	scc:inc	adress+1
 shift_loop:
@@ -1777,8 +1790,7 @@ xmaskshift_done:
 ; Setup for pixel addressing.
 ;
 ; Entry:
-;	COLCRS, ROWCRS = position (ScreenSetupPixelAddr)
-;	OLDCOL, OLDROW = position (ScreenSetupPixelAddrOld)
+;	OLDCOL, OLDROW = position (ScreenSetupPixelAddr)
 ;
 ; Exit:
 ;	TOADR = screen row

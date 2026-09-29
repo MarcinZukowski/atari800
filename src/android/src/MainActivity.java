@@ -22,19 +22,21 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-package name.nick.jubanka.colleen;
+package cz.pstehlik.colleen;
 
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.io.File;
+import java.io.InputStream;
+import java.io.FileOutputStream;
 import java.util.Map;
 import java.util.EnumMap;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Collections;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.view.Menu;
-import android.view.MenuItem;
-import android.view.MenuInflater;
 import android.view.inputmethod.InputMethodManager;
 import android.content.Context;
 import android.content.Intent;
@@ -52,124 +54,50 @@ import android.content.pm.PackageInfo;
 import android.net.Uri;
 import android.text.Html;
 import android.text.method.LinkMovementMethod;
-import android.app.ActionBar;
-import android.view.Window;
-import android.view.WindowManager;
+import android.app.ProgressDialog;
+import android.os.AsyncTask;
 import android.os.Build;
+import java.net.URL;
+import java.net.HttpURLConnection;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipEntry;
+import java.util.function.Consumer;
+import android.view.WindowManager;
+import android.view.WindowInsets;
 import android.view.View;
+import android.view.Gravity;
+import android.widget.FrameLayout;
+import android.widget.ImageButton;
+import android.widget.LinearLayout;
+import android.util.DisplayMetrics;
 
 
 public final class MainActivity extends Activity
 {
-	public static final String ACTION_INSERT_REBOOT = "name.nick.jubanka.colleen.FileSelector.INSERTREBOOT";
-	public static final String ACTION_INSERT_ONLY   = "name.nick.jubanka.colleen.FileSelector.INSERTONLY";
-	public static final String ACTION_SET_ROMPATH   = "name.nick.jubanka.colleen.FileSelector.SETROMPATH";
-
 	private static final String TAG = "MainActivity";
 	private static final int ACTIVITY_FSEL = 1;
 	private static final int ACTIVITY_PREFS = 2;
 	private static final int DLG_WELCOME = 0;
 	private static final int DLG_PATHSETUP = 1;
-	private static final int DLG_CHANGES = 2;
-	private static final int DLG_BRWSCONFRM = 3;
-	private static final int DLG_SELCARTTYPE = 4;
+	private static final int DLG_BRWSCONFRM = 2;
+	private static final int DLG_SELCARTTYPE = 3;
+	private static final int DLG_UPGRADE = 4;
+	private static final int ACTIVITY_DISK_BASE = 10;
 
 	public static String _pkgversion;
 	public static String _coreversion;
-	public ActionBarNull _aBar = null;
 	private static boolean _initialized = false;
 	private static String _curDiskFname = null;
+	private int _pendingDrive = 0;
 	private A800view _view = null;
 	private AudioThread _audio = null;
 	private InputMethodManager _imng;
 	private Settings _settings = null;
-	private boolean _bootupconfig = false;
 	private String _cartTypes[][] = null;
-
-	public static class ActionBarNull {
-		public ActionBarNull(Activity a)					{};
-		public void hide(Activity a)						{};
-		public void hide(Activity a, boolean p)				{};
-		public void hide(Activity a, boolean p, boolean f)	{};
-		public void show(Activity a) 						{};
-		public boolean isShowing(Activity a)				{ return false; }
-		public boolean isReal()								{ return false; }
-		public void init(Activity a) 						{};
-	}
-
-	public static final class ActionBarHelp extends ActionBarNull {
-		public ActionBarHelp(Activity a) {
-			super(a);
-		}
-
-		@Override
-		public void hide(Activity a) {
-			hide(a, true);
-		}
-
-		@Override
-		public void hide(Activity a, boolean p) {
-			hide(a, p, false);
-		}
-
-		@Override
-		public void hide(Activity a, boolean p, boolean f) {
-			ActionBar ab = a.getActionBar();
-			View v = ((MainActivity) a)._view;
-			if ( !f && !ab.isShowing() &&
-				(v.getSystemUiVisibility() & View.STATUS_BAR_HIDDEN) == View.STATUS_BAR_HIDDEN )
-			   	return;
-
-			if (Integer.parseInt(Build.VERSION.SDK) < Build.VERSION_CODES.JELLY_BEAN) {
-				a.getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
-				a.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
-			}
-			if (v != null) {
-				int flags = View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN 	|
-							View.SYSTEM_UI_FLAG_LAYOUT_STABLE 		|
-							View.SYSTEM_UI_FLAG_FULLSCREEN			|
-							View.STATUS_BAR_HIDDEN;
-				if (p == true)
-					flags |= View.SYSTEM_UI_FLAG_LOW_PROFILE;
-				v.setSystemUiVisibility(flags);
-			}
-			ab.hide();
-			((MainActivity) a).pauseEmulation(false);
-		}
-
-		@Override
-		public void show(Activity a) {
-			ActionBar ab = a.getActionBar();
-			if (ab.isShowing())		return;
-
-			((MainActivity) a).pauseEmulation(true);
-			if (Integer.parseInt(Build.VERSION.SDK) < Build.VERSION_CODES.JELLY_BEAN) {
-				a.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
-				a.getWindow().addFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
-			}
-			View v = ((MainActivity) a)._view;
-			if (v != null) v.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
-												   View.SYSTEM_UI_FLAG_LAYOUT_STABLE	 |
-												   View.STATUS_BAR_VISIBLE);
-			ab.show();
-		}
-
-		@Override
-		public boolean isShowing(Activity a) {
-			return a.getActionBar().isShowing();
-		}
-
-		@Override
-		public boolean isReal() {
-			return true;
-		}
-
-		@Override
-		public void init(Activity a) {
-			a.getActionBar().setBackgroundDrawable(a.getResources().getDrawable(R.drawable.actionbar_bg));
-		}
-	}
-
+	private static File _romsDir = null;
+	static File _savesDir = null;
+	private android.widget.TextView[] _driveBtns = new android.widget.TextView[4];
+	private int _driveCount = 4;
 
 	static {
 		System.loadLibrary("atari800");
@@ -180,17 +108,124 @@ public final class MainActivity extends Activity
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 
-		if (Integer.parseInt(Build.VERSION.SDK) >= Build.VERSION_CODES.HONEYCOMB)
-			_aBar = new ActionBarHelp(this);
-		else
-			_aBar = new ActionBarNull(this);
-
 		_view = new A800view(this);
-		setContentView(_view);
+
+		FrameLayout root = new FrameLayout(this);
+
+		root.addView(_view, new FrameLayout.LayoutParams(
+			FrameLayout.LayoutParams.MATCH_PARENT,
+			FrameLayout.LayoutParams.MATCH_PARENT));
+
+		LinearLayout topBar = new LinearLayout(this);
+		topBar.setOrientation(LinearLayout.HORIZONTAL);
+		topBar.setBackgroundColor(0x00000000);
+		topBar.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
+
+		ImageButton btnOpen = new ImageButton(this);
+		btnOpen.setImageResource(R.drawable.ic_folder_open);
+		btnOpen.setBackgroundColor(0x00000000);
+		btnOpen.setPadding(24, 4, 24, 4);
+		btnOpen.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT)
+					.addCategory(Intent.CATEGORY_OPENABLE).setType("*/*")
+					.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), ACTIVITY_FSEL);
+			}
+		});
+		topBar.addView(btnOpen);
+
+		ImageButton btnKbd = new ImageButton(this);
+		btnKbd.setImageResource(R.drawable.ic_keyboard);
+		btnKbd.setBackgroundColor(0x00000000);
+		btnKbd.setPadding(24, 4, 24, 4);
+		btnKbd.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				_imng.showSoftInput(_view, InputMethodManager.SHOW_FORCED);
+			}
+		});
+		topBar.addView(btnKbd);
+
+		ImageButton btnPrefs = new ImageButton(this);
+		btnPrefs.setImageResource(R.drawable.ic_settings);
+		btnPrefs.setBackgroundColor(0x00000000);
+		btnPrefs.setPadding(24, 4, 24, 4);
+		btnPrefs.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				startActivityForResult(new Intent(MainActivity.this, Preferences.class), ACTIVITY_PREFS);
+			}
+		});
+		topBar.addView(btnPrefs);
+
+		/* Drive assignment buttons */
+		LinearLayout driveBar = new LinearLayout(this);
+		driveBar.setOrientation(LinearLayout.HORIZONTAL);
+		driveBar.setBackgroundColor(0x00000000);
+		driveBar.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
+
+		DisplayMetrics dm = getResources().getDisplayMetrics();
+		float ratio = Math.max(dm.widthPixels, dm.heightPixels) / (float) Math.min(dm.widthPixels, dm.heightPixels);
+		_driveCount = ratio > 2.0f ? 4 : 3;
+		String[] driveLabels = {"\u2460", "\u2461", "\u2462", "\u2463"};
+		for (int d = 0; d < _driveCount; d++) {
+			final int drive = d + 1;
+			android.widget.TextView btn = new android.widget.TextView(this);
+			btn.setText(driveLabels[d]);
+			btn.setTextColor(0xFFFFFFFF);
+			btn.setTextSize(20);
+			btn.setBackgroundColor(0x00000000);
+			btn.setPadding(24, 4, 24, 4);
+			btn.setOnClickListener(new View.OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					_pendingDrive = drive;
+					startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT)
+						.addCategory(Intent.CATEGORY_OPENABLE).setType("*/*")
+						.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION),
+						ACTIVITY_DISK_BASE + drive);
+				}
+			});
+			driveBar.addView(btn);
+			_driveBtns[d] = btn;
+		}
+
+		LinearLayout menuContainer = new LinearLayout(this);
+		menuContainer.setOrientation(LinearLayout.VERTICAL);
+		menuContainer.setGravity(Gravity.LEFT | Gravity.TOP);
+		menuContainer.addView(topBar);
+		LinearLayout.LayoutParams driveBarLp = new LinearLayout.LayoutParams(
+			LinearLayout.LayoutParams.WRAP_CONTENT,
+			LinearLayout.LayoutParams.WRAP_CONTENT);
+		driveBarLp.topMargin = 32;
+		menuContainer.addView(driveBar, driveBarLp);
+
+		root.addView(menuContainer, new FrameLayout.LayoutParams(
+			FrameLayout.LayoutParams.WRAP_CONTENT,
+			FrameLayout.LayoutParams.WRAP_CONTENT,
+			Gravity.LEFT | Gravity.TOP));
+
+		setContentView(root);
 		_view.setKeepScreenOn(true);
 
-		_aBar.init(this);
-		_aBar.hide(this);
+		getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+		getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+		_view.setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN |
+				View.STATUS_BAR_HIDDEN |
+				View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+				View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+
+		root.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
+			@Override
+			public WindowInsets onApplyWindowInsets(View v, WindowInsets insets) {
+				int topInset = insets.getSystemWindowInsetTop();
+				boolean landscape = getResources().getDisplayMetrics().widthPixels > getResources().getDisplayMetrics().heightPixels;
+				menuContainer.setPadding(16, topInset + (landscape ? 16 : 0), 0, 0);
+				NativeSetTopInset(topInset);
+				return insets;
+			}
+		});
 
 		_imng = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
 
@@ -198,9 +233,11 @@ public final class MainActivity extends Activity
 		Object obj = getLastNonConfigurationInstance();
 		_settings = new Settings(PreferenceManager.getDefaultSharedPreferences(this), this, obj);
 		_pkgversion = getPInfo().versionName;
+		_romsDir = getDir("roms", MODE_PRIVATE);
+		_savesDir = getDir("saves", MODE_PRIVATE);
 
 		if (!_initialized) {
-			_settings.putBoolean("plandef", false);
+			_settings.putBoolean("koalapad", false);
 			_settings.fetchApplySettings();
 			_initialized = true;
 			bootupMsgs();
@@ -220,21 +257,23 @@ public final class MainActivity extends Activity
 	private void bootupMsgs() {
 		String instver = _settings.get(false, "version");
 		if (instver == null || instver.equals("false")) {
-			_bootupconfig = true;
 			pauseEmulation(true);
 			showDialog(DLG_WELCOME);
 			return;
 		}
-
-		if (Integer.parseInt(instver) != getPInfo().versionCode) {
-			_bootupconfig = true;
-			pauseEmulation(true);
-			showDialog(DLG_CHANGES);
-			return;
+		try {
+			if (Integer.parseInt(instver) != getPInfo().versionCode) {
+				pauseEmulation(true);
+				showDialog(DLG_UPGRADE);
+				return;
+			}
+		} catch (NumberFormatException e) {
 		}
-		Toast.makeText(this,
-					   _aBar.isReal() ? R.string.actionbarhelptoast : R.string.noactionbarhelptoast,
-					   Toast.LENGTH_SHORT).show();
+		showFinishToast();
+	}
+
+	private void showFinishToast() {
+		Toast.makeText(this, R.string.noactionbarhelptoast, Toast.LENGTH_SHORT).show();
 	}
 
 	public void message(int msg) {
@@ -274,7 +313,45 @@ public final class MainActivity extends Activity
 							public void onClick(DialogInterface d, int i) {
 								dismissDialog(DLG_WELCOME);
 								_settings.putInt("version", getPInfo().versionCode);
-								showDialog(DLG_PATHSETUP);
+								boolean needsDownload = NativeNeedsDownload();
+								if (needsDownload)
+									new DownloadAndExtractTask(_romsDir.getAbsolutePath(), new String[]{".rom"}, extracted -> {
+										if (!extracted.isEmpty()) {
+											NativeSetROMPath(_romsDir.getAbsolutePath());
+											showFinishToast();
+											pauseEmulation(false);
+										} else {
+											showDialog(DLG_PATHSETUP);
+										}
+									}).execute(NativeGetROMURL());
+								else {
+									showFinishToast();
+									pauseEmulation(false);
+								}
+							}
+							})
+						.create();
+			break;
+
+		case DLG_UPGRADE:
+			t = new TextView(this);
+			t.setText(String.format(getString(R.string.upgradenote), getPInfo().versionName));
+			t.setTextAppearance(this, android.R.style.TextAppearance_Small_Inverse);
+			t.setBackgroundResource(android.R.color.background_light);
+			s = new ScrollView(this);
+			s.addView(t);
+			d = new AlertDialog.Builder(this)
+						.setTitle(R.string.upgrade)
+						.setView(s)
+						.setInverseBackgroundForced(true)
+						.setCancelable(false)
+						.setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
+							@Override
+							public void onClick(DialogInterface d, int i) {
+								dismissDialog(DLG_UPGRADE);
+								_settings.putInt("version", getPInfo().versionCode);
+								showFinishToast();
+								pauseEmulation(false);
 							}
 							})
 						.create();
@@ -297,51 +374,19 @@ public final class MainActivity extends Activity
 							@Override
 							public void onClick(DialogInterface d, int i) {
 								dismissDialog(DLG_PATHSETUP);
-								startActivityForResult(new Intent(FileSelector.ACTION_OPEN_PATH,
-										null, MainActivity.this, FileSelector.class), ACTIVITY_FSEL);
+								String rp = _romsDir.getAbsolutePath();
+								_settings.putString("rompath", rp);
+								_settings.simulateChanged("rompath");
+								showFinishToast();
+								pauseEmulation(false);
 							}
 							})
 						.setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
 							@Override
 							public void onClick(DialogInterface d, int i) {
-								_bootupconfig = false;
+								showFinishToast();
 								pauseEmulation(false);
 								dismissDialog(DLG_PATHSETUP);
-							}
-							})
-						.create();
-			break;
-
-		case DLG_CHANGES:
-			t = new TextView(this);
-			int[] vs = getResources().getIntArray(R.array.changes_versions);
-			int instver = getPInfo().versionCode;
-			for (int i = 0; i < vs.length; i++)
-				if (vs[i] == instver) {
-					t.setText(Html.fromHtml(getResources().getStringArray(R.array.changes_strings)[i]));
-					break;
-				}
-			t.setTextAppearance(this, android.R.style.TextAppearance_Small_Inverse);
-			t.setBackgroundResource(android.R.color.background_light);
-			t.setMovementMethod(LinkMovementMethod.getInstance());
-			s = new ScrollView(this);
-			s.addView(t);
-			d = new AlertDialog.Builder(this)
-						.setTitle(R.string.atariupdate)
-						.setView(s)
-						.setInverseBackgroundForced(true)
-						.setCancelable(false)
-						.setPositiveButton(R.string.ok, new DialogInterface.OnClickListener() {
-							@Override
-							public void onClick(DialogInterface d, int i) {
-								_settings.putInt("version", getPInfo().versionCode);
-								_bootupconfig = false;
-								pauseEmulation(false);
-								dismissDialog(DLG_CHANGES);
-								Toast.makeText(MainActivity.this, _aBar.isReal() ?
-														R.string.actionbarhelptoast :
-														R.string.noactionbarhelptoast,
-											   Toast.LENGTH_SHORT).show();
 							}
 							})
 						.create();
@@ -450,7 +495,7 @@ public final class MainActivity extends Activity
 	private PackageInfo getPInfo() {
 		PackageInfo p;
 		try {
-			p = getPackageManager().getPackageInfo("name.nick.jubanka.colleen", 0);
+			p = getPackageManager().getPackageInfo("cz.pstehlik.colleen", 0);
 		} catch (Exception e) {
 			Log.d(TAG, "Package not found");
 			p = null;
@@ -473,13 +518,8 @@ public final class MainActivity extends Activity
 	}
 
 	public void pauseEmulation(boolean pause) {
-		if (pause) {
-			if (_audio != null)	_audio.pause(pause);
-			if (_view != null)	_view.pause(pause);
-		} else if (!_bootupconfig) {
-			if (_view != null)	_view.pause(pause);
-			if (_audio != null)	_audio.pause(pause);
-		}
+		if (_audio != null)	_audio.pause(pause);
+		if (_view != null)	_view.pause(pause);
 	}
 
 	@Override
@@ -491,9 +531,28 @@ public final class MainActivity extends Activity
 
 	@Override
 	public void onResume() {
-		_aBar.hide(this, true, true);
+		getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+		getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+		_view.setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN |
+				View.STATUS_BAR_HIDDEN |
+				View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+				View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
 		pauseEmulation(false);
+		updateDriveButtons();
 		super.onResume();
+	}
+
+	private void updateDriveButtons() {
+		int[] status = NativeGetDriveStatus();
+		for (int i = 0; i < _driveCount; i++) {
+			boolean mounted = (status[i] == 2 || status[i] == 3);
+			int flags = _driveBtns[i].getPaintFlags();
+			if (mounted)
+				flags |= android.graphics.Paint.UNDERLINE_TEXT_FLAG;
+			else
+				flags &= ~android.graphics.Paint.UNDERLINE_TEXT_FLAG;
+			_driveBtns[i].setPaintFlags(flags);
+		}
 	}
 
 	@Override 
@@ -507,88 +566,58 @@ public final class MainActivity extends Activity
 		}
 	}
 
-	// Menu stuff
-	@Override
-	public boolean onCreateOptionsMenu(Menu menu) {
-		MenuInflater inf = getMenuInflater();
-		inf.inflate(R.menu.menu, menu);
-		return true;
-	}
-
-	@Override
-	public void onOptionsMenuClosed(Menu m) {
-		_aBar.hide(this);
-		pauseEmulation(false);
-	}
-
-	@Override
-	public boolean onPrepareOptionsMenu(Menu menu) {
-		if (!_aBar.isReal())
-			pauseEmulation(true);	// menu is always shown on > honeycomb
-		_imng.hideSoftInputFromWindow(_view.getWindowToken(), 0);
-		return true;
-	}
-
-	@Override
-	public boolean onOptionsItemSelected(MenuItem item) {
-		switch (item.getItemId()) {
-		case R.id.menu_quit:
-			finish();
-			return true;
-		case R.id.menu_softkbd:
-			_imng.showSoftInput(_view, InputMethodManager.SHOW_FORCED);
-			_aBar.hide(this, false);
-			return true;
-		case R.id.menu_open:
-			startActivityForResult(new Intent(FileSelector.ACTION_OPEN_FILE, null, this, FileSelector.class),
-								   ACTIVITY_FSEL);
-			return true;
-		case R.id.menu_nextdisk:
-			insertNextDisk();
-			_aBar.hide(this);
-			return true;
-		case R.id.menu_preferences:
-			startActivityForResult(new Intent(this, Preferences.class), ACTIVITY_PREFS);
-			return true;
-		default:
-			return super.onOptionsItemSelected(item);
-		}
-	}
-
 	@Override
 	protected void onActivityResult(int reqc, int resc, Intent data) {
-		_aBar.hide(this);
+
+		if (reqc >= ACTIVITY_DISK_BASE && reqc <= ACTIVITY_DISK_BASE + 3) {
+			if (resc == RESULT_OK && data != null
+				&& Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT && data.getData() != null
+				&& data.getData().getScheme() != null && data.getData().getScheme().equals("content")) {
+				String copyPath = copyContentUriToCache(data.getData());
+				if (copyPath != null) {
+					int drive = reqc - ACTIVITY_DISK_BASE;
+					int r = NativeRunAtariProgram(copyPath, drive, 0);
+					if (r < 0)
+						Toast.makeText(this, String.format(getString(R.string.errorboot),
+											copyPath.substring(copyPath.lastIndexOf("/") + 1)),
+									   Toast.LENGTH_SHORT)
+							 .show();
+					else
+						updateDriveButtons();
+				}
+			}
+			return;
+		}
 
 		switch (reqc) {
 		case ACTIVITY_FSEL:
-			if (data.getAction().equals(ACTION_SET_ROMPATH)) {
-				if (resc == RESULT_OK) {
-					String p = data.getData().getPath();
-					_settings.putString("rompath", p);
-					_settings.simulateChanged("rompath");
+			/* Handle SAF ACTION_OPEN_DOCUMENT result (content URI) */
+			if (resc == RESULT_OK && data != null
+				&& Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT && data.getData() != null
+				&& data.getData().getScheme() != null && data.getData().getScheme().equals("content")) {
+				String copyPath = copyContentUriToCache(data.getData());
+				if (copyPath != null) {
+					_curDiskFname = copyPath;
+					int r = NativeRunAtariProgram(_curDiskFname, 1, 1);
+					if (r == -2)
+						showDialog(DLG_SELCARTTYPE);
+					else
+						Toast.makeText(this, String.format(getString(r < 0 ? R.string.errorboot : R.string.diskboot),
+											_curDiskFname.substring(_curDiskFname.lastIndexOf("/") + 1)),
+									   Toast.LENGTH_SHORT)
+							 .show();
+					updateDriveButtons();
 				}
-				_bootupconfig = false;
-				pauseEmulation(false);
 				break;
 			}
-
-			if (resc != RESULT_OK) {
-				break;
-			}
-
-			_curDiskFname = data.getData().getPath();
-			if (data.getAction().equals(ACTION_INSERT_REBOOT)) {
-				int r = NativeRunAtariProgram(_curDiskFname, 1, 1);
-				if (r == -2)
-					showDialog(DLG_SELCARTTYPE);
-				else
-					Toast.makeText(this, String.format(getString(r < 0 ? R.string.errorboot : R.string.diskboot),
-										_curDiskFname.substring(_curDiskFname.lastIndexOf("/") + 1)),
-								   Toast.LENGTH_SHORT)
-						 .show();
-			}
+			pauseEmulation(false);
 			break;
+
 		case ACTIVITY_PREFS:
+			if (resc == RESULT_FIRST_USER) {
+				finish();
+				break;
+			}
 			_settings.fetchApplySettings();
 			break;
 		}
@@ -628,6 +657,7 @@ public final class MainActivity extends Activity
 										   f.getName()),
 									   Toast.LENGTH_SHORT)
 							 .show();
+						updateDriveButtons();
 						return;
 					}
 					if (side != '9')
@@ -655,7 +685,7 @@ public final class MainActivity extends Activity
 			joyopacity, joyrighth, joydeadband, joymidx, sound, mixrate, sound16bit,
 			hqpokey, mixbufsize, version, rompath, anchor, anchorstr, joygrace,
 			crophoriz, cropvert, portpad, covlhold, derotkeys, actiona, actionb, actionc, ntsc,
-			paddle, plandef, browser, forceAT
+			paddle, koalapad, browser, forceAT, a800fns, multijoy
 		};
 		private SharedPreferences _sharedprefs;
 		private Map<PreferenceName, String> _values, _newvalues;
@@ -751,7 +781,7 @@ public final class MainActivity extends Activity
 						   x, y,
 						   Integer.parseInt(_newvalues.get(PreferenceName.joygrace)),
 						   Boolean.parseBoolean(_newvalues.get(PreferenceName.paddle)),
-						   Boolean.parseBoolean(_newvalues.get(PreferenceName.plandef)) );
+						   Boolean.parseBoolean(_newvalues.get(PreferenceName.koalapad)) );
 
 			if ( changed(PreferenceName.mixrate) || changed(PreferenceName.sound16bit) ||
 				 changed(PreferenceName.hqpokey) || changed(PreferenceName.mixbufsize) ||
@@ -766,9 +796,18 @@ public final class MainActivity extends Activity
 				 changed(PreferenceName.forceAT) )
 				((MainActivity) _context).soundInit(true);
 
-			if (changed(PreferenceName.rompath))
-				if (!NativeSetROMPath(_newvalues.get(PreferenceName.rompath)))
+			NativePrefKbd( Boolean.parseBoolean(_newvalues.get(PreferenceName.a800fns)) );
+
+			if ( changed(PreferenceName.multijoy) )
+				NativePrefMultijoy( Boolean.parseBoolean(_newvalues.get(PreferenceName.multijoy)) );
+
+			if (changed(PreferenceName.rompath)) {
+				String rp = _newvalues.get(PreferenceName.rompath);
+				if (rp == null || rp.equals("false"))
+					rp = _romsDir.getAbsolutePath();
+				if (!NativeSetROMPath(rp))
 					Toast.makeText(_context, R.string.rompatherror, Toast.LENGTH_LONG).show();
+			}
 		}
 
 		public void simulateChanged(String key) {
@@ -849,6 +888,108 @@ public final class MainActivity extends Activity
 			return _values;
 		}
 	}
+
+	private String copyContentUriToCache(Uri uri) {
+		try {
+			InputStream in = getContentResolver().openInputStream(uri);
+			if (in == null) {
+				return null;
+			}
+			String fname = uri.getLastPathSegment();
+			if (fname == null) fname = "temp";
+			/* Decode URL encoding: primary%3ADownload%2Fgame.atr -> primary:Download/game.atr */
+			fname = Uri.decode(fname);
+			/* Strip volume prefix like "primary:" */
+			int colonIdx = fname.lastIndexOf(':');
+			if (colonIdx >= 0) fname = fname.substring(colonIdx + 1);
+			/* Replace any remaining path separators to avoid nested dir creation */
+			fname = fname.replace('/', '_').replace('\\', '_');
+			File outFile = new File(getCacheDir(), fname);
+			FileOutputStream out = new FileOutputStream(outFile);
+			byte[] buf = new byte[65536];
+			int n;
+			while ((n = in.read(buf)) >= 0)
+				out.write(buf, 0, n);
+			in.close();
+			out.close();
+			return outFile.getAbsolutePath();
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
+	private class DownloadAndExtractTask extends AsyncTask<String, Void, List<String>> {
+		private final ProgressDialog progress;
+		private final Consumer<List<String>> callback;
+		private final String[] exts;
+		private final String destDir;
+
+		DownloadAndExtractTask(String destDir, String[] exts, Consumer<List<String>> callback) {
+			this.destDir = destDir;
+			this.exts = exts;
+			this.callback = callback;
+			progress = new ProgressDialog(MainActivity.this);
+			progress.setMessage(getString(R.string.downloading_roms));
+			progress.setIndeterminate(true);
+			progress.setCancelable(false);
+		}
+
+		@Override
+		protected void onPreExecute() {
+			progress.show();
+		}
+
+		@Override
+		protected List<String> doInBackground(String... params) {
+			String urlStr = params[0];
+			List<String> extracted = new ArrayList<>();
+			try {
+				URL url = new URL(urlStr);
+				HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+				ZipInputStream zis = new ZipInputStream(conn.getInputStream());
+				ZipEntry entry;
+				while ((entry = zis.getNextEntry()) != null) {
+					String name = entry.getName();
+					String lower = name.toLowerCase();
+					if (!entry.isDirectory() && !name.contains("__MACOSX")) {
+						boolean match = false;
+						for (String ext : exts) {
+							if (lower.endsWith(ext)) {
+								match = true;
+								break;
+							}
+						}
+						if (!match) { zis.closeEntry(); continue; }
+						String basename = name;
+						int slash = basename.lastIndexOf('/');
+						if (slash >= 0) basename = basename.substring(slash + 1);
+						File outFile = new File(destDir, basename);
+						FileOutputStream fos = new FileOutputStream(outFile);
+						byte[] buffer = new byte[8192];
+						int len;
+						while ((len = zis.read(buffer)) > 0)
+							fos.write(buffer, 0, len);
+						fos.close();
+						extracted.add(basename);
+					}
+					zis.closeEntry();
+				}
+				zis.close();
+				return extracted;
+			} catch (Exception e) {
+				Log.e(TAG, "Download failed", e);
+				return Collections.emptyList();
+			}
+		}
+
+		@Override
+		protected void onPostExecute(List<String> extracted) {
+			progress.dismiss();
+			if (callback != null)
+				callback.accept(extracted);
+		}
+	}
+
 	private static native void NativePrefGfx(int aspect, boolean bilinear, int artifact,
 											 int frameskip, boolean collisions, int crophoriz, int cropvert, int portpad, int covlhold);
 	private static native boolean NativePrefMachine(int machine, boolean ntsc);
@@ -858,11 +999,17 @@ public final class MainActivity extends Activity
 												 int fire, int derotkeys, String[] actions);
 	private static native void NativePrefJoy(boolean visible, int size, int opacity, boolean righth,
 											 int deadband, int midx, boolean anchor, int anchorx, int anchory,
-											 int grace, boolean paddle, boolean plandef);
+											 int grace, boolean paddle, boolean koalapad);
 	private static native void NativePrefSound(int mixrate, int mixbufsizems, boolean sound16bit, boolean hqpokey,
 											   boolean disableOSL);
+	private static native void NativePrefKbd(boolean a800fns);
+	private static native void NativePrefMultijoy(boolean enable);
 	private static native boolean NativeSetROMPath(String path);
 	private static native String NativeGetJoypos();
 	private static native String NativeGetURL();
 	private static native void NativeClearDevB();
+	private static native void NativeSetTopInset(int topInset);
+	private static native boolean NativeNeedsDownload();
+	private static native String NativeGetROMURL();
+	private static native int[] NativeGetDriveStatus();
 }

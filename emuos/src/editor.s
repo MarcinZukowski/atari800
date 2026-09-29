@@ -32,6 +32,10 @@ EditorClose = ScreenClose
 ; Note that since AUX1 is tested on the IOCB used, it is possible to have
 ; E: open on more than one IOCB with different forced read modes.
 ;
+; Despite what the OS Manual says, the forced read mode is actually a
+; feature of K: and not E:, and can also be activated when directly
+; using K:.
+;
 .proc	EditorGetByte
 	;check if we have anything left in the current line
 	lda		bufcnt
@@ -123,12 +127,6 @@ _start_y equ bufstr
 	mva		colcrs _start_x
 	mva		rowcrs _start_y
 	jsr		EditorSwapToScreen
-
-	;check if forced read is enabled on the IOCB -- if so, assume we've gotten
-	;an EOL
-	lda		icax1z
-	lsr
-	bcs		do_eol
 
 read_loop:
 	;get a character
@@ -321,8 +319,7 @@ special_code_tab:
 	dta		$fe
 	dta		$ff
 special_code_tab_end:
-	dta		$9b				;these are only for the K: check
-	dta		$7c
+	dta		$9b				;this is only for the K: check
 special_code_tab_end_2:
 
 ;----------------
@@ -425,7 +422,9 @@ sbks_wrap:
 
 ;----------------
 special_bell:
-	jmp		EditorBell
+.def :EditorBell
+	ldy		#0
+	jmp		Bell
 
 ;----------------
 special_set_tab:
@@ -498,16 +497,16 @@ tab_adjust_done:
 
 ;--------------------------------------------------------------------------
 special_left:
-	ldx		colcrs
-	beq		slft_to_right
-	dex
-	cpx		lmargn
-	bcs		hmove_to_x
-	
+	ldx		lmargn
+	cpx		colcrs						;lmargn-colcrs >= 0
+	bcs		hmove_to_rmargn				;branch if colcrs <= lmargn
+	dec		colcrs
+	rts
+
+hmove_to_rmargn:
 	;move to right margin
-slft_to_right:
 	ldx		rmargn
-	bcc		hmove_to_x
+	bcs		hmove_to_x
 
 ;--------------------------------------------------------------------------
 special_right:
@@ -723,12 +722,15 @@ delete_stop_shifting:
 	
 	;check if the last line is blank
 delete_blank_test_loop:
-	lda		(frmadr),y
-	bne		delete_not_blank
-	dey
 	cpy		lmargn
-	bcs		delete_blank_test_loop
-	
+	beq		delete_blank_exit_loop
+	dey
+	lda		(frmadr),y
+	beq		delete_blank_test_loop
+	;re-show cursor and exit
+	rts
+
+delete_blank_exit_loop:	
 	;the last line is blank... check if it is a logical line start
 	dec		hold1
 	lda		hold1
@@ -767,6 +769,7 @@ special_found:
 .proc	EditorRecomputeCursorAddr
 	ldx		colcrs
 	ldy		rowcrs
+.def :ScreenComputeAddrToOldAdr
 	jsr		ScreenComputeAddr
 	stx		oldadr
 	sta		oldadr+1
@@ -980,12 +983,6 @@ test_loop:
 found:
 	lda		adress
 	rts
-.endp
-
-;==========================================================================
-.proc	EditorBell
-	ldy		#0
-	jmp		Bell
 .endp
 
 ;==========================================================================

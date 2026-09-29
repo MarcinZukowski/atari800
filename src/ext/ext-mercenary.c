@@ -59,7 +59,7 @@ static drawing_state *prepared_state = &state2;
 static int shown_dl;
 
 /* A change in 0x2805 is a new frame */
-static int current_dl_byte() {
+static int current_dl_byte(void) {
 	return MEMORY_dGetByte(0x2805);
 }
 

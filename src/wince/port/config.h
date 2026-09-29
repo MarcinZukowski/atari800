@@ -31,9 +31,6 @@
 /* Alternate config filename due to 8+3 fs limit. */
 #define DEFAULT_CFG_NAME	"atari800.cfg"
 
-/* Target: Windows with DirectX. */
-#undef DIRECTX
-
 /* Target: DOS VGA. */
 #undef DOSVGA
 
@@ -342,9 +339,6 @@
 /* Define to the type of arg 5 for `select'. */
 #define SELECT_TYPE_ARG5 const struct timeval
 
-/* Define to allow serial in/out sound. */
-#undef SERIO_SOUND
-
 /* Target: X11 with shared memory extensions. */
 #undef SHM
 
@@ -390,17 +384,11 @@
 /* Target: Curses-compatible library. */
 #undef USE_CURSES
 
-/* Define for using cursor/ctrl keys for keyboard joystick. */
-#undef USE_CURSORBLOCK
-
 /* Target: Ncurses library. */
 #undef USE_NCURSES
 
 /* Define to use very slow computer support (faster -refresh). */
 #undef VERY_SLOW
-
-/* Define to allow volume only sound. */
-#define VOL_ONLY_SOUND		1
 
 /* Define to 1 if your processor stores words with the most significant byte
    first (like Motorola and SPARC, unlike Intel and VAX). */

@@ -49,12 +49,42 @@ struct glapi
 	void(APIENTRY*NewList)(GLuint, GLenum);
 	void(APIENTRY*EndList)(void);
 	void(APIENTRY*CallList)(GLuint);
-	void(APIENTRY*GenBuffers)(GLsizei, GLuint*);
-	void(APIENTRY*DeleteBuffers)(GLsizei, const GLuint*);
-	void(APIENTRY*BindBuffer)(GLenum, GLuint);
-	void(APIENTRY*BufferData)(GLenum, GLsizeiptr, const GLvoid*, GLenum);
+	void(APIENTRY*GenBuffersARB)(GLsizei, GLuint*);
+	void(APIENTRY*DeleteBuffersARB)(GLsizei, const GLuint*);
+	void(APIENTRY*BindBufferARB)(GLenum, GLuint);
+	void(APIENTRY*BufferDataARB)(GLenum, GLsizeiptr, const GLvoid*, GLenum);
 	void*(APIENTRY*MapBuffer)(GLenum, GLenum);
 	GLboolean(APIENTRY*UnmapBuffer)(GLenum);
+#if SDL2
+	GLenum (APIENTRY* GetError)(void);
+	GLuint (APIENTRY* CreateShader)(GLenum);
+	void   (APIENTRY* ShaderSource)(GLuint shader, GLsizei count, GLchar* const* string, const GLint* length);
+	GLuint (APIENTRY* CreateProgram)(void);
+	void   (APIENTRY* CompileShader)(GLuint shader);
+	void   (APIENTRY* GetShaderiv)(GLuint shader, GLenum pname, GLint* params);
+	void   (APIENTRY* GetShaderInfoLog)(GLuint shader, GLsizei bufSize, GLsizei* length, GLchar* infoLog);
+	void   (APIENTRY* AttachShader)(GLuint program, GLuint shader);
+	void   (APIENTRY* LinkProgram)(GLuint program);
+	void   (APIENTRY* GetProgramiv)(GLuint program, GLenum pname, GLint* params);
+	void   (APIENTRY* GetProgramInfoLog)(GLuint program, GLsizei bufSize, GLsizei* length, GLchar* infoLog);
+	void   (APIENTRY* DeleteShader)(GLuint shader);
+	void   (APIENTRY* UseProgram)(GLuint program);
+	void   (APIENTRY* Uniform1f)(GLint location, GLfloat v0);
+	void   (APIENTRY* Uniform2f)(GLint location, GLfloat v0, GLfloat v1);
+	void   (APIENTRY* Uniform1i)(GLint location, GLint v0);
+	void   (APIENTRY* UniformMatrix4fv)(GLint location, GLsizei count, GLboolean transpose, const GLfloat *value);
+	void   (APIENTRY* ActiveTexture)(GLenum texture);
+	void   (APIENTRY* VertexAttribPointer)(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void* pointer);
+	void   (APIENTRY* EnableVertexAttribArray)(GLuint index);
+	void   (APIENTRY* GenVertexArrays)(GLsizei n, GLuint* arrays);
+	void   (APIENTRY* BindVertexArray)(GLuint array);
+	void   (APIENTRY* GenBuffers)(GLsizei n, GLuint* buffers);
+	void   (APIENTRY* BufferData)(GLenum target, GLsizeiptr size, const void* data, GLenum usage);
+	void   (APIENTRY* BindBuffer)(GLenum target, GLuint buffer);
+	GLint  (APIENTRY* GetUniformLocation)(GLuint program, const GLchar* name);
+	GLint  (APIENTRY* GetAttribLocation)(GLuint program, const GLchar* name);
+	void   (APIENTRY* DrawElements)(GLenum mode, GLsizei count, GLenum type, const GLvoid* indices);
+#endif
 };
 
 extern struct glapi gl;

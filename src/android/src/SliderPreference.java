@@ -22,7 +22,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-package name.nick.jubanka.colleen;
+package cz.pstehlik.colleen;
 
 import android.preference.DialogPreference;
 import android.content.Context;
@@ -36,6 +36,7 @@ import android.content.DialogInterface;
 import android.util.Log;
 
 
+@SuppressWarnings("deprecation")
 public final class SliderPreference extends DialogPreference implements SeekBar.OnSeekBarChangeListener
 {
 	private int _min, _max, _def;

@@ -7,14 +7,14 @@ TARGET_BASE_NAME = atari800
 endif
 TARGET = $(TARGET_BASE_NAME)
 
-bin_PROGRAMS = 
+bin_PROGRAMS =
 noinst_PROGRAMS =
 
 man1dir = $(mandir)/man1
 
 SUFFIXES = .c .cpp .s .o .h .asm
 
-doc_DATA = 
+doc_DATA =
 
 atari800_CPPFLAGS =
 
@@ -23,6 +23,8 @@ lib_LIBRARIES = libatari800.a
 include_HEADERS = libatari800/libatari800.h
 libatari800_a_SOURCES = \
 	libatari800/libatari800.h \
+	libatari800/api.c \
+	libatari800/cpu_crash.h \
 	libatari800/main.c libatari800/main.h \
 	libatari800/init.c libatari800/init.h \
 	libatari800/exit.c \
@@ -56,6 +58,7 @@ atari800_SOURCES = \
 	platform.h \
 	pcjoy.h \
 	akey.h \
+	acidtest.c acidtest.h \
 	afile.c afile.h \
 	antic.c antic.h \
 	atari.c atari.h \
@@ -78,11 +81,16 @@ atari800_SOURCES = \
 	pia.c pia.h \
 	pokey.c pokey.h \
 	roms/altirra_5200_os.c roms/altirra_5200_os.h \
+	roms/altirra_5200_charset.c \
 	rtime.c rtime.h \
 	sio.c sio.h \
 	sysrom.c sysrom.h \
 	util.c util.h
 atari800_LDADD =
+
+if A8_USE_SDL2
+atari800_SOURCES += sdl/init.c sdl/init.h
+endif
 
 if A8_USE_SDL
 atari800_SOURCES += sdl/init.c sdl/init.h
@@ -96,8 +104,10 @@ if WITH_SOUND
 atari800_SOURCES += \
 	pokeysnd.c pokeysnd.h \
 	mzpokeysnd.c mzpokeysnd.h \
-	remez.c remez.h \
-	sndsave.c sndsave.h
+	remez.c remez.h
+endif
+if WITH_SOUND_SDL2
+atari800_SOURCES += sound.c sound.h sdl/sound.c
 endif
 if WITH_SOUND_SDL
 atari800_SOURCES += sound.c sound.h sdl/sound.c
@@ -118,16 +128,47 @@ endif
 if WITH_SOUND_OSS
 atari800_SOURCES += sound.c sound_oss.c
 endif
-if WITH_SOUND_WIN
-atari800_SOURCES += win32/sound.c
-endif
 if WITH_SOUND_LIBATARI800
 atari800_SOURCES += sound.c libatari800/sound.c libatari800/sound.h
 endif
 if WANT_POKEYREC
 atari800_SOURCES += pokeyrec.c pokeyrec.h
 endif
-
+if WITH_IMAGE_CODECS
+atari800_SOURCES += codecs/image.c codecs/image.h \
+	codecs/image_pcx.c codecs/image_pcx.h
+if WITH_IMAGE_CODEC_PNG
+atari800_SOURCES += codecs/image_png.c codecs/image_png.h
+endif
+endif
+if WITH_FILE_EXPORT
+atari800_SOURCES += file_export.c file_export.h
+if WITH_MULTIMEDIA
+atari800_SOURCES += codecs/container.c codecs/container.h
+if WITH_AUDIO_CODECS
+atari800_SOURCES += codecs/container_wav.c codecs/container_wav.h \
+	codecs/audio.c codecs/audio.h \
+	codecs/audio_pcm.c codecs/audio_pcm.h \
+	codecs/audio_adpcm.c codecs/audio_adpcm.h \
+	codecs/audio_mulaw.c codecs/audio_mulaw.h
+if WITH_AUDIO_CODEC_MP3
+atari800_SOURCES += codecs/audio_mp3.c codecs/audio_mp3.h \
+	codecs/container_mp3.c codecs/container_mp3.h
+endif
+endif
+if WITH_VIDEO_CODECS
+atari800_SOURCES += codecs/container_avi.c codecs/container_avi.h \
+	codecs/video.c codecs/video.h \
+	codecs/video_mrle.c codecs/video_mrle.h
+if WITH_VIDEO_CODEC_PNG
+atari800_SOURCES += codecs/video_mpng.c codecs/video_mpng.h
+endif
+if WITH_VIDEO_CODEC_ZMBV
+atari800_SOURCES += codecs/video_zmbv.c codecs/video_zmbv.h
+endif
+endif
+endif
+endif
 
 
 if CONFIGURE_TARGET_FALCON
@@ -143,23 +184,6 @@ endif
 
 if CONFIGURE_TARGET_RPI
 atari800_SOURCES += atari_rpi.c gles2/video.c sdl/main.c sdl/input.c sdl/input.h
-endif
-
-if CONFIGURE_TARGET_WINDX
-noinst_LIBRARIES = libwin32.a
-libwin32_a_SOURCES = \
-	win32/atari_win32.c win32/atari_win32.h \
-	win32/screen_win32.c win32/screen_win32.h \
-	win32/render_direct3d.c win32/render_direct3d.h \
-	win32/render_directdraw.c win32/render_directdraw.h \
-	win32/render_gdi.c win32/render_gdi.h \
-	win32/render_gdiplus.c win32/render_gdiplus.h \
-	win32/main.c win32/main.h win32/main_menu.h \
-	win32/keyboard.c win32/keyboard.h \
-	win32/joystick.c win32/joystick.h
-atari800_LDADD += libwin32.a win32/atari.ro
-# A special rule for win32 to not compile with -ansi -pedantic
-libwin32_a_CFLAGS = $(CFLAGS_NOANSI)
 endif
 
 if CONFIGURE_TARGET_X11
@@ -194,6 +218,17 @@ endif
 if WITH_EXT_LUA
 atari800_SOURCES += \
 	ext-lua.c ext-lua.h
+endif
+
+if WITH_VIDEO_SDL2
+atari800_SOURCES += \
+	videomode.c videomode.h \
+	sdl/main.c \
+	sdl/video.c sdl/video.h \
+	sdl/video_sw.c sdl/video_sw.h \
+	sdl/input.c sdl/input.h \
+	sdl/palette.c sdl/palette.h
+atari800_SOURCES += pbi_proto80.c pbi_proto80.h af80.c af80.h bit3.c bit3.h
 endif
 
 if WITH_VIDEO_DOSVGA
@@ -242,6 +277,16 @@ atari800_SOURCES += pbi_bb.c pbi_bb.h
 endif
 if WANT_PBI_MIO_OR_BB
 atari800_SOURCES += pbi_scsi.c pbi_scsi.h
+endif
+if WANT_NETSIO
+if CONFIGURE_HOST_WIN
+atari800_SOURCES += netsiowin.c netsio.h
+else
+atari800_SOURCES += netsio.c netsio.h
+endif
+endif
+if WANT_DOWNLOAD
+atari800_SOURCES += download.c download.h
 endif
 if WANT_PBI_XLD
 if WITH_SOUND
@@ -302,21 +347,16 @@ sdl/SDL_win32_main.o: sdl/SDL_win32_main.c
 ide.o: ide.c ide.h ide_internal.h
 	$(CC) -c -o $@ $(AM_CPPFLAGS) $(CFLAGS_NOANSI) $(DEFAULT_INCLUDES) $(CPPFLAGS) $(DEFS) -Wno-missing-declarations -Wno-missing-prototypes $<
 
-win32/atari.ro: win32/atari.rc
-	$(WINDRES) -o $@ --output-format coff --target pe-i386 --define WIN32 --define __MINGW32__ $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $< 
-
-# some special rules for some win32 source files which are actually C++
-win32/main.o: win32/main.c
-	$(CC) -x c++ -c -o $@ $(AM_CPPFLAGS) $(CFLAGS_NOANSI) $(DEFAULT_INCLUDES) $(CPPFLAGS) $(DEFS) -Wno-missing-declarations -Wno-missing-prototypes $<
-win32/render_gdiplus.o: win32/render_gdiplus.c
-	$(CC) -x c++ -c -o $@ $(AM_CPPFLAGS) $(CFLAGS_NOANSI) $(DEFAULT_INCLUDES) $(CPPFLAGS) $(DEFS) -Wno-missing-declarations -Wno-missing-prototypes $<
-win32/render_direct3d.o: win32/render_direct3d.c
-	$(CC) -x c++ -c -o $@ $(AM_CPPFLAGS) $(CFLAGS_NOANSI) $(DEFAULT_INCLUDES) $(CPPFLAGS) $(DEFS) -Wno-missing-declarations -Wno-missing-prototypes $<
-
-
-
 .asm.o:
 	$(CCAS) $(CCASFLAGS) -o $@ $<
+
+# run the Acid800 test suite against the expected results ("make check");
+# delete test/acid800.expected and run again to record a new baseline
+check-local: atari800$(EXEEXT)
+	SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./atari800$(EXEEXT) \
+	  -config /dev/null -xl-rev altirra -nosound -nobasic -turbo \
+	  -acid800 $(top_srcdir)/test/acid800.expected \
+	  $(top_srcdir)/test/acid800.atr
 
 if CONFIGURE_HOST_JAVANVM
 $(TARGET_BASE_NAME).class: javanvm/$(TARGET_BASE_NAME).java | $(TARGET_BASE_NAME)_runtime.class
@@ -340,8 +380,7 @@ $(TARGET_BASE_NAME).jar: $(TARGET_BASE_NAME).class $(TARGET_BASE_NAME)$(RUNTIME)
 
 # Allow parallel execution in sub-make with '+'
 android:
-	+ $(NDK_BUILD) -C android
-	ant -f android/build.xml debug
+	cd android && ./gradlew assembleDebug
 .PHONY: android
 
 CLEANFILES = *.o *.a *.class .manifest $(TARGET) $(TARGET_BASE_NAME).jar $(TARGET_BASE_NAME)_runtime.java core *.bak *~
@@ -350,14 +389,15 @@ CLEANFILES += dos/*.o dos/*.bak dos/*~
 CLEANFILES += falcon/*.o falcon/*.bak falcon/*~
 CLEANFILES += sdl/*.o sdl/*.bak sdl/*~
 CLEANFILES += ext/*.o ext/*.bak ext/*~
-CLEANFILES += win32/*.o win32/*.ro win32/*.bak win32/*~
 CLEANFILES += javanvm/*.o javanvm/*.bak javanvm/*~
 CLEANFILES += atari_ntsc/*.o atari_ntsc/*.bak atari_ntsc/*~
-CLEANFILES += android/libs android/obj android/bin android/gen
 CLEANFILES += libatari800/*.o libatari800/*.bak libatari800/*~
 
-DISTCLEANFILES = Makefile configure config.log config.status config.h android/jni/Android.mk
+DISTCLEANFILES = Makefile configure config.log config.status config.h
 DISTCLEANFILES += autom4te.cache
+
+clean-local:
+	cd android && rm -rf build .gradle
 
 install-data-local:
 	$(mkinstalldirs) $(DESTDIR)$(man1dir)
@@ -374,18 +414,21 @@ doc: readme.html
 
 EXTRA_DIST = $(doc_DATA) atari800.man
 EXTRA_DIST += joycfg.c mkimg.c
-EXTRA_DIST += win32/atari.rc win32/atari1.ico
 EXTRA_DIST += vtxsmpls.inc
 EXTRA_DIST += javanvm/UnixRuntime.patch javanvm/atari800.java
 EXTRA_DIST += macosx
 EXTRA_DIST += wince
-EXTRA_DIST += win32/msc
 EXTRA_DIST += amiga
 EXTRA_DIST += \
 	android/AndroidManifest.xml \
-	android/build.xml \
-	android/project.properties \
-	android/jni/Android.mk.in \
+	android/CMakeLists.txt \
+	android/build.gradle.kts \
+	android/settings.gradle.kts \
+	android/gradle.properties \
+	android/gradlew \
+	android/gradlew.bat \
+	android/gradle/wrapper/gradle-wrapper.jar \
+	android/gradle/wrapper/gradle-wrapper.properties \
 	android/jni/Application.mk \
 	android/jni/keys.inc \
 	android/jni/androidinput.c android/jni/androidinput.h \

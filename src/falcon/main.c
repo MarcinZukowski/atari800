@@ -130,7 +130,6 @@ UBYTE *odkud, *kam;
 UBYTE *oldscreen = NULL;	/* pointer to previous screen if double buffering is turned on */
 
 /* parameters for DisplayScreen */
-static int skip_N_frames;
 static int delta_screen;
 
 extern void init_kb(void);
@@ -336,15 +335,7 @@ int PLATFORM_Initialise(int *argc, char *argv[])
 	int force_videl = FALSE;	/* force Atari800 to switch VIDEL into new resolution by direct HW programming */
 
 	for (i = j = 1; i < *argc; i++) {
-		int i_a = (i + 1 < *argc);		/* is argument available? */
-		int a_m = FALSE;			/* error, argument missing! */
-
-		if (strcmp(argv[i], "-interlace") == 0) {
-			if (i_a)
-				skip_N_frames = Util_sscandec(argv[++i]);
-			else a_m = TRUE;
-		}
-		else if (strcmp(argv[i], "-joyswap") == 0)
+		if (strcmp(argv[i], "-joyswap") == 0)
 			joyswap = TRUE;
 		else if (strcmp(argv[i], "-videl") == 0)
 			force_videl = TRUE;
@@ -356,7 +347,6 @@ int PLATFORM_Initialise(int *argc, char *argv[])
 			vga50 = TRUE;
 		else {
 			if (strcmp(argv[i], "-help") == 0) {
-				Log_print("\t-interlace x  Generate Falcon screen only every X frame\n");
 				Log_print("\t-joyswap      Exchange joysticks\n");
 				Log_print("\t-videl        Direct VIDEL programming (Falcon only); enables double buffering\n");
 				Log_print("\t-double       Double width/height (ignored for planar modes and -videl)\n");
@@ -365,11 +355,6 @@ int PLATFORM_Initialise(int *argc, char *argv[])
 			}
 
 			argv[j++] = argv[i];
-		}
-
-		if (a_m) {
-			Log_print("Missing argument for '%s'", argv[i]);
-			return FALSE;
 		}
 	}
 
@@ -490,7 +475,7 @@ int PLATFORM_Initialise(int *argc, char *argv[])
 		/* create new graphics mode {336|384}x240 in 256 colors */
 		reprogram_VIDEL = TRUE;
 	} else {
-		short work_in[16], work_out[272];
+		short work_in[16], work_out[273];
 
 		/* GEM init */
 		gl_app_id = appl_init();
@@ -652,34 +637,33 @@ int PLATFORM_Exit(int run_monitor)
 /* -------------------------------------------------------------------------- */
 
 #define DoubleSizeIt(in, out1, out2) \
-	__asm__ (				\
-		"\n\tmove.l	%2,%0"	\
-		"\n\tmove.l	%0,%1"	\
-		"\n\tclr.w	%0"		\
-		"\n\teor.l	%0,%1"	\
+	__asm__ (					\
+		"\n\tmove.l	%2,%0"		\
+		"\n\tmove.l	%0,%1"		\
+		"\n\tclr.w	%0"			\
+		"\n\teor.l	%0,%1"		\
 							\
-		"\n\tmove.l	%0,d2"	\
-		"\n\tmove.l	%1,d3"	\
+		"\n\tmove.l	%0,%%d2"	\
+		"\n\tmove.l	%1,%%d3"	\
 							\
-		"\n\tswap	%1"		\
-		"\n\tswap	d2"		\
+		"\n\tswap	%1"			\
+		"\n\tswap	%%d2"		\
 							\
-		"\n\tor.l	d2,%0"	\
-		"\n\tor.l	d3,%1"	\
+		"\n\tor.l	%%d2,%0"	\
+		"\n\tor.l	%%d3,%1"	\
 							\
-		"\n\tror.w	#8,%0"	\
-		"\n\tror.w	#8,%1"	\
+		"\n\tror.w	#8,%0"		\
+		"\n\tror.w	#8,%1"		\
 							\
-		"\n\tror.l	#8,%0"	\
-		"\n\tror.l	#8,%1"	\
+		"\n\tror.l	#8,%0"		\
+		"\n\tror.l	#8,%1"		\
 		: "=d" (out1), "=d" (out2) \
-		: "g" (in) 			\
-		: "cc", "d2", "d3"	\
+		: "g" (in)				\
+		: "cc", "d2", "d3"		\
 	);
 
 void PLATFORM_DisplayScreen(void)
 {
-	static int i = 0;
 	static ULONG Screen_ui[Screen_HEIGHT*Screen_WIDTH/sizeof(ULONG)];
 
 #ifdef SHOW_DISK_LED
@@ -687,12 +671,6 @@ void PLATFORM_DisplayScreen(void)
 		if (--LED_timeout == 0)
 			Atari_Set_LED(0);
 #endif
-
-	if (i < skip_N_frames) {
-		i++;
-		return;
-	}
-	i = 0;
 
 	if (!sv) {
 		/* not direct rendering */
@@ -850,48 +828,26 @@ void Atari_Set_LED(int how)
 
 int PLATFORM_Keyboard(void)
 {
-	UBYTE shift_key, control_key;
-	int scancode, keycode;
-	int i;
-
-	trig0 = 1;
-	stick0 = INPUT_STICK_CENTRE;
-
-	shift_key = (key_buf[0x2a] || key_buf[0x36]);
-	control_key = key_buf[0x1d];
-
-	if (!shift_key && !control_key) {
-		if (key_buf[0x70])
-			trig0 = 0;
-		if (key_buf[0x6d] || key_buf[0x6e] || key_buf[0x6f])
-			stick0 -= (INPUT_STICK_CENTRE - INPUT_STICK_BACK);
-		if (key_buf[0x6f] || key_buf[0x6c] || key_buf[0x69])
-			stick0 -= (INPUT_STICK_CENTRE - INPUT_STICK_RIGHT);
-		if (key_buf[0x6d] || key_buf[0x6a] || key_buf[0x67])
-			stick0 -= (INPUT_STICK_CENTRE - INPUT_STICK_LEFT);
-		if (key_buf[0x67] || key_buf[0x68] || key_buf[0x69])
-			stick0 -= (INPUT_STICK_CENTRE - INPUT_STICK_FORWARD);
-	}
-
-	scancode = 0;
-
-	if (stick0 == INPUT_STICK_CENTRE && trig0 == 1) {
-		for (i = 1; i <= 0x72; i++)	{	/* search for pressed key */
-			if (key_buf[i]) {
-				if (i == 0x1d || i == 0x2a || i == 0x36		/* Shift, Control skip */
-					|| i == 0x3c || i == 0x3d || i == 0x3e)	/* F2, F3, F4 skip */
-					continue;
-				scancode = i;
-				break;
-			}
-		}
-	}
-
-#define SCANCODE_TAB	0x0f
+#define SCANCODE_BACKSPACE	0x0e
+#define SCANCODE_TAB		0x0f
 #define SCANCODE_CONTROL	0x1d
 #define SCANCODE_LSHIFT		0x2a
 #define SCANCODE_RSHIFT		0x36
 #define SCANCODE_ALT		0x38
+#define SCANCODE_CAPSLOCK	0x3a
+#define SCANCODE_HELP		0x62
+#define SCANCODE_UNDO		0x61
+
+#define SCANCODE_F1			0x3b
+#define SCANCODE_F2			0x3c
+#define SCANCODE_F3			0x3d
+#define SCANCODE_F4			0x3e
+#define SCANCODE_F5			0x3f
+#define SCANCODE_F6			0x40
+#define SCANCODE_F7			0x41
+#define SCANCODE_F8			0x42
+#define SCANCODE_F9			0x43
+#define SCANCODE_F10		0x44
 
 #define SCANCODE_R			0x13
 #define SCANCODE_Y			0x2c
@@ -903,8 +859,56 @@ int PLATFORM_Keyboard(void)
 #define SCANCODE_C			0x2e
 #define SCANCODE_T			0x14
 
+#define SCANCODE_KP0		0x70
+#define SCANCODE_KP1		0x6d
+#define SCANCODE_KP2		0x6e
+#define SCANCODE_KP3		0x6f
+#define SCANCODE_KP4		0x6a
+#define SCANCODE_KP5		0x6b
+#define SCANCODE_KP6		0x6c
+#define SCANCODE_KP7		0x67
+#define SCANCODE_KP8		0x68
+#define SCANCODE_KP9		0x69
+
+	UBYTE shift_key, control_key;
+	int scancode, keycode;
+	int i;
+
+	trig0 = 1;
+	stick0 = INPUT_STICK_CENTRE;
+
+	shift_key = (key_buf[SCANCODE_LSHIFT] || key_buf[SCANCODE_RSHIFT]);
+	control_key = key_buf[SCANCODE_CONTROL];
+
+	if (!shift_key && !control_key) {
+		if (key_buf[SCANCODE_KP0])
+			trig0 = 0;
+		if (key_buf[SCANCODE_KP1] || key_buf[SCANCODE_KP2] || key_buf[SCANCODE_KP3])
+			stick0 -= (INPUT_STICK_CENTRE - INPUT_STICK_BACK);
+		if (key_buf[SCANCODE_KP3] || key_buf[SCANCODE_KP6] || key_buf[SCANCODE_KP9])
+			stick0 -= (INPUT_STICK_CENTRE - INPUT_STICK_RIGHT);
+		if (key_buf[SCANCODE_KP1] || key_buf[SCANCODE_KP4] || key_buf[SCANCODE_KP7])
+			stick0 -= (INPUT_STICK_CENTRE - INPUT_STICK_LEFT);
+		if (key_buf[SCANCODE_KP7] || key_buf[SCANCODE_KP8] || key_buf[SCANCODE_KP9])
+			stick0 -= (INPUT_STICK_CENTRE - INPUT_STICK_FORWARD);
+	}
+
+	scancode = 0;
+
+	if (stick0 == INPUT_STICK_CENTRE && trig0 == 1) {
+		for (i = 1; i <= 0x72; i++)	{	/* search for pressed key */
+			if (key_buf[i]) {
+				if (i == SCANCODE_CONTROL || i == SCANCODE_LSHIFT || i == SCANCODE_RSHIFT || i == SCANCODE_ALT
+					|| i == SCANCODE_F2 || i == SCANCODE_F3 || i == SCANCODE_F4)
+					continue;
+				scancode = i;
+				break;
+			}
+		}
+	}
+
 	UI_alt_function = -1;		/* no alt function */
-	if (key_buf[0x38]) {		/* left Alt key is pressed */
+	if (key_buf[SCANCODE_ALT]) {
 		if (scancode == SCANCODE_R)
 			UI_alt_function = UI_MENU_RUN;		/* ALT+R .. Run file */
 		else if (scancode == SCANCODE_Y)
@@ -929,15 +933,15 @@ int PLATFORM_Keyboard(void)
 
 	BINLOAD_pause_loading = FALSE;
 
-	if (key_buf[0x3c])	/* F2 */
+	if (key_buf[SCANCODE_F2])
 		INPUT_key_consol &= ~INPUT_CONSOL_OPTION;	/* OPTION key ON */
 	else
 		INPUT_key_consol |= INPUT_CONSOL_OPTION;	/* OPTION key OFF */
-	if (key_buf[0x3d])	/* F3 */
+	if (key_buf[SCANCODE_F3])
 		INPUT_key_consol &= ~INPUT_CONSOL_SELECT;	/* SELECT key ON */
 	else
 		INPUT_key_consol |= INPUT_CONSOL_SELECT;	/* SELECT key OFF */
-	if (key_buf[0x3e])	/* F4 */
+	if (key_buf[SCANCODE_F4])
 		INPUT_key_consol &= ~INPUT_CONSOL_START;	/* START key ON */
 	else
 		INPUT_key_consol |= INPUT_CONSOL_START;	/* START key OFF */
@@ -949,8 +953,18 @@ int PLATFORM_Keyboard(void)
 		else
 			keycode = *(UBYTE *) (key_tab->unshift + scancode);
 
-		if (control_key)
-			keycode -= 64;
+		if (control_key) {
+			switch (keycode) {
+			case 0x00:	/* CAPSLOCK and others */
+			case 0x08:	/* BACKSPACE */
+			case 0x09:	/* TAB */
+			case 0x0d:	/* RETURN */
+				break;
+			default:
+				keycode -= 96;
+				break;
+			}
+		}
 
 		switch (keycode) {
 		case 0x01:
@@ -975,13 +989,13 @@ int PLATFORM_Keyboard(void)
 			keycode = AKEY_CTRL_g;
 			break;
 		case 0x08:
-			if (scancode == 0x0e)
+			if (scancode == SCANCODE_BACKSPACE)
 				keycode = AKEY_BACKSPACE;
 			else
 				keycode = AKEY_CTRL_h;
 			break;
 		case 0x09:
-			if (scancode == 0x0f) {
+			if (scancode == SCANCODE_TAB) {
 				if (shift_key)
 					keycode = AKEY_SETTAB;
 				else if (control_key)
@@ -1050,7 +1064,15 @@ int PLATFORM_Keyboard(void)
 			keycode = AKEY_SPACE;
 			break;
 		case '`':
+			keycode = AKEY_ATARI;
+			break;
+		case '~':
+			/* same as SCANCODE_CAPSLOCK */
 			keycode = AKEY_CAPSTOGGLE;
+			if (shift_key)
+				keycode |= AKEY_SHFT;
+			if (control_key)
+				keycode |= AKEY_CTRL;
 			break;
 		case '!':
 			keycode = AKEY_EXCLAMATION;
@@ -1327,20 +1349,27 @@ int PLATFORM_Keyboard(void)
 			break;
 		case 0x00:
 			switch (scancode) {
-			case 0x3b:			/* F1 */
-			case 0x61:			/* Undo */
+			case SCANCODE_CAPSLOCK:
+				keycode = AKEY_CAPSTOGGLE;
+				if (shift_key)
+					keycode |= AKEY_SHFT;
+				if (control_key)
+					keycode |= AKEY_CTRL;
+				break;
+			case SCANCODE_F1:
+			case SCANCODE_UNDO:
 				keycode = AKEY_UI;
 				break;
-			case 0x62:			/* Help */
+			case SCANCODE_HELP:
 				keycode = AKEY_HELP;
 				break;
-			case 0x3f:			/* F5 */
+			case SCANCODE_F5:
 				keycode = shift_key ? AKEY_COLDSTART : AKEY_WARMSTART;
 				break;
-			case 0x40:			/* F6 */
+			case SCANCODE_F6:
 				keycode = AKEY_HELP;
 				break;
-			case 0x41:			/* F7 */
+			case SCANCODE_F7:
 				if (BINLOAD_wait_active) {
 					BINLOAD_pause_loading = TRUE;
 					keycode = AKEY_NONE;
@@ -1348,13 +1377,13 @@ int PLATFORM_Keyboard(void)
 				else
 					keycode = AKEY_BREAK;
 				break;
-			case 0x42:			/* F8 */
+			case SCANCODE_F8:
 				keycode = PLATFORM_Exit(1) ? AKEY_NONE : AKEY_EXIT;	/* invoke monitor */
 				break;
-			case 0x43:			/* F9 */
+			case SCANCODE_F9:
 				keycode = AKEY_EXIT;
 				break;
-			case 0x44:			/* F10*/
+			case SCANCODE_F10:
 				keycode = shift_key ? AKEY_SCREENSHOT_INTERLACE : AKEY_SCREENSHOT;
 				break;
 			case 0x50:
@@ -1441,16 +1470,24 @@ double PLATFORM_Time(void)
 
 /* -------------------------------------------------------------------------- */
 
-int main(int argc, char **argv)
+void PLATFORM_ConfigInit(void)
 {
 #ifdef SOUND
+	/* too slow on Falcon */
+	POKEYSND_enable_new_pokey = FALSE;
 	/* set default desired sound */
 	Sound_desired.freq = 24585;
 	Sound_desired.sample_size = 1;
 	Sound_desired.channels = 2;
 	Sound_desired.buffer_ms = 40;
+	Sound_latency = 20;
 #endif
+}
 
+/* -------------------------------------------------------------------------- */
+
+int main(int argc, char **argv)
+{
 	/* initialise Atari800 core */
 	if (!Atari800_Initialise(&argc, argv))
 		return EXIT_FAILURE;

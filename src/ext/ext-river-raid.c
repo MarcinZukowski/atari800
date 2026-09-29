@@ -56,7 +56,7 @@ const char* explosion_files[NUM_EXPLOSIONS] = {
 };
 ext_sound* explosions[5];
 
-static void init_sounds()
+static void init_sounds(void)
 {
 	int i;
 
@@ -73,7 +73,7 @@ static void init_sounds()
 	memset(MEMORY_mem + 0xB37E, 0xEA, 6);
 }
 
-static void do_sounds()
+static void do_sounds(void)
 {
 	int fire_volume = MEMORY_mem[0x007D];
 	if (fire_volume == 0x0E) {
@@ -172,7 +172,7 @@ static rr_object gen_object(int object_id)
 	return o;
 }
 
-static void init_objects()
+static void init_objects(void)
 {
 	int i;
 	for (i = 0; i < NUM_OBJECTS; i++) {
@@ -189,7 +189,7 @@ static void init_objects()
 	missile_texture = gen_texture(1, GTIA_COLPM1, 0xa5b3);
 }
 
-static void render_objects()
+static void render_objects(void)
 {
 
 	int idx = MEMORY_mem[0x004d];
@@ -329,7 +329,7 @@ static void render_line(int line_nr)
 
 }
 
-static void print_dl()
+static void print_dl(void)
 {
 	int last = -1;
 	int cnt = 0;
@@ -355,7 +355,7 @@ static void print_dl()
 	printf("\n");
 }
 
-static void render_lines()
+static void render_lines(void)
 {
 /*	print_dl(); */
 
@@ -409,7 +409,7 @@ static void render_lines()
 
 }
 
-static void init_lines()
+static void init_lines(void)
 {
 	int i;
 	for (i = 0; i < RR_LINE_COUNT; i++) {
@@ -423,7 +423,7 @@ static void init_lines()
 
 /******************************************* MAIN *************************************/
 
-static void show_plane_and_missile()
+static void show_plane_and_missile(void)
 {
 	/* Show plane */
 	{
@@ -597,7 +597,7 @@ static UI_tMenuItem menu[] = {
 	UI_MENU_END
 };
 
-static void refresh_config()
+static void refresh_config(void)
 {
 	menu[0].suffix = config_screen_modes[config_screen_mode];
 }

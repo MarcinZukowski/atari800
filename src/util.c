@@ -40,15 +40,11 @@
 #ifdef HAVE_WINDOWS_H
 #include <windows.h>
 #endif
-#ifdef TIME_WITH_SYS_TIME
+#ifdef HAVE_SYS_TIME_H
 # include <sys/time.h>
+#endif
+#ifdef HAVE_TIME_H
 # include <time.h>
-#else
-# ifdef HAVE_SYS_TIME_H
-#  include <sys/time.h>
-# elif defined(HAVE_TIME_H)
-#  include <time.h>
-# endif
 #endif
 #ifdef HAVE_UNISTD_H
 #include <unistd.h> /* getcwd() */
@@ -60,6 +56,7 @@
 #include "atari.h"
 #include "platform.h"
 #include "util.h"
+#include "log.h"
 
 int Util_chrieq(char c1, char c2)
 {
@@ -86,6 +83,15 @@ int Util_stricmp(const char *str1, const char *str2)
 	return retval;
 }
 #endif
+
+int Util_striendswith(const char *s1, const char *s2)
+{
+	int pos;
+	pos = strlen(s1) - strlen(s2);
+	if (pos < 0)
+		return 0;
+	return Util_stricmp(s1 + pos, s2) == 0;
+}
 
 int Util_strnicmp(const char *str1, const char *str2, size_t size)
 {
@@ -350,12 +356,79 @@ void Util_splitpath(const char *path, char *dir_part, char *file_part)
 
 void Util_catpath(char *result, const char *path1, const char *path2)
 {
-	snprintf(result, FILENAME_MAX,
-		path1[0] == '\0' || path2[0] == Util_DIR_SEP_CHAR || path1[strlen(path1) - 1] == Util_DIR_SEP_CHAR
+	int no_sep = path1[0] == '\0' || path2[0] == Util_DIR_SEP_CHAR || path1[strlen(path1) - 1] == Util_DIR_SEP_CHAR;
 #ifdef DIR_SEP_BACKSLASH
-		 || path2[0] == '/' || path1[strlen(path1) - 1] == '/'
+	no_sep = no_sep || path2[0] == '/' || path1[strlen(path1) - 1] == '/';
 #endif
-			? "%s%s" : "%s" Util_DIR_SEP_STR "%s", path1, path2);
+	snprintf(result, FILENAME_MAX, no_sep ? "%s%s" : "%s" Util_DIR_SEP_STR "%s", path1, path2);
+}
+
+static int parse_hashes(const char *p, char *buffer, int bufsize)
+{
+	char *f = buffer;
+	char no_width = '0';
+	int no_max = 1;
+	/* 9 because sprintf'ed "no" can be 9 digits */
+	while (f < buffer + bufsize - 9) {
+		/* replace a sequence of hashes with e.g. "%05d" */
+		if (*p == '#') {
+			if (no_width > '0') /* already seen a sequence of hashes */
+				break;          /* invalid */
+			/* count hashes */
+			do {
+				no_max *= 10;
+				p++;
+				no_width++;
+				/* now no_width is the number of hashes seen so far
+				   and p points after the counted hashes */
+			} while (no_width < '9' && *p == '#'); /* no more than 9 hashes */
+			*f++ = '%';
+			*f++ = '0';
+			*f++ = no_width;
+			*f++ = 'd';
+			continue;
+		}
+		if (*p == '%')
+			*f++ = '%'; /* double the percents */
+		*f++ = *p;
+		if (*p == '\0')
+			return no_max; /* ok */
+		p++;
+	}
+	return 0;
+}
+
+int Util_filenamepattern(const char *p, char *buffer, int bufsize, const char *default_pattern)
+{
+	int no_max;
+
+	no_max = parse_hashes(p, buffer, bufsize);
+	if (!no_max && default_pattern) {
+		Log_print("Invalid filename pattern, using default.");
+		no_max = parse_hashes(default_pattern, buffer, bufsize);
+	}
+	return no_max;
+}
+
+int Util_findnextfilename(const char *format, int *no_last, int no_max, char *buffer, int bufsize, int allow_overwrite)
+{
+	int no;
+
+	/* negative number to initialize */
+	if (*no_last < 0) *no_last = -1;
+	no = *no_last;
+	for (;;) {
+		if ((++no >= no_max) & !allow_overwrite) {
+			return FALSE;
+		}
+		snprintf(buffer, bufsize, format, no % no_max);
+		*no_last = no;
+		if ((no >= no_max) && allow_overwrite)
+			break;
+		if (!Util_fileexists(buffer))
+			break; /* file does not exist - we can create it */
+	}
+	return TRUE;
 }
 
 int Util_fileexists(const char *filename)
@@ -501,13 +574,11 @@ double Util_time(void)
 
 void Util_sleep(double s)
 {
+	if (s > 0) {
 #ifdef SUPPORTS_PLATFORM_SLEEP
 	PLATFORM_Sleep(s);
 #else /* !SUPPORTS_PLATFORM_SLEEP */
-	if (s > 0) {
-#ifdef HAVE_WINDOWS_H
-		Sleep((DWORD) (s * 1e3));
-#elif defined(DJGPP)
+#if defined(DJGPP)
 		/* DJGPP has usleep and select, but they don't work that good */
 		/* XXX: find out why */
 		double curtime = Util_time();
@@ -535,8 +606,8 @@ void Util_sleep(double s)
 		double curtime = Util_time();
 		while ((curtime + s) > Util_time());
 #endif
-	}
 #endif /* !SUPPORTS_PLATFORM_SLEEP */
+	}
 }
 
 char *Util_getcwd(char *buf, size_t size)
@@ -550,5 +621,28 @@ char *Util_getcwd(char *buf, size_t size)
 	buf[0] = '.';
 	buf[1] = '\0';
 #endif
+	return buf;
+}
+
+char *Util_GetHomeDir(char *buf, size_t size)
+{
+	const char *home = getenv("HOME");
+#ifdef HAVE_WINDOWS_H
+	if (home == NULL)
+		home = getenv("USERPROFILE");
+	if (home == NULL) {
+		const char *drive = getenv("HOMEDRIVE");
+		const char *path = getenv("HOMEPATH");
+		if (drive != NULL && path != NULL)
+			snprintf(buf, size, "%s%s", drive, path);
+		else
+			buf[0] = '\0';
+		return buf;
+	}
+#endif
+	if (home != NULL)
+		Util_strlcpy(buf, home, size);
+	else
+		buf[0] = '\0';
 	return buf;
 }

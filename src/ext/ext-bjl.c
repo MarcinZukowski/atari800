@@ -55,7 +55,7 @@ static UI_tMenuItem menu[] = {
 	UI_MENU_END
 };
 
-static void refresh_config()
+static void refresh_config(void)
 {
 	const char* config_accelerate_strings[ACC_COUNT] = { "OFF", "LOW", "HIGH" };
 	menu[0].suffix = config_display_fps ? "ON" : "OFF";

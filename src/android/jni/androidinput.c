@@ -64,7 +64,7 @@ int Android_Split;
 int Android_Paddle = FALSE;
 SWORD Android_POTX = 0;
 SWORD Android_POTY = 0;
-int Android_PlanetaryDefense = FALSE;
+int Android_KoalaPad = FALSE;
 UBYTE Android_ReversePddle = 0;
 
 struct joy_overlay_state AndroidInput_JoyOvl;
@@ -83,6 +83,7 @@ static const int derot_lut[2][4] =
 	{ KEY_RIGHT, KEY_LEFT, KEY_UP, KEY_DOWN },	/* derot left */
 	{ KEY_LEFT, KEY_RIGHT, KEY_DOWN, KEY_UP }	/* derot right */
 };
+static const int a800_fns[6] = { KEY_MENU, KEY_OPTION, KEY_SELECT, KEY_START, KEY_RESET, KEY_HELP };
 SWORD softjoymap[SOFTJOY_MAXKEYS + SOFTJOY_MAXACTIONS][2] =
 {
 	{ KEY_LEFT,  	INPUT_STICK_LEFT    },
@@ -96,6 +97,7 @@ SWORD softjoymap[SOFTJOY_MAXKEYS + SOFTJOY_MAXACTIONS][2] =
 };
 int Android_SoftjoyEnable = TRUE;
 int Android_DerotateKeys = 0;
+int Android_A800Fns = FALSE;
 
 int Android_TouchEvent(int x1, int y1, int s1, int x2, int y2, int s2)
 {
@@ -157,8 +159,12 @@ int Android_TouchEvent(int x1, int y1, int s1, int x2, int y2, int s2)
 					conptr = PTRTRG;
 		if (conptr != PTRSTL) {	  /* if bb is exact on top & bottom => check only horiz/lly */
 			int i;
-			dy = covl->keycoo[1] - newtc[conptr].y;
 			for (i = 0; i < CONK_VERT_MAX; i += 8) {
+				/* Check y-range first (essential for vertical rectangles, harmless for parallelograms) */
+				if (newtc[conptr].y < covl->keycoo[i + 5] ||
+				    newtc[conptr].y > covl->keycoo[i + 1])
+					continue;
+				float dy = covl->keycoo[i + 1] - newtc[conptr].y;
 				float a = ((float) covl->keycoo[i + 6] - covl->keycoo[i    ]) /
 					((float) covl->keycoo[i + 1] - covl->keycoo[i + 7]);
 				dx = covl->keycoo[i] + a * dy;
@@ -374,7 +380,7 @@ int Android_TouchEvent(int x1, int y1, int s1, int x2, int y2, int s2)
 	/* trigger */
 	newtrig = 1;
 	if ( (newtc[PTRTRG].s > 0 && conptr != PTRTRG) ||	/* normal trigger */
-		 (newtc[PTRJOY].s > 0 && conptr != PTRJOY && Android_PlanetaryDefense) ) {
+		 (newtc[PTRJOY].s > 0 && conptr != PTRJOY && Android_KoalaPad) ) {
 		newtrig = 0;
 		jovl->fire.x = newtc[PTRTRG].x;
 		jovl->fire.y = newtc[PTRTRG].y;
@@ -383,7 +389,7 @@ int Android_TouchEvent(int x1, int y1, int s1, int x2, int y2, int s2)
 
 	/* thread unsafe => "no" problem */
 	if (!Android_Paddle){
-		Android_PortStatus = 0xFFF0 | newjoy;
+		Android_PortStatus = (Android_PortStatus & 0xFFF0) | newjoy;
 		Android_TrigStatus = 0xE | newtrig;
 	} else {
 		POKEY_POT_input[INPUT_mouse_port << 1] = Android_POTX;
@@ -424,6 +430,9 @@ void Android_KeyEvent(int k, int s)
 	if (Android_DerotateKeys && k <= KEY_UP && k >= KEY_RIGHT)
 		k = derot_lut[Android_DerotateKeys - 1][KEY_UP - k];
 
+	if (Android_A800Fns && k <= KEY_HELP && k >= KEY_MENU)
+		k = a800_fns[KEY_HELP - k];
+
 	switch (k) {
 	case KEY_SHIFT:
 		INPUT_key_shift = (s) ? AKEY_SHFT : 0;
@@ -433,6 +442,40 @@ void Android_KeyEvent(int k, int s)
 		break;
 	case KEY_FIRE:
 		Android_TrigStatus = (Android_TrigStatus & (~(s != 0))) | (s == 0);
+		break;
+	/* next five map Fn keys to console keys */
+	case KEY_RESET:
+		Keyboard_Enqueue( (s) ? ( (INPUT_key_shift) ? AKEY_COLDSTART : AKEY_WARMSTART ) : AKEY_NONE );
+		break;
+	case KEY_OPTION:
+		INPUT_key_consol = (s) ? (INPUT_key_consol & ~INPUT_CONSOL_OPTION) : (INPUT_key_consol | INPUT_CONSOL_OPTION);
+		break;
+	case KEY_SELECT:
+		INPUT_key_consol = (s) ? (INPUT_key_consol & ~INPUT_CONSOL_SELECT) : (INPUT_key_consol | INPUT_CONSOL_SELECT);
+		break;
+	case KEY_START:
+		INPUT_key_consol = (s) ? (INPUT_key_consol & ~INPUT_CONSOL_START) : (INPUT_key_consol | INPUT_CONSOL_START);
+		break;
+	case KEY_MENU:
+		/* nothing for now */
+		break;
+	/* next two handle the various insert/delete line/char combos */
+	case KEY_INSERT:
+		Keyboard_Enqueue( (s) ? ( (INPUT_key_shift) ? AKEY_INSERT_LINE : AKEY_INSERT_CHAR ) : AKEY_NONE );
+		break;
+	case KEY_DELETE:
+		/* support join-to-previous-line in the Action! editor */
+		if (INPUT_key_shift && Android_key_control)
+			Keyboard_Enqueue( (s) ? (AKEY_BACKSPACE | AKEY_SHFTCTRL) : AKEY_NONE );
+		else
+			Keyboard_Enqueue( (s) ? ( (INPUT_key_shift) ? AKEY_DELETE_LINE : AKEY_DELETE_CHAR ) : AKEY_NONE );
+		break;
+	/* next two are to support move-to-BOL/EOL in the Action! editor */
+	case KEY_LEFT:
+		Keyboard_Enqueue( (s) ? ( (INPUT_key_shift) ? (AKEY_LESS | AKEY_SHFTCTRL) : AKEY_LEFT ) : AKEY_NONE );
+		break;
+	case KEY_RIGHT:
+		Keyboard_Enqueue( (s) ? ( (INPUT_key_shift) ? (AKEY_GREATER | AKEY_SHFTCTRL) : AKEY_RIGHT ) : AKEY_NONE );
 		break;
 	default:
 		if (k >= STATIC_MAXKEYS)
@@ -445,6 +488,16 @@ void Android_KeyEvent(int k, int s)
 			Keyboard_Enqueue( (s) ? (skeyxlat[k] | Android_key_control | shft) : AKEY_NONE );
 		}
 	}
+}
+
+void Android_JoystickAxesEvent(int port, int dir_bits)
+{
+	Android_PortStatus = (Android_PortStatus & ~(0x0F << (port * 4))) | ((dir_bits & 0x0F) << (port * 4));
+}
+
+void Android_JoystickFireEvent(int port, int index, int trig)
+{
+	Android_TrigStatus = (Android_TrigStatus & ~(1 << port)) | ((trig & 1) << port);
 }
 
 void Input_Initialize(void)

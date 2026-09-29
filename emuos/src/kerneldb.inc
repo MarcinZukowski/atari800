@@ -118,9 +118,13 @@ holdch	= $007c			;temporary key hold area prior to shift/control lock logic
 countr	= $007e			;Screen Editor: line length
 		; $007f
 fr0		= $00d4			;FP: Accumulator 0
-_fr3	= $00da			;FP: Accumulator 3 (officially FRE)
+fre		= $00da			;FP: Accumulator extra
+_fr3 = fre
 fr1		= $00e0			;FP: Accumulator 1
 fr2		= $00e6			;FP: Accumulator 2
+frx		= $00ec			;FP: FRX
+		; $00ed			;FP: EEXP
+		; $00ee			;FP: NSIGN
 ;esign	  $00ef			;BASIC: Used in sqr() routine -- must not be touched by FP elementary functions
 ;fchrflg  $00f0			;BASIC: Used in sin() routine -- must not be touched by any non-transcendental FP functions
 cix		= $00f2			;FP: Character index
@@ -189,6 +193,12 @@ shpdvs	= $0248			;PBI device selection register shadow ($D1FF) (XL/XE)
 pdmsk	= $0249			;PBI device interrupt mask (XL/XE)
 reladr	= $024a			;Relocating loader: temp address (XL/XE)
 		; $024b
+
+		; $024e			;Reserved by 1450XLD Parallel Disk Drive handler
+		; $024f			;Reserved by 1450XLD Parallel Disk Drive handler
+		; $0250			;Reserved by 1400XL T: handler and 1450XLD PDD
+		; $0251			;Reserved by 1400XL T: handler
+		; $0263-026a	;Reserved by 1400XL V: handler
 
 .if _KERNEL_816
 vabte	= $024f			;(816) Emulation ABORT vector
@@ -299,6 +309,7 @@ zloada	= $02d3			;Relocating loader: Zero-page load address (XL/XE)
 dsctln	= $02d5			;Disk sector size (XL/XE)
 krpdel	= $02d9			;Keyboard repeat delay (XL/XE)
 keyrep	= $02da			;Keyboard repeat rate (XL/XE)
+noclik	= $02db			;Keyboard no-click (XL/XE)
 helpfg	= $02dc			;Help flag (XL/XE)
 
 .if _KERNEL_XLXE

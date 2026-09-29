@@ -20,7 +20,7 @@ static int config_show_background = 2;
 static gl_texture glt_background_color;
 static gl_texture glt_background_gs;
 
-static void load_background()
+static void load_background(void)
 {
 	glt_background_color = gl_texture_load_rgba("data/ext/zybex/bkg1-512x512.rgba", 512, 512);
 	gl_texture_finalize(&glt_background_color);
@@ -55,7 +55,7 @@ static UI_tMenuItem menu[] = {
 	UI_MENU_END
 };
 
-static void refresh_config()
+static void refresh_config(void)
 {
 	const char *show_background_text[3] = { "OFF", "COLOR", "GRAYSCALE" };
 	menu[0].suffix = show_background_text[config_show_background];
@@ -91,7 +91,7 @@ static void pre_gl_frame(struct ext_state *self)
 	Print(0x9f, 0x90, fps_str, 0, -3, 20);
 }
 
-static void show_background()
+static void show_background(void)
 {
 	static int last_hscrol = 0;
 	static int texture_hscrol = 0;

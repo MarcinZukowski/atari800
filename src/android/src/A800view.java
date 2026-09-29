@@ -22,7 +22,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-package name.nick.jubanka.colleen;
+package cz.pstehlik.colleen;
 
 import android.content.Context;
 import android.opengl.GLSurfaceView;
@@ -39,6 +39,7 @@ import android.os.Message;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.BaseInputConnection;
 import android.view.inputmethod.EditorInfo;
+import android.view.InputDevice;
 import static android.view.KeyEvent.*;
 
 
@@ -60,6 +61,18 @@ public final class A800view extends GLSurfaceView
 	public static final int KEY_BT_L1     = 244;
 	public static final int KEY_BT_R1     = 243;
 	public static final int KEY_BREAK     = 242;
+	public static final int KEY_INSERT    = 241;
+	public static final int KEY_DELETE    = 240;
+	public static final int KEY_CLEAR     = 239;
+	public static final int KEY_CAPSTOGL  = 238;
+	public static final int KEY_HELP      = 237;
+	public static final int KEY_START     = 236;
+	public static final int KEY_SELECT    = 235;
+	public static final int KEY_OPTION    = 234;
+	public static final int KEY_RESET     = 233;
+	public static final int KEY_MENU      = 232;
+	public static final int KEY_SHFTCTRL1 = 231;
+	public static final int KEY_SHFTCTRL2 = 230;
 	// keycodes from newer sdks
 	public static final int KC_BUTTON_X   = 307;
 	public static final int KC_BUTTON_Y   = 308;
@@ -74,12 +87,14 @@ public final class A800view extends GLSurfaceView
 	private TouchFactory _touchHandler = null;
 	private Toast _toastquit;
 	private Integer _xkey;
+	private int[] _lastTrigState = {1, 1, 1, 1};
 
 	public A800view(Context context) {
 		super(context);
 
 		_renderer = new A800Renderer();
 		setRenderer(_renderer);
+		_renderer.setDensity(context.getResources().getDisplayMetrics().density);
 		_renderer.prepareToast(context);
 		_renderer.setHandler(new Handler() {
 			@Override
@@ -94,7 +109,7 @@ public final class A800view extends GLSurfaceView
 
 		_keymap = KeyCharacterMap.load(KeyCharacterMap.BUILT_IN_KEYBOARD);
 
-		if (Integer.parseInt(Build.VERSION.SDK) < Build.VERSION_CODES.ECLAIR)
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.ECLAIR)
 			_touchHandler = new SingleTouch();
 		else
 			_touchHandler = new MultiTouch();
@@ -112,13 +127,6 @@ public final class A800view extends GLSurfaceView
 	public boolean onTouchEvent(final MotionEvent ev) {
 		int ret = _touchHandler.onTouchEvent(ev);
 
-		if (Integer.parseInt(Build.VERSION.SDK) >= Build.VERSION_CODES.HONEYCOMB) {
-			MainActivity m = (MainActivity) getContext();
-			if (ret == 2)
-				m._aBar.show(m);
-			else if (ret == 1)
-				m._aBar.hide(m);
-		}
 		return true;
 	}
 
@@ -180,15 +188,61 @@ public final class A800view extends GLSurfaceView
 		}
 	}
 
+	// Joystick/gamepad axis and hat input
+	private static int portForDevice(int deviceId) {
+		InputDevice d = InputDevice.getDevice(deviceId);
+		if (d == null) return -1;
+		int p = d.getControllerNumber() - 1;
+		return p >= 0 && p < 4 ? p : -1;
+	}
+
+	@Override
+	public boolean onGenericMotionEvent(final MotionEvent ev) {
+		if ((ev.getSource() & InputDevice.SOURCE_CLASS_JOYSTICK) == 0)
+			return false;
+		int port = portForDevice(ev.getDeviceId());
+		if (port < 0) return false;
+		float hatX = ev.getAxisValue(MotionEvent.AXIS_HAT_X);
+		float hatY = ev.getAxisValue(MotionEvent.AXIS_HAT_Y);
+		float axisX = Math.abs(hatX) > 0.5f ? hatX : ev.getAxisValue(MotionEvent.AXIS_X);
+		float axisY = Math.abs(hatY) > 0.5f ? hatY : ev.getAxisValue(MotionEvent.AXIS_Y);
+		int dir = 0x0f; // INPUT_STICK_CENTRE
+		if (axisX < -0.5f) dir &= ~0x04; // left  (bit 2)
+		if (axisX >  0.5f) dir &= ~0x08; // right (bit 3)
+		if (axisY < -0.5f) dir &= ~0x01; // up    (bit 0)
+		if (axisY >  0.5f) dir &= ~0x02; // down  (bit 1)
+		float ltrigger = ev.getAxisValue(MotionEvent.AXIS_LTRIGGER);
+		float rtrigger = ev.getAxisValue(MotionEvent.AXIS_RTRIGGER);
+		int newTrig = (Math.max(ltrigger, rtrigger) > 0.5f) ? 0 : 1;
+		if (newTrig != _lastTrigState[port]) {
+			_lastTrigState[port] = newTrig;
+			NativeJoystickFire(port, 0, newTrig);
+		}
+		NativeJoystickAxes(port, dir);
+		return true;
+	}
+
 	// Key input
+	private boolean handleGamepadButton(int kc, KeyEvent ev, int state) {
+		int p = portForDevice(ev.getDeviceId());
+		if (p < 0) return false;
+		int idx = -1;
+		if (kc == KEYCODE_BUTTON_A) idx = 0;
+		else if (kc == KEYCODE_BUTTON_B) idx = 1;
+		else if (kc == KEYCODE_BUTTON_X) idx = 2;
+		if (idx < 0) return false;
+		NativeJoystickFire(p, idx, state);
+		return true;
+	}
+
 	@Override
 	public boolean onKeyDown(int kc, final KeyEvent ev) {
-		return doKey(kc, ev);
+		return handleGamepadButton(kc, ev, 0) || doKey(kc, ev);
 	}
 
 	@Override
 	public boolean onKeyUp(int kc, final KeyEvent ev) {
-		return doKey(kc, ev);
+		return handleGamepadButton(kc, ev, 1) || doKey(kc, ev);
 	}
 
 	@Override
@@ -217,9 +271,7 @@ public final class A800view extends GLSurfaceView
 			if (_toastquit.getView().getWindowVisibility() == View.VISIBLE) {
 				_toastquit.cancel();
 				m.finish();
-			} else if (m._aBar.isShowing(m))
-				m._aBar.hide(m);
-			else
+			} else
 				_toastquit.show();
 			return true;
 		}
@@ -228,9 +280,19 @@ public final class A800view extends GLSurfaceView
 		if (_xkey != null)
 			_key = _xkey.intValue();
 		else {
+			boolean ctrl = false;
 			_meta = ev.getMetaState();
-			if ((_meta & KeyEvent.META_SHIFT_RIGHT_ON) == KeyEvent.META_SHIFT_RIGHT_ON)
+			if ((_meta & KeyEvent.META_SHIFT_RIGHT_ON) == KeyEvent.META_SHIFT_RIGHT_ON) {
 				_meta &= ~(KeyEvent.META_SHIFT_RIGHT_ON | KeyEvent.META_SHIFT_ON);
+				ctrl = true;
+			}
+			if ((_meta & KeyEvent.META_CTRL_LEFT_ON) == KeyEvent.META_CTRL_LEFT_ON) {
+				_meta &= ~(KeyEvent.META_CTRL_LEFT_ON | KeyEvent.META_CTRL_ON);
+				ctrl = true;
+			}
+			/* send ctrl-shft-2 as itself instead of ctrl-@, etc. */
+			if (ctrl && (_meta & KeyEvent.META_SHIFT_LEFT_ON) == KeyEvent.META_SHIFT_LEFT_ON && kc >= KEYCODE_0 && kc <= KEYCODE_9)
+				_meta &= ~(KeyEvent.META_SHIFT_LEFT_ON | KeyEvent.META_SHIFT_ON);
 			_key = _keymap.get(kc, _meta);
 			if (_key == 0)
 				return false;
@@ -245,22 +307,43 @@ public final class A800view extends GLSurfaceView
 
 	private native static int NativeTouch(int x1, int y1, int s1, int x2, int y2, int s2);
 	private native void NativeKey(int keycode, int status);
+	private native void NativeJoystickAxes(int port, int dir);
+	private native void NativeJoystickFire(int port, int index, int state);
 
-	public static final SparseArray<Integer> XLATKEYS = new SparseArray<Integer>(14);
+	public static final SparseArray<Integer> XLATKEYS = new SparseArray<Integer>(32);
 	static {
 		XLATKEYS.put(KEYCODE_DPAD_UP,		KEY_UP);
 		XLATKEYS.put(KEYCODE_DPAD_DOWN,		KEY_DOWN);
 		XLATKEYS.put(KEYCODE_DPAD_LEFT,		KEY_LEFT);
 		XLATKEYS.put(KEYCODE_DPAD_RIGHT,	KEY_RIGHT);
 		XLATKEYS.put(KEYCODE_DPAD_CENTER,	KEY_BREAK);
+		XLATKEYS.put(KEYCODE_BREAK,			KEY_BREAK);
+		XLATKEYS.put(KEYCODE_MOVE_END,		KEY_BREAK);
 		XLATKEYS.put(KEYCODE_SEARCH,		KEY_FIRE);
 		XLATKEYS.put(KEYCODE_SHIFT_LEFT,	KEY_SHIFT);
 		XLATKEYS.put(KEYCODE_SHIFT_RIGHT,	KEY_CONTROL);
+		XLATKEYS.put(KEYCODE_CTRL_LEFT,		KEY_CONTROL);
 		XLATKEYS.put(KEYCODE_DEL,			KEY_BACKSPACE);
 		XLATKEYS.put(KEYCODE_ENTER,			KEY_ENTER);
+		XLATKEYS.put(KEYCODE_ESCAPE,		KEY_ESCAPE);
+		XLATKEYS.put(KEYCODE_INSERT,		KEY_INSERT);
+		XLATKEYS.put(KEYCODE_FORWARD_DEL,	KEY_DELETE);
+		XLATKEYS.put(KEYCODE_MOVE_HOME,		KEY_CLEAR);
+		XLATKEYS.put(KEYCODE_NUM_LOCK,		KEY_CAPSTOGL);
+		XLATKEYS.put(KEYCODE_CAPS_LOCK,		KEY_CAPSTOGL);
+		XLATKEYS.put(KEYCODE_F1,			KEY_HELP);
+		XLATKEYS.put(KEYCODE_F2,			KEY_START);
+		XLATKEYS.put(KEYCODE_F3,			KEY_SELECT);
+		XLATKEYS.put(KEYCODE_F4,			KEY_OPTION);
+		XLATKEYS.put(KEYCODE_F5,			KEY_RESET);
+		XLATKEYS.put(KEYCODE_F6,			KEY_MENU);
+		XLATKEYS.put(KEYCODE_F7,			KEY_BREAK);
+		XLATKEYS.put(KEYCODE_F11,			KEY_SHFTCTRL1);
+		XLATKEYS.put(KEYCODE_F12,			KEY_SHFTCTRL2);
 		XLATKEYS.put(KC_BUTTON_X,			KEY_BT_X);
 		XLATKEYS.put(KC_BUTTON_Y,			KEY_BT_Y);
 		XLATKEYS.put(KC_BUTTON_L1,			KEY_BT_L1);
 		XLATKEYS.put(KC_BUTTON_R1,			KEY_BT_R1);
+		XLATKEYS.put(KEYCODE_BUTTON_A,		KEY_FIRE);
 	}
 }

@@ -27,6 +27,7 @@ struct joy_overlay_state
 	float  areaopacityset;
 	int    areaopacityfrm;
 	int    anchor;
+	int    anchor_saved_x, anchor_saved_y;
 	float  deadarea;
 	float  gracearea;
 
@@ -62,13 +63,14 @@ struct consolekey_overlay_state
 	enum   con_key hitkey;
 	int    statecnt;
 	int    resetcnt;
+	int    resetcnt_grace;
 	int    hotlen;
 
-	#define COVL_MAX_OPACITY 0.5f
+	#define COVL_MAX_OPACITY 0.85f
 	#define COVL_HOLD_TIME   150
 
-	#define RESET_SOFT 30
-	#define RESET_HARD 60
+	#define RESET_SOFT 10
+	#define RESET_HARD 30
 };
 
 extern struct joy_overlay_state AndroidInput_JoyOvl;
@@ -96,14 +98,17 @@ extern int Android_Joyleft;
 extern float Android_Splitpct;
 extern int Android_Split;
 extern int Android_DerotateKeys;
+extern int Android_A800Fns;
 extern int Android_Paddle;
-extern int Android_PlanetaryDefense;
+extern int Android_KoalaPad;
 extern SWORD Android_POTX;
 extern SWORD Android_POTY;
 extern UBYTE Android_ReversePddle;
 
 int  Android_TouchEvent(int x1, int y1, int s1, int x2, int y2, int s2);
 void Android_KeyEvent(int k, int s);
+void Android_JoystickAxesEvent(int port, int dir_bits);
+void Android_JoystickFireEvent(int port, int index, int trig);
 void Input_Initialize(void);
 void Keyboard_Enqueue(int key);
 int  Keyboard_Dequeue(void);

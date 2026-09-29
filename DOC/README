@@ -1,8 +1,8 @@
-  Free and portable Atari 800 Emulator for everybody, Version 4.2.0
+  Free and portable Atari 800 Emulator for everybody, Version 7.2.1
   -----------------------------------------------------------------
 
     Copyright (C) 1995 David Firth. E-Mail: david@signus.demon.co.uk
-    Copyright (C) 1998-2019 Atari800 Development Team.
+    Copyright (C) 1998-2026 Atari800 Development Team.
                             http://atari800.github.io/
 
     This program is free software; you can redistribute it and/or modify
@@ -23,14 +23,13 @@ It can be configured to run in the following ways :-
 	4. CBM Amiga
  	5. MS-DOS (DJGPP)
 	6. Atari Falcon/TT and compatible machines
-	7. MS Windows (DirectX)
-	8. SDL (running on _many_ platforms)
-	9. WinCE
-	10. Sega Dreamcast
-	11. JVM (Java applet)
-	12. Android
-	13. Raspberry Pi
-	14. libatari800 (platform independent) - the emulator core as a library
+	7. SDL (running on _many_ platforms)
+	8. WinCE
+	9. Sega Dreamcast
+	10. JVM (Java applet)
+	11. Android
+	12. Raspberry Pi
+	13. libatari800 (platform independent) - the emulator core as a library
 
 The "simple" version is only useful for running programs such as MAC65,
 Atari BASIC etc. I have had this version running on Linux,
@@ -60,6 +59,10 @@ The SDL version should compile on Unix, Win32, BeOS, etc... It's optimized for
 8, 16 and 32 color depth. Of course it will work fastest in 8bit. If you use it
 in XFree86 - please set "Depth=8" in XF86Config to gain maximum speed.
 Includes support for joystick and mouse.
+
+SDL2 is the primary SDL target with full feature support (paddle emulation,
+per-button remapping, analog axis tuning, joystick hotplug). SDL1 builds are
+limited to basic functionality.
 
 All versions supporting bitmapped graphics have a User Interface implemented
 on the emulator's "screen". The User Interface is enter by pressing F1 at any
@@ -95,7 +98,9 @@ o MapRAM memory enhancement for the XL/XE.
 
 o Cycle-exact 6502 emulation, all unofficial instructions.
 
-o Cycle-exact NMI interrupts, scanline-based POKEY interrupts.
+o Cycle-exact NMI interrupts.
+
+o Cycle-exact POKEY interrupts.
 
 o Cycle-exact ANTIC and GTIA emulation, all display modes.
 
@@ -110,7 +115,7 @@ o ATR, XFD, DCM, ATR.GZ, XFD.GZ and .PRO disk images.
 
 o Direct loading of Atari executable files and Atari BASIC programs.
 
-o 59 cartridge types, raw and CART format.
+o 86 cartridge types, raw and CART format.
 
 o Cassette recorder, raw and CAS images.
 
@@ -139,7 +144,12 @@ o Atari palette read from a file or calculated basing on user-defined
 
 o Screen snapshots (normal and interlaced) to PCX and PNG files.
 
-o Sound output may be written to WAV files.
+o Sound output may be written to WAV or MP3 files.
+
+o MP3 sound support if libmp3lame is available.
+
+o Emulator video and audio may be recorded to AVI files for playback in
+  video players or uploading to YouTube or other online platforms.
 
 o User interface on all versions supporting bitmapped graphics.
 

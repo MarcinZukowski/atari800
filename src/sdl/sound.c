@@ -41,6 +41,11 @@ static void SoundCallback(void *userdata, Uint8 *stream, int len)
 
 int PLATFORM_SoundSetup(Sound_setup_t *setup)
 {
+	unsigned int format;
+#ifndef USE_SDL_MIXER
+	SDL_AudioSpec desired;
+#endif
+
 	if (Sound_enabled)
 #ifdef USE_SDL_MIXER
 		Mix_CloseAudio();
@@ -52,7 +57,7 @@ int PLATFORM_SoundSetup(Sound_setup_t *setup)
 		return FALSE;
 	}
 
-	unsigned int format = setup->sample_size == 2 ? AUDIO_S16SYS : AUDIO_U8;
+	format = setup->sample_size == 2 ? AUDIO_S16SYS : AUDIO_U8;
 
 	if (setup->buffer_frames == 0)
 		/* Set buffer_frames automatically. */
@@ -67,9 +72,7 @@ int PLATFORM_SoundSetup(Sound_setup_t *setup)
 	}
 	Mix_HookMusic(SoundCallback, NULL);
 #else
-	/** Use native SDL */
-	SDL_AudioSpec desired;
-
+	/* Use native SDL */
 	desired.freq = setup->freq;
 	desired.format = format;
 	desired.channels = setup->channels;

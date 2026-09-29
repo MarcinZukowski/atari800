@@ -27,11 +27,11 @@ EXTRA_DIST = $(doc_DATA) \
 	TODO \
 	cart.txt \
 	coverage.txt \
-	directx.txt \
 	emuos.txt \
 	pokeysnd.txt \
 	r_device.txt \
 	rdevice_faq.txt \
 	readme.html.in \
 	trainer.txt \
+	versions.falcon \
 	$(empty)

@@ -22,7 +22,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-package name.nick.jubanka.colleen;
+package cz.pstehlik.colleen;
 
 import android.media.AudioTrack;
 import android.media.AudioFormat;
@@ -57,7 +57,7 @@ public final class AudioThread extends Thread
 		_chunk = (rate * bytes / (ntsc ? 60 : 50) + 3) / 4 * 4;
 		_bufsize = (hardmin > minbuf) ? hardmin : minbuf;
 		_bufsize = ((_bufsize + _chunk - 1) / _chunk * _chunk + 3) / 4 * 4;
-		_at = new AudioTrack(AudioManager.STREAM_MUSIC, rate, AudioFormat.CHANNEL_CONFIGURATION_MONO,
+		_at = new AudioTrack(AudioManager.STREAM_MUSIC, rate, AudioFormat.CHANNEL_OUT_MONO,
 							 format, _bufsize, AudioTrack.MODE_STREAM);
 		_buffer = new byte[_bufsize];
 		Log.d( TAG, String.format(

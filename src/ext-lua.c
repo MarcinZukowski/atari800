@@ -588,7 +588,7 @@ static int ext_lua_register(lua_State *L)
 	return 0;
 }
 
-void ext_lua_init()
+void ext_lua_init(void)
 {
 	printf("Initializing Lua\n");
 	L = luaL_newstate();
@@ -627,7 +627,7 @@ void ext_lua_init()
 		exit(1);
 	};
 
-	/* Register all files matching: data/ext/* /init.lua */
+	/* Register all files matching: data/ext/<name>/init.lua */
 	const char *dirname = "data/ext";
 	DIR *dir = opendir(dirname);
 	EXT_ASSERT_NOT_NULL(dir);

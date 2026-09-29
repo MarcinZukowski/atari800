@@ -30,6 +30,7 @@
 
 /* Three legitimate entries to UI module. */
 int UI_SelectCartType(int k);
+int UI_SelectCartTypeBetween(int *types);
 int UI_Initialise(int *argc, char *argv[]);
 void UI_Run(void);
 
@@ -55,13 +56,9 @@ extern int UI_show_hidden_files;
 #ifdef GUI_SDL
 void PLATFORM_SetJoystickKey(int joystick, int direction, int value);
 void PLATFORM_GetJoystickKeyName(int joystick, int direction, char *buffer, int bufsize);
+void PLATFORM_GetSpecialKeyName(int index, char *buffer, int bufsize);
+void PLATFORM_SetSpecialKey(int index, int sym);
 int GetRawKey(void);
-#endif
-
-#ifdef DIRECTX
-void PLATFORM_GetButtonAssignments(int stick, int button, char *buffer, int bufsize);
-void PLATFORM_SetButtonAssignment(int stick, int button, int value);
-int GetKeyName(void);
 #endif
 
 /* Menu codes for Alt+letter shortcuts.
@@ -87,12 +84,11 @@ int GetKeyName(void);
 #define UI_MENU_CASSETTE         18
 #define UI_MENU_CONTROLLER       19
 #define UI_MENU_WINDOWS	         20
+#define UI_MENU_QUICKSAVESTATE   21
+#define UI_MENU_QUICKLOADSTATE   22
+#define UI_MENU_SAVE_CONFIG      23
 
-#ifdef DIRECTX
-	#define UI_MENU_SAVE_CONFIG      21
-	#define UI_MENU_FUNCT_KEY_HELP   22
-	#define UI_MENU_HOT_KEY_HELP     23
-#endif
+#define UI_MENU_VIDEO_RECORDING  24
 
 /* Structure of menu item. Each menu is just an array of items of this structure
    terminated by UI_MENU_END */
@@ -199,6 +195,7 @@ typedef void (*UI_fnInit)(void);
 /* Bit masks for flags */
 #define UI_SELECT_POPUP   0x01
 #define UI_SELECT_DRAG    0x02
+#define UI_SELECT_JOY_BTN 0x04
 
 /* Values returned via seltype */
 #define UI_USER_SELECT    1

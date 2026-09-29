@@ -82,7 +82,7 @@ void ext_register_ext(ext_state *state)
 	states[num_states++] = state;
 }
 
-void ext_init()
+void ext_init(void)
 {
 #ifdef WITH_EXT_LUA
 	ext_lua_init();
@@ -105,7 +105,7 @@ void ext_init()
 	}
 }
 
-static void ext_menu()
+static void ext_menu(void)
 {
 	int i;
 
@@ -267,7 +267,7 @@ static int prev_ANTIC_xpos_limit;
 static int prev_ANTIC_delayed_wsync;
 static FILE *prev_MONITOR_trace_file;
 
-static void ext_fakecpu_init()
+static void ext_fakecpu_init(void)
 {
 	assert(!faking_cpu);
 	faking_cpu = 1;
@@ -281,7 +281,7 @@ static void ext_fakecpu_init()
 	prev_MONITOR_trace_file = MONITOR_trace_file;
 }
 
-static void ext_fakecpu_do_one()
+static void ext_fakecpu_do_one(void)
 {
 	assert(faking_cpu);
 
@@ -295,7 +295,7 @@ static void ext_fakecpu_do_one()
 	CPU_GO(1);
 }
 
-static void ext_fakecpu_finish()
+static void ext_fakecpu_finish(void)
 {
 	ANTIC_wsync_halt = prev_ANTIC_wsync_halt;
 	CPU_IRQ = prev_CPU_IRQ;
@@ -354,7 +354,7 @@ int ext_fakecpu_until_after_op(int end_op)
 
 static int sound_initialized = FALSE;
 
-static void ext_sound_initialize()
+static void ext_sound_initialize(void)
 {
 	if (sound_initialized) {
 		return;
@@ -373,7 +373,7 @@ static void ext_sound_initialize()
 #endif
 }
 
-static ext_sound* ext_sound_alloc()
+static ext_sound* ext_sound_alloc(void)
 {
 	ext_sound_initialize();
 

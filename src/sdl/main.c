@@ -43,6 +43,7 @@
 #include "monitor.h"
 #include "platform.h"
 #ifdef SOUND
+#include "../pokeysnd.h"
 #include "../sound.h"
 #endif
 #ifdef USE_UI_BASIC_ONSCREEN_KEYBOARD
@@ -56,6 +57,21 @@
 #ifdef WITH_EXT
 #include "../ext.h"
 #endif
+
+void PLATFORM_ConfigInit(void)
+{
+#if defined(SOUND) && defined(__MINT__)
+	/* too slow on Falcon */
+	POKEYSND_enable_new_pokey = FALSE;
+	/* set default desired sound */
+	Sound_desired.freq = 24585;
+	Sound_desired.sample_size = 1;
+	Sound_desired.channels = 2;
+	Sound_desired.buffer_ms = 40;
+	/* same as hardware buffer size */
+	Sound_latency = 40;
+#endif
+}
 
 int PLATFORM_Configure(char *option, char *parameters)
 {
@@ -83,17 +99,14 @@ int PLATFORM_Initialise(int *argc, char *argv[])
 	*argc = j;
 
 	if (!help_only) {
-		i = SDL_INIT_JOYSTICK
 #if HAVE_WINDOWS_H
-/* Timers are used to avoid one Windows 7 glitch, see src/sdl/input.c */
-		    | SDL_INIT_TIMER
-#endif /* HAVE_WINDOWS_H */
-		;
-		if (SDL_InitSubSystem(i) != 0) {
+		/* Timers are used to avoid one Windows 7 glitch, see src/sdl/input.c */
+		if (SDL_InitSubSystem(SDL_INIT_TIMER) != 0) {
 			Log_print("SDL_InitSubSystem FAILED: %s", SDL_GetError());
 			Log_flushlog();
 			exit(-1);
 		}
+#endif /* HAVE_WINDOWS_H */
 	}
 
 	if (!SDL_VIDEO_Initialise(argc, argv)
@@ -109,34 +122,25 @@ int PLATFORM_Initialise(int *argc, char *argv[])
 int PLATFORM_Exit(int run_monitor)
 {
 	SDL_INPUT_Exit();
-	/* If the SDL window was left not closed, it would be unusable and hanging
-	   for the time the monitor is active. Also, with SDL_VIDEODRIVER=directx all
-	   keyboard presses in console would be still fetched by the SDL window after
-	   leaving the monitor. To avoid the problems, close the video subsystem. */
-	SDL_VIDEO_Exit();
-	Log_flushlog();
-
 	if (run_monitor) {
+		/* disable graphics, set alpha mode */
+		VIDEOMODE_ForceWindowed(TRUE);
 #ifdef SOUND
 		Sound_Pause();
 #endif
 		if (MONITOR_Run()) {
-			/* Reinitialise the SDL subsystem. */
-#ifdef MONITOR_BREAK
-			if (!MONITOR_break_step) /*Do not initialise videomode when stepping through code */
-#endif
-			{
-				SDL_VIDEO_InitSDL();
-				SDL_INPUT_Restart();
-				/* This call reopens the SDL window. */
-				VIDEOMODE_Update();
-			}
-	#ifdef SOUND
+			/* set up graphics and all the stuff */
+			VIDEOMODE_ForceWindowed(FALSE);
+			SDL_INPUT_Restart();
+#ifdef SOUND
 			Sound_Continue();
-	#endif
+#endif
 			return 1;
 		}
 	}
+
+	SDL_VIDEO_Exit();
+	Log_flushlog();
 
 	return 0;
 }
@@ -160,6 +164,14 @@ static BOOL CtrlHandler(DWORD fdwCtrlType)
 	}
 }
 #endif /* HAVE_WINDOWS_H */
+
+#ifdef USE_UI_BASIC_ONSCREEN_KEYBOARD
+/* Console key picked from the on-screen keyboard, held pressed for
+   OSK_CONSOL_FRAMES frames (same idea as the Dreamcast port's OVR_DELAY). */
+#define OSK_CONSOL_FRAMES 5
+static int osk_consol_mask = 0;
+static int osk_consol_delay = 0;
+#endif
 
 int main(int argc, char **argv)
 {
@@ -191,16 +203,31 @@ int main(int argc, char **argv)
 	for (;;) {
 		INPUT_key_code = PLATFORM_Keyboard();
 #ifdef USE_UI_BASIC_ONSCREEN_KEYBOARD
+		if (osk_consol_delay > 0) {
+			/* Keep a console key picked from the on-screen keyboard
+			   pressed for whole frames; PLATFORM_Keyboard() recomputes
+			   INPUT_key_consol from the physical keyboard every call,
+			   which would otherwise erase the pick before the emulated
+			   machine sees it. */
+			INPUT_key_consol &= ~osk_consol_mask;
+			if (--osk_consol_delay == 0)
+				osk_consol_mask = 0;
+		}
 		if (INPUT_key_code == AKEY_KEYB) {
 			Sound_Pause();
 			UI_BASIC_in_kbui = TRUE;
-			INPUT_key_code = UI_BASIC_OnScreenKeyboard(NULL, 0);
+			INPUT_key_code = UI_BASIC_OnScreenKeyboard(NULL, Atari800_machine_type);
 			UI_BASIC_in_kbui = FALSE;
 			switch (INPUT_key_code) {
-				case AKEY_OPTION: INPUT_key_consol &= (~INPUT_CONSOL_OPTION); break;
-				case AKEY_SELECT: INPUT_key_consol &= (~INPUT_CONSOL_SELECT); break;
-				case AKEY_START: INPUT_key_consol &= (~INPUT_CONSOL_START); break;
+				case AKEY_OPTION: osk_consol_mask |= INPUT_CONSOL_OPTION; osk_consol_delay = OSK_CONSOL_FRAMES; break;
+				case AKEY_SELECT: osk_consol_mask |= INPUT_CONSOL_SELECT; osk_consol_delay = OSK_CONSOL_FRAMES; break;
+				case AKEY_START: osk_consol_mask |= INPUT_CONSOL_START; osk_consol_delay = OSK_CONSOL_FRAMES; break;
 			}
+
+			/* flush keypresses so the key used to confirm the
+			 * on-screen keyboard does not reach the emulator */
+			while (PLATFORM_Keyboard() != AKEY_NONE)
+				Atari800_Sync();
 
 			Sound_Continue();
 		}

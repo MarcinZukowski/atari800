@@ -3,9 +3,42 @@
 
 #include <stdio.h>
 
+#if SDL2
+enum INPUT_joystick_diagonals {
+	JoystickNoDiagonals = 0,
+	JoystickNarrowDiagonalsZone,
+	JoystickWideDiagonalsZone,
+};
+enum INPUT_joystick_button_action {
+	JoystickNoAction = 0,
+	JoystickUiAction,
+	JoystickAtariKey,
+	JoystickKeyboard
+};
+struct INPUT_joystick_button {
+	enum INPUT_joystick_button_action action; // type of action
+	int key; // an AKEY or UI_MENU_* or SDL_Keycode, depending on the action type
+};
+#define INPUT_JOYSTICK_MAX_BUTTONS 15
+#endif
+
+/* Where a joystick port takes its direction from. Auto reads the hat when
+   the device has one and does not have the configured axis pair, and the
+   axes otherwise; the other two are followed whatever the device offers. */
+#define JOY_USE_HAT_AUTO (-1)
+#define JOY_USE_HAT_NO   0
+#define JOY_USE_HAT_YES  1
+
 /*Configuration of a real SDL joystick*/
 typedef struct SDL_INPUT_RealJSConfig_t {
-	int use_hat;    
+	int use_hat;
+#if SDL2
+	int axes;
+	enum INPUT_joystick_diagonals diagonal_zones;
+	int buttons_custom; /* buttons were set by user config or UI; defaults should not override */
+	int diagonals_custom; /* diagonal zones were set by user config or UI; defaults should not override */
+	struct INPUT_joystick_button buttons[INPUT_JOYSTICK_MAX_BUTTONS];
+#endif
 } SDL_INPUT_RealJSConfig_t;
 
 int SDL_INPUT_ReadConfig(char *option, char *parameters);
@@ -20,5 +53,26 @@ void SDL_INPUT_Mouse(void);
 
 /*Get pointer to a real joystick configuration (for UI)*/
 SDL_INPUT_RealJSConfig_t* SDL_INPUT_GetRealJSConfig(int joyIndex);
+
+/* Per-port input source assignment (for UI) */
+#define JOY_MODE_NONE        0
+#define JOY_MODE_KBD0        1
+#define JOY_MODE_KBD1        2
+#define JOY_MODE_PARALLEL    3
+#define JOY_MODE_HOST_JOY    4
+#define JOY_MODE_PADDLE      5
+
+int SDL_INPUT_GetNumHostJoysticks(void);
+const char *SDL_INPUT_GetHostJoystickName(int index);
+const char *SDL_INPUT_GetHostJoystickDisplayName(int index);
+int SDL_INPUT_GetNumLPTJoysticks(void);
+const char *SDL_INPUT_GetPortSourceName(int port);
+/* Direction source a port actually reads, once JOY_USE_HAT_AUTO is resolved */
+int SDL_INPUT_GetPortUsesHat(int port);
+int SDL_INPUT_GetPortMode(int port);
+int SDL_INPUT_GetPortParam(int port);
+void SDL_INPUT_SetPortMode(int port, int mode, int param);
+void SDL_INPUT_SetPortPaddleConfig(int port, int potA, int potB, int btnA, int btnB);
+void SDL_INPUT_GetPortPaddleConfig(int port, int *potA, int *potB, int *btnA, int *btnB);
 
 #endif /* SDL_INPUT_H_ */

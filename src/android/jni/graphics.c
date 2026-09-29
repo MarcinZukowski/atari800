@@ -52,7 +52,9 @@ int Android_ScreenH = 0;
 int Android_Aspect;
 int Android_CropScreen[] = {0, SCREEN_HEIGHT, SCANLINE_LEN, -SCREEN_HEIGHT};
 int Android_PortPad;
+int Android_TopInset;
 int Android_CovlHold;
+float Android_DisplayDensity = 1.0f;
 static struct RECT screenrect;
 static int screenclear;
 int Android_Bilinear;
@@ -105,6 +107,7 @@ void Android_PaletteUpdate(void)
 int Android_InitGraphics(void)
 {
 	const UWORD poly[] = { 0,16, 24,16, 32,0, 8,0 };
+	const UWORD rect_poly[] = { 0,16, 24,16, 24,0, 0,0 };
 	int i, tmp, w, h;
 	float tmp2, tmp3;
 	struct RECT *r;
@@ -159,45 +162,98 @@ int Android_InitGraphics(void)
 	}
 
 	/* Console keys' polygons */
-	tmp2 = ((float) (Android_ScreenW >> 1)) / ((float) 4.5f * poly[4]);
-	tmp3 = ((float) Android_ScreenH) / ((float) 14 * poly[1]);
-	if (tmp2 > tmp3)
-		tmp2 = tmp3;
-	if (tmp2 < 2.0f)
-		tmp2 = 2.0f;
-	for (i = 0; i < CONK_VERT_MAX; i += 2) {
-		/* generate & scale */
-		conkey_vrt[i    ] = poly[i % 8] * tmp2 +
-							((i > 7) ? (conkey_vrt[(i / 8 - 1) * 8 + 2] + 4) : 0);
-		conkey_vrt[i + 1] = poly[(i + 1) % 8] * tmp2;
-	}
-	tmp = Android_ScreenW - conkey_vrt[CONK_VERT_MAX - 4];
-	for (i = 0; i < CONK_VERT_MAX; i += 2) {
-		/* translate */
-		conkey_vrt[i    ] += tmp;
-		conkey_vrt[i + 1] += (4 + ((Android_ScreenW < Android_ScreenH) ? Android_PortPad : 0));
-	}
-
-	/* Determine location of console keys' labels. */
 	{
-		int key_w = conkey_vrt[2] - conkey_vrt[0];
-		int key_h = conkey_vrt[3] - conkey_vrt[5];
-		int key_h_slant = conkey_vrt[6] - conkey_vrt[0];
-		int label_w = key_w * key_h * 4 / (key_h_slant + key_h*4);
-		int label_h = label_w / 4;
-		for (i = 0; i < CONK_NUM; ++i) {
-			conkey_lbl[i].x = conkey_vrt[i*8 + 6];
-			conkey_lbl[i].y = Android_ScreenH - (conkey_vrt[i*8 + 7] + label_h + 1);
-			conkey_lbl[i].w = label_w;
-			conkey_lbl[i].h = label_h;
+		int landscape = Android_ScreenW > Android_ScreenH;
+		const UWORD *use_poly = landscape ? rect_poly : poly;
+		tmp2 = ((float) (Android_ScreenW >> 1)) / ((float) 4.5f * use_poly[4]);
+		tmp3 = ((float) Android_ScreenH) / ((float) 14 * use_poly[1]);
+		if (tmp2 > tmp3)
+			tmp2 = tmp3;
+		if (tmp2 < 2.0f)
+			tmp2 = 2.0f;
+		tmp2 *= (1.0f + (Android_DisplayDensity - 1.0f) * 0.30f);
+		if (landscape) {
+			/* Vertical stacking on right side - reversed order (RESET at top) */
+			int ki;
+			for (ki = CONK_NUM - 1; ki >= 0; --ki) {
+				int ci = ki * 8;
+				int above_bottom = (ki < CONK_NUM - 1) ? ((ki + 1) * 8 + 1) : -1;
+				int j;
+				for (j = 0; j < 8; j += 2) {
+					conkey_vrt[ci + j    ] = rect_poly[j] * tmp2;
+					conkey_vrt[ci + j + 1] = rect_poly[j + 1] * tmp2 +
+						(above_bottom >= 0 ? (conkey_vrt[above_bottom] + 4) : 0);
+				}
+			}
+			/* Align to right edge with small margin so line isn't clipped */
+			tmp = Android_ScreenW - conkey_vrt[CONK_VERT_MAX - 4] - 2;
+			/* Position column near top of screen */
+			tmp3 = 20 - conkey_vrt[CONK_VERT_MAX - 1];
+			for (i = 0; i < CONK_VERT_MAX; i += 2) {
+				conkey_vrt[i    ] += tmp;
+				conkey_vrt[i + 1] += tmp3;
+			}
+		} else {
+			/* Horizontal bar at top (original) */
+			for (i = 0; i < CONK_VERT_MAX; i += 2) {
+				/* generate & scale */
+				conkey_vrt[i    ] = poly[i % 8] * tmp2 +
+					((i > 7) ? (conkey_vrt[(i / 8 - 1) * 8 + 2] + 4) : 0);
+				conkey_vrt[i + 1] = poly[(i + 1) % 8] * tmp2;
+			}
+			tmp = Android_ScreenW - conkey_vrt[CONK_VERT_MAX - 4];
+			for (i = 0; i < CONK_VERT_MAX; i += 2) {
+				/* translate */
+				conkey_vrt[i    ] += tmp;
+				conkey_vrt[i + 1] += (4 + Android_PortPad + Android_TopInset);
+			}
+		}
+
+		/* Determine location of console keys' labels. */
+		{
+			int key_w = conkey_vrt[2] - conkey_vrt[0];
+			int key_h = conkey_vrt[3] - conkey_vrt[5];
+			int key_h_slant = conkey_vrt[6] - conkey_vrt[0];
+			int label_w = key_w * key_h * 4 / (key_h_slant + key_h*4);
+			int label_h = label_w / 4;
+			int lbl_w, lbl_h;
+			if (landscape) {
+				lbl_w = key_w * 3 / 4;
+				lbl_h = lbl_w / 4;
+			} else {
+				lbl_w = label_w;
+				lbl_h = label_h;
+			}
+			for (i = 0; i < CONK_NUM; ++i) {
+				if (landscape) {
+					int key_top = conkey_vrt[i*8 + 7];
+					int key_bottom = conkey_vrt[i*8 + 1];
+					int key_center_y = (key_top + key_bottom) / 2;
+					conkey_lbl[i].x = conkey_vrt[i*8 + 0] + (key_w - lbl_w) / 2;
+					conkey_lbl[i].y = Android_ScreenH - (key_center_y + lbl_h / 2);
+					conkey_lbl[i].w = lbl_w;
+					conkey_lbl[i].h = lbl_h;
+				} else {
+					conkey_lbl[i].x = conkey_vrt[i*8 + 6];
+					conkey_lbl[i].y = Android_ScreenH - (conkey_vrt[i*8 + 7] + label_h + 1);
+					conkey_lbl[i].w = label_w;
+					conkey_lbl[i].h = label_h;
+				}
+			}
 		}
 	}
 
 	AndroidInput_ConOvl.keycoo = conkey_vrt;
 	AndroidInput_ConOvl.bbox.l = conkey_vrt[0];
-	AndroidInput_ConOvl.bbox.b = conkey_vrt[1];
+	if (Android_ScreenW > Android_ScreenH) {
+		/* Reversed order: key 4 at top, key 0 at bottom */
+		AndroidInput_ConOvl.bbox.t = conkey_vrt[CONK_VERT_MAX - 1];
+		AndroidInput_ConOvl.bbox.b = conkey_vrt[1];
+	} else {
+		AndroidInput_ConOvl.bbox.b = conkey_vrt[1];
+		AndroidInput_ConOvl.bbox.t = conkey_vrt[CONK_VERT_MAX - 3];
+	}
 	AndroidInput_ConOvl.bbox.r = conkey_vrt[CONK_VERT_MAX - 4];
-	AndroidInput_ConOvl.bbox.t = conkey_vrt[CONK_VERT_MAX - 3];
 	AndroidInput_ConOvl.hotlen = 0.1f *
 			(Android_ScreenW < Android_ScreenH ? Android_ScreenW : Android_ScreenH);
 	r = &(AndroidInput_ConOvl.bbox);
@@ -210,7 +266,17 @@ int Android_InitGraphics(void)
 	conkey_shadow[6] = r->l - COVL_SHADOW_OFF;
 	conkey_shadow[7] = r->t - COVL_SHADOW_OFF;
 
+	/* Force console keys visible if previously hidden */
+	if (AndroidInput_ConOvl.ovl_visible == COVL_HIDDEN || AndroidInput_ConOvl.ovl_visible == COVL_FADEOUT) {
+		AndroidInput_ConOvl.ovl_visible = COVL_READY;
+		AndroidInput_ConOvl.opacity = COVL_MAX_OPACITY;
+		AndroidInput_ConOvl.statecnt = COVL_HOLD_TIME << 1;
+		AndroidInput_ConOvl.hitkey = CONK_NOKEY;
+	}
+
 	/* Scale joystick overlays */
+	if (AndroidInput_JoyOvl.anchor)
+		AndroidInput_JoyOvl.joyarea.t = AndroidInput_JoyOvl.anchor_saved_y;
 	Joyovl_Scale();
 	Joy_Reposition();
 
@@ -237,7 +303,7 @@ int Android_InitGraphics(void)
 		tmp = (h - screenrect.b + 1) / 2;
 		if (tmp < 0)
 			tmp = 0;
-		tmp = (Android_ScreenH - h) + tmp - ((Android_ScreenW < Android_ScreenH) ? Android_PortPad : 0);
+		tmp = (Android_ScreenH - h) + tmp - ((Android_ScreenW < Android_ScreenH) ? (Android_PortPad + Android_TopInset) : 0);
 		screenrect.t += tmp;
 		screenclear = TRUE;
 	} else {
@@ -246,7 +312,6 @@ int Android_InitGraphics(void)
 		screenrect.h = Android_ScreenH;
 		screenclear = FALSE;
 	}
-
 	/* Initialize palette */
 	Android_PaletteUpdate();
 
@@ -263,7 +328,7 @@ void Joyovl_Scale(void)
 		AndroidInput_JoyOvl.joyarea.r = AndroidInput_JoyOvl.joyarea.l + tmp;
 		AndroidInput_JoyOvl.joyarea.b = AndroidInput_JoyOvl.joyarea.t + tmp;
 	} else {
-		if (!Android_PlanetaryDefense) {
+		if (!Android_KoalaPad) {
 			AndroidInput_JoyOvl.joyarea.l = Android_Joyleft ? BORDER_PCT * Android_ScreenW : Android_Split;
 			AndroidInput_JoyOvl.joyarea.r = Android_Joyleft ? Android_Split : (1.0f - BORDER_PCT) * Android_ScreenW;
 			AndroidInput_JoyOvl.joyarea.b = AndroidInput_JoyOvl.joyarea.t + 8 + (tmp >> 3);
@@ -334,8 +399,14 @@ void Android_Render(void)
 										{65, 34, 40, -9},
 										{65, 44, 40, -9},
 										{65, 54, 40, -9}  };
+	const static int crop_lbl_vert[][4] = { {0, 78, 40, -10},
+											{0, 88, 40, -10},
+											{0, 98, 40, -10},
+											{0, 108, 40, -10},
+											{0, 118, 40, -10}  };
 	const static int crop_all[] = {0, 64, 128, -64};
 	const struct RECT *r;
+	int landscape = Android_ScreenW > Android_ScreenH;
 	const struct POINT *p;
 	int i;
 
@@ -410,7 +481,7 @@ ck:	if (AndroidInput_ConOvl.ovl_visible) {
 
 		glColor4f(1.0f, 1.0f, 1.0f, AndroidInput_ConOvl.opacity);
 		for (i = 0; i < CONK_NUM; ++i) {
-			glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_CROP_RECT_OES, crop_lbl[i]);
+			glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_CROP_RECT_OES, landscape ? crop_lbl_vert[i] : crop_lbl[i]);
 			glDrawTexiOES(conkey_lbl[i].x, conkey_lbl[i].y, 0, conkey_lbl[i].w, conkey_lbl[i].h);
 		}
 		if (glGetError() != GL_NO_ERROR) Log_print("OpenGL error at console overlay");
@@ -480,6 +551,7 @@ void Update_Overlays(void)
 		;
 	}
 	if (c->hitkey == CONK_RESET) {
+		c->resetcnt_grace = 0;
 		if (c->resetcnt >= RESET_HARD) {
 			Atari800_Coldstart();
 		} else if (c->resetcnt >= RESET_SOFT) {
@@ -488,7 +560,11 @@ void Update_Overlays(void)
 		}
 		c->resetcnt++;
 	} else {
-		c->resetcnt = 0;
+		if (c->resetcnt > 0 && c->resetcnt_grace < 5) {
+			c->resetcnt_grace++;
+		} else if (c->resetcnt > 0) {
+			c->resetcnt = 0;
+		}
 	}
 }
 

@@ -73,6 +73,7 @@
  */
 
 #include "config.h"
+#define _POSIX_C_SOURCE 200112L  /* for snprintf() in stdio.h on Linux */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -819,9 +820,9 @@ static void open_connection(char * address, int port)
 #if defined(R_SERIAL) && !defined(DREAMCAST)
 #ifdef __linux__
 #define TTY_DEV_NAME "/dev/ttyS0"   /* Linux */
-#elif defined (__NetBSD__) && defined(__i386__)
+#elif defined (__NetBSD__) && (defined(__i386__) || defined(__amd64__))
 #define TTY_DEV_NAME "/dev/tty00"   /* NetBSD/x86 */
-#elif defined (__FreeBSD__) && defined(__i386__)
+#elif defined (__FreeBSD__) && (defined(__i386__) || defined(__amd64__))
 #define TTY_DEV_NAME "/dev/ttyd1"   /* FreeBSD/x86 */
 #elif defined (__sun__)
 #define TTY_DEV_NAME "/dev/ttya"    /* Solaris */
