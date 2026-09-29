@@ -14,7 +14,6 @@
 #include "ext/ext-altreal.h"
 #include "ext/ext-bjl.h"
 #include "ext/ext-mercenary.h"
-#include "ext/ext-river-raid.h"
 #include "ext/ext-yoomp.h"
 #include "ext/ext-zybex.h"
 
@@ -99,13 +98,13 @@ void ext_init(void)
 #endif
 
 /*  These extensions have been replaced by their JavaScript implementation
+	ext_register_ext(ext_register_river_raid());
 	ext_register_ext(ext_register_yoomp());
 	ext_register_ext(ext_register_zybex());
 	ext_register_ext(ext_register_altreal());
 	ext_register_ext(ext_register_bjl());
 */
 	ext_register_ext(ext_register_mercenary());
-	ext_register_ext(ext_register_river_raid());
 
 /* Can be set to a particual extension during development
 	set_current_state(states[5]);
