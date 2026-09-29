@@ -72,13 +72,4 @@ char *ext_fps_str(int previous_value);
 /* Acceleration is disabled on CTRL, can be used by extensions */
 int ext_acceleration_disabled(void);
 
-typedef struct {
-	/* Internal data structure for sounds, not exposed */
-	void* data;
-} ext_sound;
-
-ext_sound* ext_sound_load(const char* fname);
-void ext_sound_play(ext_sound *snd);
-
-
 #endif   /* EXT_H */

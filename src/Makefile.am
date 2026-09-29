@@ -204,11 +204,7 @@ endif
 if WITH_EXT
 atari800_SOURCES += \
 	ext.c ext.h \
-	sdl/sfx.c sdl/sfx.h \
-	ext/ext-altreal.c ext/ext-altreal.h \
-	ext/ext-bjl.c ext/ext-bjl.h \
-	ext/ext-yoomp.c ext/ext-yoomp.h \
-	ext/ext-zybex.c ext/ext-zybex.h
+	sdl/sfx.c sdl/sfx.h
 endif
 if WITH_EXT_JS
 atari800_SOURCES += \
@@ -384,7 +380,6 @@ CLEANFILES += roms/*.o roms/*.bak roms/*~
 CLEANFILES += dos/*.o dos/*.bak dos/*~
 CLEANFILES += falcon/*.o falcon/*.bak falcon/*~
 CLEANFILES += sdl/*.o sdl/*.bak sdl/*~
-CLEANFILES += ext/*.o ext/*.bak ext/*~
 CLEANFILES += javanvm/*.o javanvm/*.bak javanvm/*~
 CLEANFILES += atari_ntsc/*.o atari_ntsc/*.bak atari_ntsc/*~
 CLEANFILES += libatari800/*.o libatari800/*.bak libatari800/*~

@@ -1,52 +1,42 @@
 #!/bin/bash -ex
+# Build helper for the extensions fork, specific to a macOS + Homebrew setup.
+#   src/ext/helper bootstrap   configure from scratch into build/
+#   src/ext/helper install     build and install into local/
+#   src/ext/helper clean       remove the objects
+# If the default Command Line Tools SDK is broken, export SDKROOT first, e.g.
+#   export SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk
 
 function bootstrap()
 {
-# Some switches to disable a bunch of warnings
-#    -Wno-c99-extensions \
-#    -Wno-declaration-after-statement \
-#    -Wno-missing-prototypes \
-#    -Wno-long-long \
-#    -Wno-comment \
-#    -Wno-variadic-macros \
-
   rm -rf build
   mkdir -p build
   ./autogen.sh
   cd build
 
-  export CFLAGS="-g "
+  # Homebrew on Apple Silicon is not on the compiler's default search paths
+  BREW=$(brew --prefix)
+  export CC=gcc
+  export CFLAGS="-g"
+  export CPPFLAGS="-I$BREW/include"
+  export LDFLAGS="-L$BREW/lib -L$BREW/opt/quickjs/lib/quickjs"
 
-  if true ; then
-    # gcc
-    export CC="ccache gcc"
-    export CFLAGS+=" -I /usr/local/include"
-  else
-    # clang
-    export CC="ccache clang"
-    export CFLAGS+="\
-      -fsanitize=address \
-      -Wno-gcc-compat \
-      -Werror=incompatible-function-pointer-types \
-    "
-  fi
-
-  ../configure --prefix $PWD/../local \
+  ../configure --prefix "$PWD/../local" \
     --with-video=sdl --with-opengl --enable-opengl-by-default \
     --enable-monitorbreakpoints --enable-monitorprofile --enable-monitortrace \
     --enable-seriosound \
-    --with-sound=sdlmixer --with-ext --with-ext-lua
+    --with-sound=sdl --with-ext --with-ext-js
   cd -
 }
 
 install()
 {
-  VERBOSE=1 SHELL='sh -x' make V=1 -C build -j 4 install
+  make -C build -j 8 install
 }
 
 clean()
 {
-  make -C build clean
+  # upstream's "make clean" fails in an out-of-tree build directory
+  find build -name '*.o' -delete
 }
 
-$1
+"$1"

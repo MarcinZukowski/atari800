@@ -5,16 +5,11 @@
 #endif
 
 #include <SDL.h>
-#include "sdl/sfx.h"
 
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "ext/ext-altreal.h"
-#include "ext/ext-bjl.h"
-#include "ext/ext-yoomp.h"
-#include "ext/ext-zybex.h"
 
 #include "antic.h"
 #include "cpu.h"
@@ -96,21 +91,7 @@ void ext_init(void)
 	ext_js_init();
 #endif
 
-/*  These extensions have been replaced by their JavaScript implementation
-	ext_register_ext(ext_register_mercenary());
-	ext_register_ext(ext_register_river_raid());
-	ext_register_ext(ext_register_yoomp());
-	ext_register_ext(ext_register_zybex());
-	ext_register_ext(ext_register_altreal());
-	ext_register_ext(ext_register_bjl());
-*/
 
-/* Can be set to a particual extension during development
-	set_current_state(states[5]);
-*/
-	if (current_state) {
-		current_state->initialize(current_state);
-	}
 }
 
 static void ext_menu(void)
@@ -366,28 +347,4 @@ int ext_fakecpu_until_op(int end_op)
 int ext_fakecpu_until_after_op(int end_op)
 {
 	return ext_fakecpu_until(/*end_pc=*/ 0, end_op, /*after=*/ 1);
-}
-
-/* **************************** SOUNDS **************************************** */
-
-ext_sound* ext_sound_load(const char* fname)
-{
-	ext_sound *snd;
-	SDL_SFX_sample *sample;
-
-	printf("Loading sound: %s\n", fname);
-	sample = SDL_SFX_Load(fname);
-	if (sample == NULL) {
-		EXT_ERROR("Cannot load sound %s", fname);
-	}
-	snd = malloc(sizeof(ext_sound));
-	EXT_ASSERT_NOT_NULL(snd);
-	snd->data = sample;
-	return snd;
-}
-
-void ext_sound_play(ext_sound *snd)
-{
-	EXT_ASSERT_NOT_NULL(snd);
-	SDL_SFX_Play((SDL_SFX_sample *) snd->data);
 }

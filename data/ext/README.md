@@ -19,7 +19,7 @@ Generic functionality (`ext.c`):
 * menu helpers
 * code-injection / "fake CPU" helpers
 
-Extension-specific (`ext/*.c`) functionality and hooks (see `ext_state`  in `ext.h`):
+Extension-specific functionality and hooks (see `ext_state` in `ext.h`, and the JavaScript view of it below):
 
 * inject code _before_ an Atari frame is rendered (`pre_gl_frame`).
 
@@ -141,8 +141,7 @@ Some notes:
 * It was designed to work only with the SDL 1.2/OpenGL backend.
   * A lot of functionality had to be added there
 * A bunch of small injections had to be made in multiple places.
-* I used more modern C functionality, so it might not work on some platforms.
-  See `src/ext/helper` for compiler flags I changed.
+* The extension code is C99, so `--with-ext` builds drop upstream's `-ansi -pedantic` flags.
 * Developed, and only tested on MacOSX.
   * A `src/ext/helper` tool exists for simplifying compilation, very specific to my setup
     ```
@@ -154,17 +153,17 @@ Some notes:
 
 These games are also discussed in [this video on YouTube](https://www.youtube.com/watch?v=075qLp5kIlc).
 
-* Yoomp: [yoomp/init.js](yoomp/init.js), [ext-yoomp.c](../../src/ext/ext-yoomp.c) (old C code, now ported to JavaScript)
+* Yoomp: [yoomp/init.js](yoomp/init.js) (originally in C, now JavaScript)
   * various 3D balls
   * one high-res background
 * Mercenary: [mercenary/init.js](mercenary/init.js), [mercenary.md](mercenary/mercenary.md) (originally in C, now JavaScript)
   * accelerated Atari-like line drawing
   * OpenGL-based line drawing (3 types)
-* Zybex: [zybex/init.js](zybex/init.js), [zybex.md](zybex/zybex.md), [ext-zybex.c](../../src/ext/ext-zybex.c) (old C code, now ported to JavaScript)
+* Zybex: [zybex/init.js](zybex/init.js), [zybex.md](zybex/zybex.md) (originally in C, now JavaScript)
   * scrolling background (grayscale and color modes)
-* Behind Jaggi Lines: [bjl/init.js](bjl/init.js), [ext-bjl.c](../../src/ext/ext-bjl.c) (old C code, now ported to JavaScript)
+* Behind Jaggi Lines: [bjl/init.js](bjl/init.js) (originally in C, now JavaScript)
   * faster rendering
-* Alternate Reality: [altreal/init.js](altreal/init.js), [altreal.md](altreal.md), [ext-altreal.c](../../src/ext/ext-altreal.c) (old C code, now ported to JavaScript)
+* Alternate Reality: [altreal/init.js](altreal/init.js), [altreal.md](altreal.md) (originally in C, now JavaScript)
   * faster rendering
 * River Raid: [river-raid/init.js](river-raid/init.js), [river-raid.md](river-raid/river-raid.md) (originally in C, now JavaScript)
   * 3D rendering
