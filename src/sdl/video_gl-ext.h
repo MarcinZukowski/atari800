@@ -31,9 +31,4 @@ struct gl_obj* gl_obj_load(const char *path);
 void gl_obj_render(struct gl_obj *o);
 void gl_obj_render_colorized(struct gl_obj *o, float multR, float multG, float multB);
 
-#ifdef WITH_EXT_LUA
-struct lua_State;
-void gl_lua_ext_init(struct lua_State *L);
-#endif
-
 #endif  /* SDL_VIDEO_GL_EXT_H */

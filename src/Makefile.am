@@ -212,9 +212,10 @@ atari800_SOURCES += \
 	ext/ext-yoomp.c ext/ext-yoomp.h \
 	ext/ext-zybex.c ext/ext-zybex.h
 endif
-if WITH_EXT_LUA
+if WITH_EXT_JS
 atari800_SOURCES += \
-	ext-lua.c ext-lua.h
+	ext-js.c ext-js.h \
+	sdl/video_gl-js.c sdl/video_gl-js.h
 endif
 
 if WITH_VIDEO_SDL2

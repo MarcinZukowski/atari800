@@ -1,13 +1,14 @@
 #include "ext.h"
 
-#ifdef WITH_EXT_LUA
-#include "ext-lua.h"
+#ifdef WITH_EXT_JS
+#include "ext-js.h"
 #endif
 
 #include <SDL.h>
 #include "sdl/sfx.h"
 
 #include <assert.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "ext/ext-altreal.h"
@@ -39,6 +40,11 @@ static int faking_cpu = 0;
 
 static int state_disabled;
 static int state_acceleration_disabled;
+
+/* A8_EXT_SELECT=<part of an extension name> activates that extension as
+   soon as its fingerprint matches, without going through the TAB menu.
+   Meant for developing and testing extensions. */
+static const char *preselect_name = NULL;
 
 static int disabled(void)
 {
@@ -84,11 +90,15 @@ void ext_register_ext(ext_state *state)
 
 void ext_init(void)
 {
-#ifdef WITH_EXT_LUA
-	ext_lua_init();
+	preselect_name = getenv("A8_EXT_SELECT");
+	if (preselect_name != NULL)
+		printf("A8_EXT_SELECT: will activate the first extension matching '%s' once its fingerprint matches\n", preselect_name);
+
+#ifdef WITH_EXT_JS
+	ext_js_init();
 #endif
 
-/*  These extensions have been replaced by their Lua implementation
+/*  These extensions have been replaced by their JavaScript implementation
 	ext_register_ext(ext_register_yoomp());
 	ext_register_ext(ext_register_zybex());
 	ext_register_ext(ext_register_altreal());
@@ -186,6 +196,16 @@ void ext_frame(void)
 
 	if (inside_menu || disabled()) {
 		return;
+	}
+	if (preselect_name != NULL && current_state == NULL) {
+		int i;
+		for (i = 0; i < num_states; i++) {
+			if (strstr(states[i]->name, preselect_name) != NULL && states[i]->initialize(states[i])) {
+				printf("A8_EXT_SELECT: activating %s\n", states[i]->name);
+				set_current_state(states[i]);
+				break;
+			}
+		}
 	}
 	if (!state[SDLK_TAB]) {
 		return;

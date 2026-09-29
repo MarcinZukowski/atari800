@@ -38,76 +38,94 @@ Extension-specific (`ext/*.c`) functionality and hooks (see `ext_state`  in `ext
     (where instructions are executed but don't impact Atari state, so are effectively zero-cost).
   * skipping the execution, and instead doing something in C
 
-## Lua scripting
+## JavaScript scripting
 
-The extension mechanism also supports scripting in Lua.
-It can be enabled with `--enable-ext-lua` when running `configure`.
-Not all functionality is exposed in Lua, depending on the feedback and demand, more can easily be added.
+The extension mechanism also supports scripting in JavaScript, using the
+[QuickJS](https://bellard.org/quickjs/) engine. It is enabled with
+`--with-ext-js` when running `configure` (QuickJS needs to be installed,
+e.g. `brew install quickjs`, and `CPPFLAGS`/`LDFLAGS` need to point at it).
+Not all functionality is exposed; more can easily be added.
 
- atari800 at the startup will look for files matching the `data/ext/*/init.lua` pattern
- (e.g. [data/ext/yoomp/init.lua](yoomp/init.lua)) and execute them.
-Check out those files for a lot of examples.
+At startup atari800 looks for files matching `data/ext/*/init.js`
+(e.g. [data/ext/zybex/init.js](zybex/init.js)) and evaluates each as an ES module.
+Shared helpers live in [common.js](common.js) and are imported the usual way:
 
-Currently exposed basic APIs (see [ext-lua.c](../../src/ext-lua.c) for more details):
-* `ext_register(state)` - used to register a new extension, see below for more details
-* `a8_memory()` - returns a handle to internal Atari memory. Typical usage is
+```js
+import { drawQuad, word, rgb } from "../common.js";
+```
+
+The QuickJS `std` and `os` modules and `console.log()` are available too.
+A script error prints the exception with its stack trace and exits the emulator.
+
+Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
+[sdl/video_gl-js.c](../../src/sdl/video_gl-js.c) for details):
+
+### `a8` - the emulator
+
+* `a8.register(extension)` - registers an extension, see below
+* `a8.mem` - a `Uint8Array` over the 64 KB of Atari memory, read/write, no copy:
+  ```js
+  const lives = a8.mem[0x00C0];
+  a8.mem[0x00C0] = 9;                 // stores wrap to a byte, like a C uint8_t
+  a8.mem.fill(0xEA, 0xB3B0, 0xB3B6);  // NOP out six bytes
   ```
-  local a8mem = a8_memory()
-  local something = a8mem:get(some_address)
-  ```
-* ANTIC registers: `antic_dlist()`,  `antic_hscrol()`
-* Palette conversion: `a8_Colours_GetR(color)`, `a8_Colours_GetG(color)`, `a8_Colours_GetB(color)` -
-  get R/G/B components for a given palette color
-* "Fake-cpu" functions and constants (can be used inside `CODE_INJECTION_FUNCTION`)
-  * `OP_RTS`, `OP_NOP` - constants for the 6502 opcodes
-  * `ext_fakecpu_until_pc(pc)` - run CPU until reaching a given address `pc`
-  * `ext_fakecpu_until_op(op)` - run CPU until reaching a given opcode `op` (e.g. `OP_RTS`)
-* `ext_print_fps(value, color1, color2, x, y)` - detect FPS (a `value` change is considered a new frame),
-  and displays it using `color1` and `color2` at position `x,y`. Typically used in `PRE_GL_FRAME`
-* `ext_acceleration_disabled()` - check if acceleration is disabled (CTRL key)
+  Intermediate values are plain numbers, so mask them yourself: `(a + b) & 0xFF`.
+* `a8.palette` - an `Int32Array` over the current palette, `0x00RRGGBB` per Atari colour;
+  `a8.rgb(colour)` returns `[r, g, b]` in 0..255
+* `a8.antic.dlist`, `a8.antic.hscrol` - ANTIC registers
+* `a8.gtia.colbk`, `a8.gtia.colpf0`..`colpf3`, `a8.gtia.colpm0`..`colpm3` - GTIA colour registers
+* "Fake CPU" functions and constants for use inside `onCodeInjection`:
+  * `a8.OP_RTS`, `a8.OP_NOP` - 6502 opcodes
+  * `a8.fakeCpuUntilPc(pc)` - run the CPU (without side effects on the machine) until reaching address `pc`
+  * `a8.fakeCpuUntilOp(op)` - run the CPU until reaching opcode `op` (e.g. `a8.OP_RTS`)
+* `a8.printFps(value, fg, bg, x, y)` - counts frames (a change of `value` is a new frame)
+  and prints the rate on the Atari screen at `x, y`. Typically called from `onPreGlFrame`
+* `a8.accelerationDisabled()` - true while CTRL is held
+* `a8.loadSound(path)` - loads a WAV file; the result has a `play()` method.
+  The sound is mixed on top of the POKEY output
 
-OpenGL APIs (see [sdl/video_gl-ext.c](../../src/sdl/video_gl-ext.c) for more details):
-* `gl_api()` - returns a handle to an OpenGL API interface, which provides various OpenGL functions.
-  Typical usage:
-  ```
-  local gl = gl_api();
-  gl:BindTexture(gl.GL_TEXTURE_2D, some_texture_id)
-  ```
-  * `gl_api()` result provides a set of constants, e.g. `GL_TEXTURE_2D`, `GL_BLEND`, `GL_DEPTH_TEST` etc - (see [sdl/video_gl-ext.c](../../src/sdl/video_gl-ext.c) for a full list).
-  * `gl_api()` result provides a set of functions, e.g. `BindTexture`, `Enable`, `Disable` etc - see (see [sdl/video_gl-ext.c](../../src/sdl/video_gl-ext.c) for a full list).
-* `glt_load_rgba(fname, width, height)` - loads an RGBA image and returns a handle to a texture object, supporting the following methods:
-  * `get(index)` - return a texture byte
-  * `set(index, val)` - set a texture byte
-  * `width()` - texture width in pixels
-  * `height()` - texture height in pixels
-  * `num_pixels()` - total number of pixels
-  * `num_bytes()` - total number of bytes
-  * `gl_id()` - the OpenGL texture id
-  * `finalize()` - needs to be called befure use (this allows changing texture bytes before loading, (see [yoomp/init.lua](yoomp/init.lua) for an example)
-* `glo_load(fname)` - loads a Wavefront `.obj` file (and the related `.mtl` file) representing a 3D object, and returns a handle to it. It supports the following methods
-  * `render()` - render the object as is in 3D
-  * `render_colorized(r,g,b)` - render the object while changing its colors to match the provided R/G/B
-* `ext_gl_draw_quad(gl, TL, TR, TT, TB, L, R, T, B, Z)` - draws a quad using given 2D texture and world coordinates.
-  Defined in `common.lua`.
+### `gl` - OpenGL
 
-### Lua extension state
+* Legacy OpenGL calls without the `gl` prefix: `gl.Enable`, `gl.Disable`, `gl.Begin`, `gl.End`,
+  `gl.Color4f`, `gl.TexCoord2f`, `gl.Vertex3f`, `gl.Normal3f`, `gl.BlendFunc`, `gl.BindTexture`,
+  `gl.TexParameteri`, `gl.MatrixMode`, `gl.PushMatrix`, `gl.PopMatrix`, `gl.LoadIdentity`,
+  `gl.Translatef`, `gl.Scalef`, `gl.Rotatef`, `gl.Ortho`, `gl.Frustum`, `gl.Viewport`, `gl.Scissor`,
+  `gl.Clear`, `gl.ClearColor`, `gl.Fogf`, `gl.Fogfv(pname, [values])`, `gl.Lightfv(light, pname, [values])`,
+  `gl.LineWidth`, `gl.PolygonMode`, `gl.PushAttrib`, `gl.PopAttrib`, `gl.GetIntegerv(pname)` (returns an array)
+* Constants without the `GL_` prefix, like WebGL: `gl.TEXTURE_2D`, `gl.BLEND`, `gl.DEPTH_TEST`,
+  `gl.QUADS`, `gl.SRC_ALPHA`, `gl.VIEWPORT`, ... (see the `C(...)` list in `video_gl-js.c`)
+* `gl.createTexture(width, height)` and `gl.loadTextureRGBA(path, width, height)` return a `Texture`:
+  * `pixels` - a `Uint8Array` that *is* the RGBA texture memory (4 bytes per pixel)
+  * `width`, `height`, `id` (the OpenGL texture name)
+  * `finalize()` - uploads `pixels` to OpenGL; call it before drawing and after every change
+  * `draw(texL, texR, texT, texB, scrL, scrR, scrT, scrB, z = -2)` - draws the texture on a quad
+* `gl.loadObj(path)` - loads a Wavefront `.obj` file (and its `.mtl`) and returns an `Obj` with
+  `render()` and `renderColorized(r, g, b)`
 
-The input to `ext_register` should be a Lua object with the following fields:
-*  (note, all functions accepting `self` get this very object as a parameter, this allows using this object as a state)
-* `NAME` - the name of a given extension
-* `ENABLE_CHECK_ADDRESS` (integer) and `ENABLE_CHECK_FINGERPRINT` (array of bytes) - used to match an extension
-  agains a running program. If the bytes from `ENABLE_CHECK_FINGERPRINT` match the content of Atari memory at
-  `ENABLE_CHECK_ADDRESS`, a given extension will be used
-* `PRE_GL_FRAME(self)` (optional) - function to be called before we convert the Atari memory to OpenGL
-* `POST_GL_FRAME(self)` (optional) - function to be called after we rendered the Atari screen already
-* `CODE_INJECTION_LIST` (optional) - an array of addresses for which we'll do code injection
-* `CODE_INJECTION_FUNCTION(self, pc, op)` (optional) - function called whenever one of the addresses from
-  `CODE_INJECTION_LIST` is met. It is provided the address (`pc`) and the instruction (`op`) at that address.
-  It should return the instruction to execute (often `op`, but can also return e.g. `OP_RTS`).
-* `MENU` - a dictionary of menu options, where the dictionary key is some helpful identifier, and the value is a dictionary with these fields:
-  * `LABEL` - label to be displayed
-  * `OPTIONS` - values a given menu option can take. Will be iterated over in the menu
-  * `CURRENT` - the current value. Set initially, but also modified by the framework when user changes menu options
+### The extension object
+
+`a8.register()` takes an object with these properties. Hook methods are called with
+`this` bound to that object, so it doubles as the extension's state:
+
+* `name` - shown in the extensions menu
+* `fingerprint: { address, bytes }` - the extension is activated when the bytes at `address`
+  in Atari memory equal `bytes`
+* `onActivate()` (optional) - called once the fingerprint matched, with the program in memory
+* `onPreGlFrame()` (optional) - called before the Atari screen is converted for OpenGL
+* `onPostGlFrame()` (optional) - called after the Atari screen was drawn; draw extra things here
+* `codeInjections: [addresses]` with `onCodeInjection(pc, op)` (optional, together) - called
+  whenever the CPU is about to execute one of the addresses. Return the opcode to execute:
+  usually `op`, or e.g. `a8.fakeCpuUntilOp(a8.OP_RTS)` to skip a routine
+* `menu: { KEY: { label, options, current }, ... }` (optional) - entries of the extension's menu
+  (TAB in the emulator). `options` is an array of strings and `current` the 0-based index
+  of the selected one; the framework updates `current` when the user cycles through the options
+
+### Testing
+
+`A8_EXT_SELECT=<part of the name>` in the environment activates the matching extension as
+soon as its fingerprint matches, without going through the TAB menu:
+
+    A8_EXT_SELECT=ZYBEX build/src/atari800 -state zyb.a8s
 
 ## Technicalities
 
@@ -115,7 +133,7 @@ This work was a quick hack, without paying much respect to things like
 maintainability, portability etc.
 
 Some notes:
-* It was designed to work only with the SDL/OpenGL backend.
+* It was designed to work only with the SDL 1.2/OpenGL backend.
   * A lot of functionality had to be added there
 * A bunch of small injections had to be made in multiple places.
 * I used more modern C functionality, so it might not work on some platforms.
@@ -131,19 +149,19 @@ Some notes:
 
 These games are also discussed in [this video on YouTube](https://www.youtube.com/watch?v=075qLp5kIlc).
 
-* Yoomp: [yoomp/init.lua](yoomp/init.lua), [ext-yoomp.c](../../src/ext/ext-yoomp.c)) (old C code now ported to Lua)
+* Yoomp: [yoomp/init.js](yoomp/init.js), [ext-yoomp.c](../../src/ext/ext-yoomp.c) (old C code, now ported to JavaScript)
   * various 3D balls
   * one high-res background
 * Mercenary: [ext-mercenary.c](../../src/ext/ext-mercenary.c), [mercenary.md](mercenary.md)
   * accelerated Atari-like line drawing
   * OpenGL-based line drawing (3 types)
-* Zybex: [zybex/init.lua](zybex/init.lua), [zybex.md](zybex/zybex.md), [ext-zybex.c](../../src/ext/ext-zybex.c) (old C code now ported to Lua)
+* Zybex: [zybex/init.js](zybex/init.js), [zybex.md](zybex/zybex.md), [ext-zybex.c](../../src/ext/ext-zybex.c) (old C code, now ported to JavaScript)
   * scrolling background (grayscale and color modes)
-* Behind Jaggi Lines: [bjl/init.lua](bjl/init.lua), [ext-bjl.c](../../src/ext/ext-bjl.c) (old C code now ported to Lua)
+* Behind Jaggi Lines: [bjl/init.js](bjl/init.js), [ext-bjl.c](../../src/ext/ext-bjl.c) (old C code, now ported to JavaScript)
   * faster rendering
-* Alternate Reality: [altreal/init.lua](altreal/init.lua), [altreal.md](altreal.md), [ext-altreal.c](../../src/ext/ext-altreal.c) (old C code now ported to Lua)
+* Alternate Reality: [altreal/init.js](altreal/init.js), [altreal.md](altreal.md), [ext-altreal.c](../../src/ext/ext-altreal.c) (old C code, now ported to JavaScript)
   * faster rendering
-* River Raid: [ext-river-raid.c](../../src/ext/ext-river-raid.c), [river-raid.md](river-raid/river-raid.md)
+* River Raid: [river-raid/init.js](river-raid/init.js), [river-raid.md](river-raid/river-raid.md) (originally in C, now JavaScript)
   * 3D rendering
   * custom sounds example
 

@@ -1393,24 +1393,26 @@ if [[ "$with_ext" != no ]]; then
 fi
 AM_CONDITIONAL([WITH_EXT], test "$with_ext" = "yes")
 
-dnl Check for Lua scripting in extensions
-AC_ARG_WITH(ext_lua,
-    AS_HELP_STRING([--with-ext-lua],[Build support for Lua scripting in extensions @<:@default=no@:>@]),
+dnl Check for JavaScript (QuickJS) scripting in extensions
+AC_ARG_WITH(ext_js,
+    AS_HELP_STRING([--with-ext-js],[Build support for JavaScript (QuickJS) scripting in extensions @<:@default=no@:>@]),
     [],
-    [with_ext_lua=no])
-if [[ "$with_ext_lua" != no ]]; then
+    [with_ext_js=no])
+if [[ "$with_ext_js" != no ]]; then
     if [[ "$with_ext" = "no" ]]; then
-        AC_MSG_ERROR([option --with-ext-lua only supported with --with-ext !])
+        AC_MSG_ERROR([option --with-ext-js only supported with --with-ext !])
     fi
-    AC_CHECK_HEADER([lua/lua.h], [], [
-       AC_MSG_ERROR([unable to use Lua  - lua/lua.h not found or not compilable.])
+    AC_CHECK_HEADER([quickjs/quickjs.h], [], [
+       AC_MSG_ERROR([unable to use QuickJS - quickjs/quickjs.h not found (install QuickJS, e.g. "brew install quickjs", and point CPPFLAGS at its include directory).])
     ])
+    AC_CHECK_LIB([quickjs], [JS_NewRuntime], [LIBS="-lquickjs $LIBS"], [
+       AC_MSG_ERROR([unable to link with QuickJS - libquickjs not found (point LDFLAGS at its lib directory, e.g. "$(brew --prefix quickjs)/lib/quickjs").])
+    ], [-lm -lpthread])
 
-    AC_DEFINE(HAVE_LUA, 1, [Support for Lua scripting in extensions.])
-    LIBS="-llua $LIBS"
-    CFLAGS="$CFLAGS -DWITH_EXT_LUA"
+    AC_DEFINE(HAVE_QUICKJS, 1, [Support for JavaScript scripting in extensions.])
+    CFLAGS="$CFLAGS -DWITH_EXT_JS"
 fi
-AM_CONDITIONAL([WITH_EXT_LUA], test "$with_ext_lua" = "yes")
+AM_CONDITIONAL([WITH_EXT_JS], test "$with_ext_js" = "yes")
 
 dnl Select host/target specific features...
 
@@ -1475,10 +1477,16 @@ if [[ "$SUPPORTS_RDEVICE" = "yes" ]]; then
 fi
 AM_CONDITIONAL([WANT_R_IO_DEVICE], test "$WANT_R_IO_DEVICE" = "yes")
 
+dnl The extension code and the QuickJS headers are C99, not C89: with
+dnl --with-ext build with the compiler's default C standard instead.
+if [[ "$with_ext" != no ]]; then
+    CFLAGS=`echo $CFLAGS | sed -e 's/-ansi//' -e 's/-pedantic//'`
+fi
+
 dnl Treat compiler warnings as errors. Appended here, after every
 dnl target-specific CFLAGS assignment, so that none of them can drop it.
-dnl The extension code (--with-ext) is not -ansi -pedantic clean yet, so
-dnl -Werror is off by default there; it can be forced with --enable-werror.
+dnl The extension code (--with-ext) is not warning-clean yet, so -Werror is
+dnl off by default there; it can be forced with --enable-werror.
 
 AC_ARG_ENABLE([werror],
     AS_HELP_STRING([--disable-werror],[Do not treat compiler warnings as errors @<:@default=yes, no with --with-ext@:>@]),
@@ -1605,7 +1613,7 @@ if [[ "$a8_target" = default -a "$with_video" = sdl ]]; then
     echo "Using on-screen keyboard?.............: $WANT_USE_UI_BASIC_ONSCREEN_KEYBOARD"
     echo "Using OpenGL?.........................: $with_opengl"
     echo "Using extensions?.....................: $with_ext"
-    echo "Using Lua scripting in extensions?....: $with_ext_lua"
+    echo "Using JavaScript in extensions?.......: $with_ext_js"
 fi
 if [[ "$a8_target" = default -a "$with_video" = sdl2 ]]; then
     echo "Using on-screen keyboard?.............: $WANT_USE_UI_BASIC_ONSCREEN_KEYBOARD"
