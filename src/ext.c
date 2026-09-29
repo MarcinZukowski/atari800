@@ -5,7 +5,7 @@
 #endif
 
 #include <SDL.h>
-#include <SDL_mixer.h>
+#include "sdl/sfx.h"
 
 #include <assert.h>
 #include <string.h>
@@ -352,56 +352,24 @@ int ext_fakecpu_until_after_op(int end_op)
 
 /* **************************** SOUNDS **************************************** */
 
-static int sound_initialized = FALSE;
-
-static void ext_sound_initialize(void)
-{
-	if (sound_initialized) {
-		return;
-	}
-
-#if 0
-	/* start SDL with audio support */
-	if (SDL_Init(SDL_INIT_AUDIO)==-1) {
-		EXT_ERROR("SDL_Init: %s\n", SDL_GetError());
-	}
-	/* open 44.1KHz, signed 16bit, system byte order,
-	 * stereo audio, using 1024 byte chunks */
-	if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 1024)==-1) {
-		EXT_ERROR("Mix_OpenAudio: %s\n", Mix_GetError());
-	}
-#endif
-}
-
-static ext_sound* ext_sound_alloc(void)
-{
-	ext_sound_initialize();
-
-	ext_sound* snd = malloc(sizeof(ext_sound));
-	EXT_ASSERT_NOT_NULL(snd);
-	return snd;
-}
-
 ext_sound* ext_sound_load(const char* fname)
 {
+	ext_sound *snd;
+	SDL_SFX_sample *sample;
+
 	printf("Loading sound: %s\n", fname);
-	ext_sound *snd = ext_sound_alloc();
-	Mix_Chunk *chunk = Mix_LoadWAV(fname);
-	if (!chunk) {
-		EXT_ERROR("Mix_LoadWav: %s\n", Mix_GetError());
+	sample = SDL_SFX_Load(fname);
+	if (sample == NULL) {
+		EXT_ERROR("Cannot load sound %s", fname);
 	}
-	printf("Sound loaded (allocated=%d alen=%d volume=%d\n", chunk->allocated, chunk->alen, chunk->volume);
-	snd->data = chunk;
+	snd = malloc(sizeof(ext_sound));
+	EXT_ASSERT_NOT_NULL(snd);
+	snd->data = sample;
 	return snd;
 }
 
 void ext_sound_play(ext_sound *snd)
 {
 	EXT_ASSERT_NOT_NULL(snd);
-	Mix_Chunk *chunk = (Mix_Chunk*)(snd->data);
-
-	EXT_ASSERT_NOT_NULL(chunk);
-
-	int res = Mix_PlayChannel(-1, chunk, 0);
-	EXT_ASSERT_NE(res, -1);
+	SDL_SFX_Play((SDL_SFX_sample *) snd->data);
 }

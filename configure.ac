@@ -1002,10 +1002,10 @@ fi
 dnl Select/detect sound interface.
 
 AC_ARG_WITH([sound],
-    [AS_HELP_STRING([--with-sound@<:@=no|yes|dossb|oss|falcon|sdl|sdl2|sdlmixer|javanvm@:>@],[Select sound interface to use @<:@default=check@:>@])],
+    [AS_HELP_STRING([--with-sound@<:@=no|yes|dossb|oss|falcon|sdl|sdl2|javanvm@:>@],[Select sound interface to use @<:@default=check@:>@])],
     [
         case "$withval" in
-            no | yes | check | dossb | oss | falcon | sdl | sdl2 | sdlmixer | javanvm)
+            no | yes | check | dossb | oss | falcon | sdl | sdl2 | javanvm)
                 ;;
             *)
                 AC_MSG_ERROR([unrecognized value for --with-sound: "$withval"])
@@ -1053,20 +1053,12 @@ elif [[ "$a8_target" != "ps2" -a "$a8_target" != "android" ]]; then
                 AC_MSG_FAILURE([--with-sound=sdl2 was given, but SDL2 library not found!])
             fi
         fi
-        if [[ "$with_sound" = check -o "$with_sound" = yes -o "$with_sound" = sdl -o "$with_sound" = sdlmixer ]]; then
+        if [[ "$with_sound" = check -o "$with_sound" = yes -o "$with_sound" = sdl ]]; then
             TRY_USE_SDL()
             if [[ "$a8_use_sdl" = yes ]]; then
-                if [[ "$with_sound" = sdlmixer ]];  then
-                    dnl For sdlmixer, check the headers
-                    AC_CHECK_HEADER([SDL_mixer.h], [], [
-                       AC_MSG_ERROR([Need SDL_mixer.h for --with-sound=sdlmixer to work])
-                    ])
-                else
-                    dnl For autodetected, set pure SDL as it's safer
-                    with_sound=sdl
-                fi
-            elif [[ "$with_sound" = sdl -o "$with_sound" = sdlmixer ]]; then
-                AC_MSG_FAILURE([--with-sound=$with_sound was given, but SDL library not found!])
+                with_sound=sdl
+            elif [[ "$with_sound" = sdl ]]; then
+                AC_MSG_FAILURE([--with-sound=sdl was given, but SDL library not found!])
             fi
         fi
         if [[ "$with_sound" = check -o "$with_sound" = yes -o "$with_sound" = oss ]]; then
@@ -1081,7 +1073,7 @@ elif [[ "$a8_target" != "ps2" -a "$a8_target" != "android" ]]; then
         with_sound=no
     fi
     case "$with_sound" in
-        sdl | sdlmixer)
+        sdl)
             WANT_SOUND_CALLBACK=yes
             ;;
         sdl2)
@@ -1105,7 +1097,6 @@ AM_CONDITIONAL([WITH_SOUND_JAVANVM], test "$with_sound" = javanvm)
 AM_CONDITIONAL([WITH_SOUND_FALCON], test "$with_sound" = falcon)
 AM_CONDITIONAL([WITH_SOUND_OSS], test "$with_sound" = oss)
 AM_CONDITIONAL([WITH_SOUND_SDL], test "$with_sound" = sdl)
-AM_CONDITIONAL([WITH_SOUND_SDLMIXER], test "$with_sound" = sdlmixer)
 AM_CONDITIONAL([WITH_SOUND_SDL2], test "$with_sound" = sdl2)
 AM_CONDITIONAL([WITH_SOUND_DOSSB], test "$with_sound" = dossb)
 AM_CONDITIONAL([WITH_SOUND_LIBATARI800], test "$with_sound" = libatari800)
@@ -1394,10 +1385,9 @@ AC_ARG_WITH(ext,
     [],
     [with_ext=no])
 if [[ "$with_ext" != no ]]; then
-    if [[ "$a8_target" != default -o "$with_video" != sdl -o "$with_opengl" != yes -o "$with_sound" != sdlmixer ]]; then
-        AC_MSG_ERROR([option --with-ext only supported with --target=default --with-video=sdl --with_opengl=yes --with-sound=sdlmixer !])
+    if [[ "$a8_target" != default -o "$with_video" != sdl -o "$with_opengl" != yes -o "$with_sound" != sdl ]]; then
+        AC_MSG_ERROR([option --with-ext only supported with --target=default --with-video=sdl --with-opengl=yes --with-sound=sdl !])
     fi
-    LIBS="-lSDL_mixer $LIBS"
     AC_DEFINE(HAVE_EXT, 1, [Support for extensions.])
     CFLAGS="$CFLAGS -DWITH_EXT"
 fi

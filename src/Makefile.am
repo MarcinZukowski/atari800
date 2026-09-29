@@ -112,10 +112,6 @@ endif
 if WITH_SOUND_SDL
 atari800_SOURCES += sound.c sound.h sdl/sound.c
 endif
-if WITH_SOUND_SDLMIXER
-atari800_SOURCES += sound.c sound.h sdl/sound.c
-atari800_CPPFLAGS += -DUSE_SDL_MIXER
-endif
 if WITH_SOUND_FALCON
 atari800_SOURCES += sound.c falcon/sound.c
 endif
@@ -208,6 +204,7 @@ endif
 if WITH_EXT
 atari800_SOURCES += \
 	ext.c ext.h \
+	sdl/sfx.c sdl/sfx.h \
 	ext/ext-altreal.c ext/ext-altreal.h \
 	ext/ext-bjl.c ext/ext-bjl.h \
 	ext/ext-mercenary.c ext/ext-mercenary.h \
