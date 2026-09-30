@@ -17,6 +17,7 @@ hooks from a few places in the emulator:
 
 * before an Atari frame is converted for OpenGL (`onPreGlFrame`), e.g. to write onto the Atari screen
 * after the Atari frame was drawn (`onPostGlFrame`), e.g. to render extra content with OpenGL
+* once per frame regardless of the video output (`onFrame`)
 * when the CPU is about to execute one of the addresses the extension asked for (`onCodeInjection`).
   The hook can let the instruction run, run the routine on a "fake CPU" so that it costs no
   emulated time, or skip it and do the work itself in JavaScript.
@@ -110,6 +111,7 @@ doubles as the extension's state:
 * `fingerprint: { address, bytes }` - the extension is activated when the bytes at `address`
   in Atari memory equal `bytes`
 * `onActivate()` (optional) - called once the fingerprint matched, with the program in memory
+* `onFrame()` (optional) - called once per Atari frame, with or without OpenGL (headless runs too)
 * `onPreGlFrame()` (optional) - called before the Atari screen is converted for OpenGL
 * `onPostGlFrame()` (optional) - called after the Atari screen was drawn; draw extra things here
 * `codeInjections: [addresses]` with `onCodeInjection(pc, op)` (optional, together) - called
@@ -132,6 +134,12 @@ with the POKEY random seed (`0`), then per frame eight lines: `key shift consol`
 for nothing), the ports 0/1 and 2/3 joystick bytes (`255` centred; stick 0 forward is `254`,
 right `247`), four trigger lines (`1` = released) and a screen checksum (`00000000`, the
 mismatch is only logged). This is how the walks in the Alternate Reality notes were measured.
+
+Tests that do not need the OpenGL view can run without a window: SDL's dummy drivers
+(`SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy`) with `-no-video-accel` give a software video mode
+and no display at all. Only `onFrame` and `onCodeInjection` run then (the GL hooks hang off the
+OpenGL frame), and a script can still read the screen memory through the display list to check
+what the game shows.
 
 ## Technicalities
 
@@ -178,7 +186,10 @@ These games are also discussed in [this video on YouTube](https://www.youtube.co
     and arches carry the game's own art, decoded from its memory in the game's current colours
     (so the picture flashes when the game flashes it), optionally upscaled 4x with Scale2x, and
     arches open onto what lies beyond. A wide layout puts the view over the whole width with the
-    game's texts and compass shrunk above and below it.
+    game's texts and compass shrunk above and below it
+  * no disk swapping: boot from side 1 as usual, then the game's sector reads are served from the
+    five disk images placed in `altreal/` ([altreal/disks.js](altreal/disks.js)), so "Please
+    insert Disk..." never comes up (the game only ever reads)
     The notes document the engine: map, movement, picture buffer, art and renderer
 * River Raid: [river-raid/init.js](river-raid/init.js), [river-raid.md](river-raid/river-raid.md) (originally in C, now JavaScript)
   * 3D rendering

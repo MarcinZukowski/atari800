@@ -17,6 +17,7 @@ enum ext_hook {
 	EXT_HOOK_PRE_GL_FRAME,    /* onPreGlFrame(): before the Atari screen is converted */
 	EXT_HOOK_POST_GL_FRAME,   /* onPostGlFrame(): after it was drawn */
 	EXT_HOOK_CODE_INJECTION,  /* onCodeInjection(pc, op): at one of the listed addresses */
+	EXT_HOOK_FRAME,           /* onFrame(): once per Atari frame, with or without OpenGL */
 	EXT_HOOK_COUNT
 };
 

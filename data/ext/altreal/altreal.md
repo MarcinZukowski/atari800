@@ -270,6 +270,51 @@ the game draws monsters into its own picture.
 An earlier version captured the wall from the framebuffer; the art in
 memory made that unnecessary.
 
+## The disks
+
+The game came on five disk sides and asks for them by name ("Please insert
+The Dungeon Disk 3 Side 2"). It does its own disk I/O and never writes:
+
+* `$2000`-`$22FF`: a serial-port SIO routine (POKEY and PIA directly, no OS
+  call anywhere in the game). Its control block is at `$0234` onwards:
+  `$0234`/`$0235` the transfer length, `$023D` the status (1 = success, `$8A`,
+  `$8C`, `$8E`, `$8F` errors), `$023E`/`$023F` retry counters, `$0246` a copy
+  of the status. `$204E` is the entry with retries; the command frame at
+  `$0230`-`$0233` (device `$31`, command, sector low, high) is copied to
+  `$0266`-`$0269` and sent; data arrives at `$0100`-`$017F`.
+* `$248E`: read a sector ('R', 128 bytes, sector from `$0232`/`$0233`);
+  `$24A3`: the status command ('S', 4 bytes). `$2986`-`$299D` reads the next
+  sector with two retries and steps `$0232`/`$0233`; `$298D`: `BPL` on the
+  status, and the status is returned in A. `$2785`-`$2798` steps the device
+  byte `$0230` through `$31`-`$34` after a failure: "into any drive". No
+  write command exists anywhere in the code seen; the only commands are
+  'R' and 'S'.
+* `$1821`-`$1841`: a jump table into the low-level routines: `$1821` the
+  joystick fetch (`$262F`), `$1824` -> `$275B`, `$1827` the SIO set-up
+  (`$245D`), `$182A` the area record (`$28A1`), `$182D` read a sector
+  (`$248E`), `$1830` -> `$24C6`, `$1833` the SIO command (`$2494`), `$1836` ->
+  `$3C61`, `$1839` -> `$2A41`, `$183C` -> `$2BB0`, `$183F` -> `$2BA5`.
+* `$0280` + 4 * area: the area table, a record per area `$1909` (`$28A1`
+  copies it to `$1905`-`$1908`): byte 0 bits 3-4 = disk - 1, bit 2 = side - 1,
+  bits 0-1 = start sector high; byte 1 = start sector low; bytes 2-3 the
+  length (`$1907` extra bytes, `$1908` pages). The five sides in use are
+  disk 1 side 1, disk 2 sides 1 and 2, disk 3 sides 1 and 2, in that order
+  the images "(v1,s1)" to "(v1,s5)". Area 29, the Damon & Pythias shop, is
+  disk 3 side 2 from sector 262, 32 pages.
+* `$2827`-`$2896`: the loaded area is descrambled (each byte rotated right
+  once and XORed with the 128-byte key at `$0100`) and summed over its pages;
+  the sum is compared with `$0184`/`$0185`. A mismatch, which is what a wrong
+  disk produces, sets the carry, and `$2CC2`-`$2CF6` then shows the prompt
+  (`$28D7`, template at `$29A4` with print codes for `$1911` and `$1910`, the
+  disk and side numbers) and retries the load after SPACE.
+
+disks.js intercepts `$248E`: it takes the disk and side from `$1905` and the
+sector from `$0232`/`$0233`, copies the 128 bytes from the matching image in
+this directory into `$0100`, sets the status registers and Y to 1 and clears
+N and Z, and returns RTS in place of the wrapper's first instruction. The
+checksum then always passes and the prompt never appears. Images that are
+missing fall through to the real drive.
+
 ## Hot spots
 
 Instruction frequencies over a walk, from the monitor's profile, which is
@@ -302,6 +347,7 @@ multiply).
 * The 72-byte header of each art set.
 * What `$638B` is, which reveals the secret doors through `$1957`.
 * What triggers the colour flash at `$35EA`.
+* Where the checksum the loader compares with comes from (`$0184`/`$0185`).
 * How the walls of the side columns (slots other than 5) are placed across
   the picture; view3d.js places everything with the centre column's law.
 * `$7600` and the players placed by the `$1B56` interrupt.

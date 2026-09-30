@@ -183,6 +183,10 @@ void ext_frame(void)
 
 	if (keys[SDLK_TAB])
 		menu();
+
+	/* The per-frame hook that does not need OpenGL: for headless runs too */
+	if (current != NULL && ext_js_has_hook(current, EXT_HOOK_FRAME))
+		ext_js_call_hook(current, EXT_HOOK_FRAME);
 }
 
 void ext_pre_gl_frame(void)

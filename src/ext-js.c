@@ -376,7 +376,7 @@ static void install_globals(void)
 /* ============================== calling into an extension ============================== */
 
 static const char *hook_names[EXT_HOOK_COUNT] = {
-	"onActivate", "onPreGlFrame", "onPostGlFrame", "onCodeInjection"
+	"onActivate", "onPreGlFrame", "onPostGlFrame", "onCodeInjection", "onFrame"
 };
 
 void ext_js_call_hook(ext_extension *ext, enum ext_hook hook)
