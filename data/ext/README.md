@@ -62,7 +62,10 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
 * `a8.cpu.a`, `a8.cpu.x`, `a8.cpu.y`, `a8.cpu.s`, `a8.cpu.p`, `a8.cpu.pc` - the 6502 registers,
   read/write; they are current inside `onCodeInjection`, where changes take effect on return
 * `a8.antic.dlist`, `a8.antic.hscrol` - ANTIC registers
+* `a8.antic.pmbase`, `a8.antic.dmactl` - player/missile base and DMA control
 * `a8.gtia.colbk`, `a8.gtia.colpf0`..`colpf3`, `a8.gtia.colpm0`..`colpm3` - GTIA colour registers
+* `a8.gtia.hposp0`..`hposp3`, `sizep0`..`sizep3`, `grafp0`..`grafp3`, `prior`, `gractl` - GTIA
+  player registers (as last written; a game's interrupts may change them within a frame)
 * "Fake CPU" functions and constants for use inside `onCodeInjection`:
   * `a8.OP_RTS`, `a8.OP_NOP` - 6502 opcodes
   * `a8.fakeCpuUntilPc(pc)` - run the CPU (without side effects on the machine) until reaching address `pc`

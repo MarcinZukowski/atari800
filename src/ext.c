@@ -189,9 +189,12 @@ void ext_frame(void)
 		ext_js_call_hook(current, EXT_HOOK_FRAME);
 }
 
+/* The emulator's own UI (F1) paints into the Atari screen with the emulation
+   paused, so the display list still looks like the game's: extensions must
+   not draw over it */
 void ext_pre_gl_frame(void)
 {
-	if (inside_menu || alt_held || current == NULL)
+	if (inside_menu || UI_is_active || alt_held || current == NULL)
 		return;
 	if (ext_js_has_hook(current, EXT_HOOK_PRE_GL_FRAME))
 		ext_js_call_hook(current, EXT_HOOK_PRE_GL_FRAME);
@@ -199,7 +202,7 @@ void ext_pre_gl_frame(void)
 
 void ext_post_gl_frame(void)
 {
-	if (inside_menu || alt_held || current == NULL)
+	if (inside_menu || UI_is_active || alt_held || current == NULL)
 		return;
 	if (ext_js_has_hook(current, EXT_HOOK_POST_GL_FRAME))
 		ext_js_call_hook(current, EXT_HOOK_POST_GL_FRAME);

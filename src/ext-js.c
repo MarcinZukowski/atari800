@@ -202,8 +202,10 @@ static const JSCFunctionListEntry js_a8_cpu_funcs[] = {
 };
 
 /* a8.antic.* and a8.gtia.* getters */
-enum { REG_DLIST, REG_HSCROL, REG_COLBK, REG_COLPF0, REG_COLPF1, REG_COLPF2, REG_COLPF3,
-       REG_COLPM0, REG_COLPM1, REG_COLPM2, REG_COLPM3 };
+enum { REG_DLIST, REG_HSCROL, REG_PMBASE, REG_DMACTL, REG_COLBK, REG_COLPF0, REG_COLPF1, REG_COLPF2, REG_COLPF3,
+       REG_COLPM0, REG_COLPM1, REG_COLPM2, REG_COLPM3, REG_HPOSP0, REG_HPOSP1, REG_HPOSP2, REG_HPOSP3,
+       REG_SIZEP0, REG_SIZEP1, REG_SIZEP2, REG_SIZEP3, REG_GRAFP0, REG_GRAFP1, REG_GRAFP2, REG_GRAFP3,
+       REG_PRIOR, REG_GRACTL };
 
 static JSValue js_a8_get_reg(JSContext *c, JSValueConst this_val, int magic)
 {
@@ -219,6 +221,22 @@ static JSValue js_a8_get_reg(JSContext *c, JSValueConst this_val, int magic)
 	case REG_COLPM1: return JS_NewInt32(c, GTIA_COLPM1);
 	case REG_COLPM2: return JS_NewInt32(c, GTIA_COLPM2);
 	case REG_COLPM3: return JS_NewInt32(c, GTIA_COLPM3);
+	case REG_PMBASE: return JS_NewInt32(c, ANTIC_PMBASE);
+	case REG_DMACTL: return JS_NewInt32(c, ANTIC_DMACTL);
+	case REG_HPOSP0: return JS_NewInt32(c, GTIA_HPOSP0);
+	case REG_HPOSP1: return JS_NewInt32(c, GTIA_HPOSP1);
+	case REG_HPOSP2: return JS_NewInt32(c, GTIA_HPOSP2);
+	case REG_HPOSP3: return JS_NewInt32(c, GTIA_HPOSP3);
+	case REG_SIZEP0: return JS_NewInt32(c, GTIA_SIZEP0);
+	case REG_SIZEP1: return JS_NewInt32(c, GTIA_SIZEP1);
+	case REG_SIZEP2: return JS_NewInt32(c, GTIA_SIZEP2);
+	case REG_SIZEP3: return JS_NewInt32(c, GTIA_SIZEP3);
+	case REG_GRAFP0: return JS_NewInt32(c, GTIA_GRAFP0);
+	case REG_GRAFP1: return JS_NewInt32(c, GTIA_GRAFP1);
+	case REG_GRAFP2: return JS_NewInt32(c, GTIA_GRAFP2);
+	case REG_GRAFP3: return JS_NewInt32(c, GTIA_GRAFP3);
+	case REG_PRIOR: return JS_NewInt32(c, GTIA_PRIOR);
+	case REG_GRACTL: return JS_NewInt32(c, GTIA_GRACTL);
 	}
 	return JS_UNDEFINED;
 }
@@ -226,6 +244,8 @@ static JSValue js_a8_get_reg(JSContext *c, JSValueConst this_val, int magic)
 static const JSCFunctionListEntry js_a8_antic_funcs[] = {
 	JS_CGETSET_MAGIC_DEF("dlist", js_a8_get_reg, NULL, REG_DLIST),
 	JS_CGETSET_MAGIC_DEF("hscrol", js_a8_get_reg, NULL, REG_HSCROL),
+	JS_CGETSET_MAGIC_DEF("pmbase", js_a8_get_reg, NULL, REG_PMBASE),
+	JS_CGETSET_MAGIC_DEF("dmactl", js_a8_get_reg, NULL, REG_DMACTL),
 };
 
 static const JSCFunctionListEntry js_a8_gtia_funcs[] = {
@@ -238,6 +258,20 @@ static const JSCFunctionListEntry js_a8_gtia_funcs[] = {
 	JS_CGETSET_MAGIC_DEF("colpm1", js_a8_get_reg, NULL, REG_COLPM1),
 	JS_CGETSET_MAGIC_DEF("colpm2", js_a8_get_reg, NULL, REG_COLPM2),
 	JS_CGETSET_MAGIC_DEF("colpm3", js_a8_get_reg, NULL, REG_COLPM3),
+	JS_CGETSET_MAGIC_DEF("hposp0", js_a8_get_reg, NULL, REG_HPOSP0),
+	JS_CGETSET_MAGIC_DEF("hposp1", js_a8_get_reg, NULL, REG_HPOSP1),
+	JS_CGETSET_MAGIC_DEF("hposp2", js_a8_get_reg, NULL, REG_HPOSP2),
+	JS_CGETSET_MAGIC_DEF("hposp3", js_a8_get_reg, NULL, REG_HPOSP3),
+	JS_CGETSET_MAGIC_DEF("sizep0", js_a8_get_reg, NULL, REG_SIZEP0),
+	JS_CGETSET_MAGIC_DEF("sizep1", js_a8_get_reg, NULL, REG_SIZEP1),
+	JS_CGETSET_MAGIC_DEF("sizep2", js_a8_get_reg, NULL, REG_SIZEP2),
+	JS_CGETSET_MAGIC_DEF("sizep3", js_a8_get_reg, NULL, REG_SIZEP3),
+	JS_CGETSET_MAGIC_DEF("grafp0", js_a8_get_reg, NULL, REG_GRAFP0),
+	JS_CGETSET_MAGIC_DEF("grafp1", js_a8_get_reg, NULL, REG_GRAFP1),
+	JS_CGETSET_MAGIC_DEF("grafp2", js_a8_get_reg, NULL, REG_GRAFP2),
+	JS_CGETSET_MAGIC_DEF("grafp3", js_a8_get_reg, NULL, REG_GRAFP3),
+	JS_CGETSET_MAGIC_DEF("prior", js_a8_get_reg, NULL, REG_PRIOR),
+	JS_CGETSET_MAGIC_DEF("gractl", js_a8_get_reg, NULL, REG_GRACTL),
 };
 
 static JSValue js_a8_printFps(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv)
@@ -325,8 +359,8 @@ static const JSCFunctionListEntry js_a8_funcs[] = {
 	JS_CFUNC_DEF("loadSound", 1, js_a8_loadSound),
 	JS_PROP_INT32_DEF("OP_RTS", OP_RTS, JS_PROP_ENUMERABLE),
 	JS_PROP_INT32_DEF("OP_NOP", OP_NOP, JS_PROP_ENUMERABLE),
-	JS_OBJECT_DEF("antic", js_a8_antic_funcs, 2, JS_PROP_ENUMERABLE),
-	JS_OBJECT_DEF("gtia", js_a8_gtia_funcs, 9, JS_PROP_ENUMERABLE),
+	JS_OBJECT_DEF("antic", js_a8_antic_funcs, 4, JS_PROP_ENUMERABLE),
+	JS_OBJECT_DEF("gtia", js_a8_gtia_funcs, 23, JS_PROP_ENUMERABLE),
 	JS_OBJECT_DEF("cpu", js_a8_cpu_funcs, 6, JS_PROP_ENUMERABLE),
 };
 
