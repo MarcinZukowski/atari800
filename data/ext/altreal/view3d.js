@@ -73,6 +73,8 @@ const PLAYER_DLI = 0x1B56;             // where to capture (init.js hooks it)
 const PIC = 72, PIC_CENTRE = 36, MAX_HALF_HEIGHT = 35;
 const DEPTH_AT_CELL = [0, 18, 24, 27, 29, 30, 31, 32, 33, 34, 35];
 
+import { scale2x } from "../common.js";
+
 const mem = a8.mem;
 
 /* ------------------------------ wall art ------------------------------ */
@@ -117,26 +119,6 @@ function artPixels(bytes) {
 		const b = bytes[i];
 		for (let shift = 6; shift >= 0; shift -= 2)
 			out[o++] = (b >> shift) & 3;
-	}
-	return out;
-}
-
-// Scale2x (EPX): doubles a picture of pixel values, rounding the stairs of
-// diagonal edges from the four neighbours without inventing colours. The
-// picture is taken to repeat, as it does on the walls.
-function scale2x(src, w, h) {
-	const out = new Uint8Array(w * h * 4), w2 = 2 * w;
-	for (let y = 0; y < h; y++) {
-		const up = ((y + h - 1) % h) * w, row = y * w, down = ((y + 1) % h) * w;
-		for (let x = 0; x < w; x++) {
-			const P = src[row + x], A = src[up + x], D = src[down + x];
-			const C = src[row + (x + w - 1) % w], B = src[row + (x + 1) % w];   // left, right
-			const o = 2 * y * w2 + 2 * x;
-			out[o] = (C === A && C !== D && A !== B) ? A : P;
-			out[o + 1] = (A === B && A !== C && B !== D) ? B : P;
-			out[o + w2] = (D === C && D !== B && C !== A) ? C : P;
-			out[o + w2 + 1] = (B === D && B !== A && D !== C) ? D : P;
-		}
 	}
 	return out;
 }
@@ -238,6 +220,18 @@ function makePlanes() {
 const PICTURE_SCREEN = 0x04F0, SCREEN_STATE = 0x7600;
 function pictureDisplayed() {
 	if (mem[SCREEN_STATE] > 1) return false;
+	return pictureRows(true);
+}
+
+// Are the picture rows on the screen at all (a shop's picture too)?
+export function pictureRowsDisplayed() {
+	return pictureRows(false);
+}
+
+// The whole band the picture rows occupy, all forty columns
+export const PICTURE_BAND = [8, 73, 328, 145];
+
+function pictureRows(withInterrupts) {
 	let a = a8.antic.dlist;
 	for (let i = 0; i < 64; i++) {
 		const ins = mem[a++], mode = ins & 0x0F;
@@ -247,6 +241,7 @@ function pictureDisplayed() {
 			const lms = mem[a] | mem[a + 1] << 8;
 			a += 2;
 			if (mode === 4 && lms === PICTURE_SCREEN) {
+				if (!withInterrupts) return true;
 				let interrupts = 0;
 				for (let r = 0; r < 8; r++)
 					if ((mem[a + r] & 0x8F) === 0x84) interrupts++;
@@ -553,7 +548,7 @@ export function createView3D() {
 		// compass shrunk into them, and, when the view was not drawn (a
 		// monster, or the Atari view chosen), the game's own picture enlarged
 		// into the view's place. Nothing when the game shows another screen.
-		drawWideLayout(viewDrawn) {
+		drawWideLayout(viewDrawn, smooth = null) {
 			if (!pictureDisplayed())
 				return;
 			// the bottom band: the 36 lines, or more when the text in use needs them
@@ -571,8 +566,10 @@ export function createView3D() {
 			}
 			gl.Enable(gl.TEXTURE_2D);
 			gl.Color4f(1, 1, 1, 1);
-			if (!viewDrawn)
-				drawScreenRegion(PICTURE, WIDE_VIEW[0], WIDE_VIEW[1], (WIDE_Y1 - WIDE_Y0) / (PICTURE[3] - PICTURE[1]));
+			if (!viewDrawn) {
+				if (smooth) smooth.draw(WIDE_VIEW, PICTURE);   // the game's picture, smoothed and enlarged
+				else drawScreenRegion(PICTURE, WIDE_VIEW[0], WIDE_VIEW[1], (WIDE_Y1 - WIDE_Y0) / (PICTURE[3] - PICTURE[1]));
+			}
 			// the texts, centred; the compass fits the top band's right end and the
 			// left emblem its left end, each when the game shows one
 			drawScreenRegion(TOP_TEXT, (SCREEN_W - (TOP_TEXT[2] - TOP_TEXT[0]) * TEXT_SCALE) / 2, 0, TEXT_SCALE);

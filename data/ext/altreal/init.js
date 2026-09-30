@@ -1,7 +1,9 @@
 // Alternate Reality: The Dungeon - faster rendering by skipping busy code,
 // smooth walking, the maze drawn with OpenGL (view3d.js), the disk sides
-// served from files (disks.js) and an automatic map on the M key (automap.js).
-import { createView3D, SPRITE_HOOK } from "./view3d.js";
+// served from files (disks.js), the game's own pictures smoothed (smooth2d.js)
+// and an automatic map on the M key (automap.js).
+import { createView3D, SPRITE_HOOK, PICTURE_BAND, pictureRowsDisplayed } from "./view3d.js";
+import * as smooth2d from "./smooth2d.js";
 import { disks } from "./disks.js";
 import { automap } from "./automap.js";
 //
@@ -46,8 +48,10 @@ export default {
 		SPEED: { label: "Walking speed:", options: ["1x", "1.5x", "2x", "3x"], current: 1 },
 		VIEW3D: { label: "Maze view:", options: ["Atari", "OpenGL"], current: 1 },
 		TEXTURES: { label: "Textures:", options: ["Original", "Smooth 4x"], current: 1 },   // walls and monsters
+		// The game's own pictures (shops, the Atari view) upscaled the same way (smooth2d.js)
+		PICTURES: { label: "Smooth pictures:", options: ["OFF", "ON"], current: 1 },
 		// Wide: the view over the whole width, the texts shrunk above and below
-		LAYOUT: { label: "Layout:", options: ["Game", "Wide"], current: 0 },
+		LAYOUT: { label: "Layout:", options: ["Game", "Wide"], current: 1 },
 		// Automatic: the five disk sides are read from the .atr files next to
 		// this script, and the game never asks for a disk (disks.js)
 		DISKS: { label: "Disk swaps:", options: ["Manual", "Automatic"], current: 1 },
@@ -65,8 +69,14 @@ export default {
 			drawn = view3d.render(this.smoothActive() ? movesPerSecond : GAME_STEPS_PER_SECOND);
 		else
 			view3d.reset();
+		// The game's own picture, when it is what the picture rows show: read
+		// back before anything is drawn over it, then smoothed in place or, in
+		// the wide layout, enlarged
+		const smooth = !drawn && this.menu.PICTURES.current === 1 && pictureRowsDisplayed() && smooth2d.capture(PICTURE_BAND);
 		if (view3d.options.wide)
-			view3d.drawWideLayout(drawn);
+			view3d.drawWideLayout(drawn, smooth ? smooth2d : null);
+		if (smooth && !(view3d.options.wide && mem[0x7600] <= 1))
+			smooth2d.draw(PICTURE_BAND);
 		if (automap.shown)
 			automap.draw();
 	},

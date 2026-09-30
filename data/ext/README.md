@@ -196,6 +196,9 @@ These games are also discussed in [this video on YouTube](https://www.youtube.co
     (the monster sprites too), and
     arches open onto what lies beyond. A wide layout puts the view over the whole width with the
     game's texts and compass shrunk above and below it
+  * the game's own pictures, shop interiors and the Atari view, smoothed the same way
+    ([altreal/smooth2d.js](altreal/smooth2d.js)): read back from the framebuffer at the game's
+    pixel grid, upscaled and drawn over their place
   * an automatic map ([altreal/automap.js](altreal/automap.js)): the cells visited and seen are
     remembered, the M key shows the level's map with walls, doors, arches, the player, the kinds
     of the cells named from the game's own location line, and marks set with the digit keys; the

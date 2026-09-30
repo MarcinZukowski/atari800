@@ -147,6 +147,17 @@ every pass, several quarters per push.
 * `$1C88` prints a template pointed to by `$16`/`$17` (see "Commands and the
   status pages" for the codes).
 
+## The game's own pictures, smoothed
+
+Where the picture rows show the game's own picture, a shop's interior or
+the maze and its monsters in the Atari view, smooth2d.js reads the band
+(columns 0-39, lines 73-144) back from the framebuffer at one sample per
+mode-4 pixel (the centre of its first hi-res pixel, which is exact at any
+integer or half-integer window scale), turns the colours into indices,
+applies Scale2x twice and draws the result over the band, or enlarged into
+the wide layout's view. The texture is rebuilt only when the sampled picture
+changes. The wide layout is on by default.
+
 ## The automatic map
 
 automap.js keeps, for each level (`$6315`, 1-7), a byte per cell: bit 7

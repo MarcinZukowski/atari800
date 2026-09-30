@@ -26,3 +26,23 @@ export function rgb(colour) {
 	const v = a8.palette[colour & 0xff];
 	return [((v >> 16) & 0xff) / 255, ((v >> 8) & 0xff) / 255, (v & 0xff) / 255];
 }
+
+// Scale2x (EPX): doubles a picture of pixel values, rounding the stairs of
+// diagonal edges from the four neighbours without inventing colours. The
+// picture is taken to repeat, as it does on the walls.
+export function scale2x(src, w, h) {
+	const out = new Uint8Array(w * h * 4), w2 = 2 * w;
+	for (let y = 0; y < h; y++) {
+		const up = ((y + h - 1) % h) * w, row = y * w, down = ((y + 1) % h) * w;
+		for (let x = 0; x < w; x++) {
+			const P = src[row + x], A = src[up + x], D = src[down + x];
+			const C = src[row + (x + w - 1) % w], B = src[row + (x + 1) % w];   // left, right
+			const o = 2 * y * w2 + 2 * x;
+			out[o] = (C === A && C !== D && A !== B) ? A : P;
+			out[o + 1] = (A === B && A !== C && B !== D) ? B : P;
+			out[o + w2] = (D === C && D !== B && C !== A) ? C : P;
+			out[o + w2 + 1] = (B === D && B !== A && D !== C) ? D : P;
+		}
+	}
+	return out;
+}
