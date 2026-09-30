@@ -6,13 +6,15 @@
 // the character's speed (6-15 units, halved by a flag, at least 4, 2 when
 // exhausted; set at $4430-$445E). The renderer draws any position, so with
 // the drawing accelerated the step can be one unit and the joystick gated so
-// that the walking speed stays what the game meant: many small steps instead
-// of five big ones per cell.
+// that the walking speed stays what the game meant, times a chosen factor:
+// many small steps instead of five big ones per cell.
 
 const STEP_SIZE = 0x6383, JOYSTICK = 0x2E, JOYSTICK_PACKED = 0x2642, STEP_SIZE_SET = 0x445E;
 const MASK_FORWARD = 0x01, MASK_BACK = 0x02;   // bits of $2E (see $3B74-$3B76)
-const GAME_STEPS_PER_SECOND = 2.5;             // measured: one redraw per 20-30 frames
-const TURNS_PER_SECOND = 2.5;             // one turn per game-loop pass, as without acceleration
+const GAME_STEPS_PER_SECOND = 2.5;       // measured: one redraw per 20-30 frames
+const TURNS_PER_SECOND = 2.5;            // one turn per game-loop pass, as without acceleration
+const MAX_MOVES_PER_SECOND = 28;         // the accelerated loop manages about 30 passes a second
+const SPEED_FACTORS = [1, 1.5, 2, 3];    // the "Walking speed" options
 
 const mem = a8.mem;
 let gameStep = 7;         // the step size the game computed for the character
@@ -27,6 +29,7 @@ export default {
 		FPS: { label: "Display FPS:", options: ["OFF", "ON"], current: 1 },
 		ACCEL: { label: "Acceleration:", options: ["NO", "LOW", "HIGH"], current: 1 },
 		SMOOTH: { label: "Smooth walking:", options: ["OFF", "ON"], current: 0 },
+		SPEED: { label: "Walking speed:", options: ["1x", "1.5x", "2x", "3x"], current: 1 },
 	},
 
 	smoothActive() {
@@ -48,9 +51,7 @@ export default {
 			this.calls7856++;
 
 		if (pc === STEP_SIZE_SET) {   // the game just computed the character's step size
-			gameStep = mem[STEP_SIZE];
-			if (this.smoothActive())
-				mem[STEP_SIZE] = 1;
+			gameStep = mem[STEP_SIZE];   // onPreGlFrame applies the smooth step from it
 			return op;
 		}
 		if (pc === JOYSTICK_PACKED) {
@@ -99,12 +100,16 @@ export default {
 			a8.printFps(this.calls7856, 0x9f, 0x90, 0, -2);
 
 		if (this.smoothActive()) {
-			// one-unit steps at the speed the game's own step size implies
-			mem[STEP_SIZE] = 1;
-			moveBudget = Math.min(moveBudget + gameStep * GAME_STEPS_PER_SECOND / 60, 2);
-			turnBudget = Math.min(turnBudget + TURNS_PER_SECOND / 60, 1);
+			// Small steps at the speed the game's own step size implies, times the
+			// chosen factor; the step grows when the loop could not redraw often enough
+			const factor = SPEED_FACTORS[this.menu.SPEED.current];
+			const unitsPerSecond = gameStep * GAME_STEPS_PER_SECOND * factor;
+			const step = Math.max(1, Math.ceil(unitsPerSecond / MAX_MOVES_PER_SECOND));
+			mem[STEP_SIZE] = step;
+			moveBudget = Math.min(moveBudget + unitsPerSecond / step / 60, 2);
+			turnBudget = Math.min(turnBudget + TURNS_PER_SECOND * factor / 60, 1);
 		}
-		else if (mem[STEP_SIZE] === 1 && gameStep !== 1) {
+		else if (mem[STEP_SIZE] !== gameStep) {
 			mem[STEP_SIZE] = gameStep;   // smooth walking was switched off: give the game its step back
 		}
 	},

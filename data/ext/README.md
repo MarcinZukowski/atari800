@@ -162,8 +162,8 @@ These games are also discussed in [this video on YouTube](https://www.youtube.co
   * faster rendering
 * Alternate Reality: [altreal/init.js](altreal/init.js), [altreal.md](altreal/altreal.md) (originally in C, now JavaScript)
   * faster rendering
-  * smooth walking: one-unit steps at the game's own speed instead of five big ones per cell
-    (needs the HIGH acceleration, see the notes for how the engine moves)
+  * smooth walking: small steps instead of five big ones per cell, at the game's own speed or
+    1.5, 2 or 3 times it (needs the HIGH acceleration, see the notes for how the engine moves)
 * River Raid: [river-raid/init.js](river-raid/init.js), [river-raid.md](river-raid/river-raid.md) (originally in C, now JavaScript)
   * 3D rendering
   * custom sounds example

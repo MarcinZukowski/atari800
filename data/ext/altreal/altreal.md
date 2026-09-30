@@ -48,7 +48,10 @@ Found while looking into why walking is drawn in a few big steps.
 * 3884-38ce - monsters at the player's cell -> 1938; 4a69-4a82 - per-pass loop
   over 64 monsters
 
-"Smooth walking" in init.js uses this: with the drawing accelerated, the step
-size is set to 1 and the joystick is let through 17.5 * (game step / 7) times a
-second, so the character moves at the speed the game intended but in one-unit
-steps, one redraw each.
+"Smooth walking" in init.js uses this: with the drawing accelerated, the
+joystick is let through so that the character covers 17.5 * (game step / 7)
+units a second, the speed the game intended, times the "Walking speed" factor
+(1, 1.5, 2 or 3). The step is one unit while that fits in 28 moves a second,
+which is what the accelerated loop can redraw, and grows to 2 or 3 units above
+that; each move is one redraw. Measured: 124 frames per cell at 1x, 83 at
+1.5x, 62 at 2x, 42 at 3x.
