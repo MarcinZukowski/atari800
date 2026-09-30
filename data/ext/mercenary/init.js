@@ -1,7 +1,10 @@
 // Mercenary: accelerated drawing (the game's line and fill routines are
-// re-implemented here and the 6502 code is skipped) and the lines drawn again
-// with OpenGL, as thin lines or as pixel-exact polygons. A port of the former
-// C extension (src/ext/ext-mercenary.c); the addresses come from mercenary.md.
+// re-implemented here and the 6502 code is skipped), and the 3D scene drawn
+// again with OpenGL from the game's own geometry: the vertices' exact 24-bit
+// positions and 10-bit view angles are read as the game projects them, the
+// transform is redone in floating point, and every edge is drawn between the
+// resulting sub-pixel end points. The addresses come from mercenary.md; the
+// engine's structure follows the C64 version's analysis by gamesexplained.
 import { rgb, word } from "../common.js";
 
 const MODE_A8 = 0, MODE_GL = 1, MODE_BOTH = 2;                       // line drawing mode
@@ -25,7 +28,37 @@ const LINE_ROUTINES = [
 const FILL_ONE_COLOUR = 0x586F;
 const FILL_TWO_COLOURS = 0x570E;
 
+// The 3D pipeline: three routines compute a vertex relative to the eye as
+// 24-bit integers (a building vertex, an object's model vertex after its
+// orientation, the centre of a city square) and convert it to the game's
+// two-byte floats; PROJECT_VERTEX transforms and projects those into slot
+// $17; LINE_SETUP draws an edge between the slots in X and Y.
+const VERTEX_REL = 0x49B6;
+const MODEL_VERTEX_ORIENTED = 0x4A1D;   // inside model_vertex_rel, after the orientation
+const SQUARE_CENTRE_REL = 0x4A63;
+const PROJECT_VERTEX = 0x4B44;
+const LINE_SETUP = 0x3E4E;
+const EYE = 0x70;                                        // X, height, Y: 24 bits each, low byte first
+const VERTEX_X = [0x1D00, 0x1D40, 0x9F40];               // the location's vertex tables, low/mid/high
+const VERTEX_H = [0x1D80, 0x1DC0, 0x9F80];
+const VERTEX_Y = [0x1E00, 0x1E40, 0x9FC0];
+const SLOT_SX = 0x9E80, SLOT_SY = 0x9EC0, SLOT_FLAGS = 0x9F00;   // the game's projection per slot
+const VIEW_W = 160, VIEW_H = 152;                        // the 3D window in game pixels
+const Z_NEAR = 16;                                       // clipping plane, in world units (65536 per square)
+
 const mem = a8.mem;
+
+const s24 = (lo, mid, hi) => { const v = lo | (mid << 8) | (hi << 16); return v >= 0x800000 ? v - 0x1000000 : v; };
+// The game's float: mantissa byte and an exponent byte whose bits 2-7 are a
+// signed power of two and bit 0 the sign; +-(1 + m/256) * 2^e
+const gfloat = (m, e) => { const raw = e >> 2; const se = raw >= 32 ? raw - 64 : raw; const v = (1 + m / 256) * 2 ** se; return (e & 1) ? -v : v; };
+// 10-bit angles, 1024 per turn; the game's sine table is offset by half a step
+const angle = (a) => mem[a] | ((mem[a + 1] & 3) << 8);
+const sin10 = (a) => Math.sin((a + 0.5) * Math.PI / 512);
+const cos10 = (a) => Math.cos((a + 0.5) * Math.PI / 512);
+
+let pendingVertex = null;      // exact eye-relative position awaiting PROJECT_VERTEX
+const slots = new Array(64);   // per slot: { xp, yp, z } in view space, floats
 
 // Lines drawn during one frame, kept in two sets: the one being shown and
 // the one being prepared. They swap when the display list byte at $2805
@@ -105,9 +138,6 @@ function drawLine([, xMajor, majorDelta, minorLimit, minorDelta, fracNeg], drawP
 			break;
 	}
 
-	if (preparedLines.length < MAX_LINES)
-		preparedLines.push({ startX, startY, endX: curX, endY: curY, colourAnd });
-
 	// Leave the registers as the game's routine would
 	mem[0x06] = fracCur;
 	a8.cpu.x = xMajor ? majorCur : minorCur;
@@ -149,11 +179,139 @@ function fillTwoColours() {
 	return a8.OP_NOP;
 }
 
+/* ------------------------------ geometry capture ------------------------------ */
+
+function eyePosition() {
+	return [s24(mem[EYE], mem[EYE + 1], mem[EYE + 2]),
+	        s24(mem[EYE + 3], mem[EYE + 4], mem[EYE + 5]),
+	        s24(mem[EYE + 6], mem[EYE + 7], mem[EYE + 8])];
+}
+
+// A building vertex: its absolute 24-bit position minus the eye
+function captureBuildingVertex() {
+	const i = mem[0x17];
+	const [ex, eh, ey] = eyePosition();
+	pendingVertex = [s24(mem[VERTEX_X[0] + i], mem[VERTEX_X[1] + i], mem[VERTEX_X[2] + i]) - ex,
+	                 s24(mem[VERTEX_H[0] + i], mem[VERTEX_H[1] + i], mem[VERTEX_H[2] + i]) - eh,
+	                 s24(mem[VERTEX_Y[0] + i], mem[VERTEX_Y[1] + i], mem[VERTEX_Y[2] + i]) - ey];
+}
+
+// An object's vertex: the object's eye-relative position ($D5-$DD, lowered by
+// 2048 per axis) plus the oriented model offset (12 bits, model * 16 + 2048)
+function captureModelVertex() {
+	pendingVertex = [s24(mem[0xD5], mem[0xD6], mem[0xD7]) + (mem[0xCF] | (mem[0xD0] << 8)),
+	                 s24(mem[0xD8], mem[0xD9], mem[0xDA]) + (mem[0xD1] | (mem[0xD2] << 8)),
+	                 s24(mem[0xDB], mem[0xDC], mem[0xDD]) + (mem[0xD3] | (mem[0xD4] << 8))];
+}
+
+// The centre of city square A (row * 16 + column), ignoring the eye's low
+// byte as the game does; the height float was set by the caller
+function captureSquareCentre() {
+	const sq = a8.cpu.a, col = sq & 0x0F, row = sq >> 4;
+	pendingVertex = [((col << 16) | 0x8000) - ((mem[0x72] << 16) | (mem[0x71] << 8)),
+	                 gfloat(mem[0x52], mem[0x53]),
+	                 ((row << 16) | 0x8000) - ((mem[0x78] << 16) | (mem[0x77] << 8))];
+}
+
+// PROJECT_VERTEX: redo the game's transform in floating point. In flight the
+// view matrix from roll r, pitch p and heading h applies to (X, height, Y);
+// on foot and underground only the heading does.
+function captureProjection() {
+	let rel = pendingVertex;
+	pendingVertex = null;
+	if (rel === null)   // a path we do not intercept (the far-object dot): take the game's floats
+		rel = [gfloat(mem[0x50], mem[0x51]), gfloat(mem[0x52], mem[0x53]), gfloat(mem[0x54], mem[0x55])];
+	const [X, H, Y] = rel;
+	let xp, yp, z;
+	if (mem[0xA6] !== 0 || (mem[0xA7] & 0x80)) {
+		const h = angle(0x2A), sh = sin10(h), ch = cos10(h);
+		xp = X * ch - Y * sh;
+		yp = -H;
+		z = -(X * sh + Y * ch);
+	}
+	else {
+		const r = angle(0x26), p = angle(0x28), h = angle(0x2A);
+		const sr = sin10(r), cr = cos10(r), sp = sin10(p), cp = cos10(p), sh = sin10(h), ch = cos10(h);
+		xp = X * (cr * ch + sr * sp * sh) + H * (-sr * cp) + Y * (-cr * sh + sr * sp * ch);
+		yp = X * (sr * ch - cr * sp * sh) + H * (cr * cp) + Y * (-(sr * sh + cr * sp * ch));
+		z = X * (cp * sh) + H * sp + Y * (cp * ch);
+	}
+	if (mem[0xF1] & 1)   // mirror flag
+		xp = -xp;
+	slots[mem[0x17]] = { xp, yp, z };
+}
+
+// LINE_SETUP: remember the edge between slots X and Y with its 3D end points.
+// The game's integer projection is kept as a fallback for a slot whose float
+// data is missing or does not agree with it.
+function captureEdge() {
+	const ends = [];
+	for (const s of [a8.cpu.x, a8.cpu.y]) {
+		const f = slots[s];
+		const flags = mem[SLOT_FLAGS + s];
+		const gx = mem[SLOT_SX + s], gy = mem[SLOT_SY + s];
+		let ok = f !== undefined && (flags & 0x80 ? f.z <= Z_NEAR : f.z > 0);
+		if (ok && !(flags & 0x83)) {
+			// both projected it: they must agree to within the game's rounding
+			const [sx, sy] = projectPoint(f);
+			ok = Math.abs(sx - gx) <= 2 && Math.abs(sy - gy) <= 2;
+		}
+		ends.push(ok ? f : { flat: true, sx: gx, sy: gy, behind: (flags & 0x80) !== 0 });
+	}
+	if (preparedLines.length < MAX_LINES)
+		preparedLines.push({ a: ends[0], b: ends[1], colourAnd: mem[0x5243] === 0x3D });
+}
+
+// View space to game pixels, like the game: x = centre + f * xp / z, y = centre + 2f * yp / z
+function projectPoint(v) {
+	const fe = mem[0x1F] >> 2;
+	const focal = 2 ** (fe >= 32 ? fe - 64 : fe);
+	return [mem[0x8C] + focal * v.xp / v.z, mem[0x8D] + 2 * focal * v.yp / v.z];
+}
+
 /* ------------------------------ OpenGL pass ------------------------------ */
 
-function drawGlLine(line, type) {
-	let sx = adjustX(line.startX), ex = adjustX(line.endX);
-	let sy = adjustY(line.startY), ey = adjustY(line.endY);
+// Clips the edge to the near plane and the view window and returns its end
+// points in game pixels, or null when nothing is left
+function edgeEndPoints(edge) {
+	let a = edge.a, b = edge.b;
+	if (a.flat || b.flat) {
+		// at least one end only has the game's integer projection
+		if (a.behind || b.behind) return null;
+		const pa = a.flat ? [a.sx, a.sy] : projectPoint(a);
+		const pb = b.flat ? [b.sx, b.sy] : projectPoint(b);
+		if (!a.flat && a.z <= Z_NEAR || !b.flat && b.z <= Z_NEAR) return null;
+		return clipToWindow(pa, pb);
+	}
+	if (a.z <= Z_NEAR && b.z <= Z_NEAR) return null;
+	if (a.z <= Z_NEAR || b.z <= Z_NEAR) {
+		// move the end behind the near plane onto it
+		const t = (Z_NEAR - a.z) / (b.z - a.z);
+		const p = { xp: a.xp + t * (b.xp - a.xp), yp: a.yp + t * (b.yp - a.yp), z: Z_NEAR };
+		if (a.z <= Z_NEAR) a = p; else b = p;
+	}
+	return clipToWindow(projectPoint(a), projectPoint(b));
+}
+
+// Liang-Barsky clip of a segment to the view window (game pixels)
+function clipToWindow([x0, y0], [x1, y1]) {
+	const dx = x1 - x0, dy = y1 - y0;
+	let t0 = 0, t1 = 1;
+	for (const [p, q] of [[-dx, x0], [dx, VIEW_W - x0], [-dy, y0], [dy, VIEW_H - y0]]) {
+		if (p === 0) { if (q < 0) return null; continue; }
+		const r = q / p;
+		if (p < 0) { if (r > t1) return null; if (r > t0) t0 = r; }
+		else { if (r < t0) return null; if (r < t1) t1 = r; }
+	}
+	return [[x0 + t0 * dx, y0 + t0 * dy], [x0 + t1 * dx, y0 + t1 * dy]];
+}
+
+function drawGlLine(edge, type) {
+	const pts = edgeEndPoints(edge);
+	if (pts === null)
+		return;
+	let sx = adjustX(pts[0][0]), ex = adjustX(pts[1][0]);
+	let sy = adjustY(pts[0][1]), ey = adjustY(pts[1][1]);
 
 	if (type === TYPE_LINE) {
 		gl.LineWidth(4);
@@ -214,15 +372,30 @@ export default {
 		...LINE_ROUTINES.map((r) => r[0]),
 		FILL_ONE_COLOUR,
 		FILL_TWO_COLOURS,
+		VERTEX_REL, MODEL_VERTEX_ORIENTED, SQUARE_CENTRE_REL, PROJECT_VERTEX, LINE_SETUP,
 	],
 
 	onActivate() {
 		shownLines = [];
 		preparedLines = [];
 		shownDl = -1;
+		pendingVertex = null;
+		slots.fill(undefined);
 	},
 
 	onCodeInjection(pc, op) {
+		// The geometry is captured whatever the settings; it is what the OpenGL pass draws
+		switch (pc) {
+		case VERTEX_REL: captureBuildingVertex(); return op;
+		case MODEL_VERTEX_ORIENTED: captureModelVertex(); return op;
+		case SQUARE_CENTRE_REL: captureSquareCentre(); return op;
+		case PROJECT_VERTEX: captureProjection(); return op;
+		case LINE_SETUP:
+			captureEdge();
+			// In OpenGL-only mode the game need not draw the edge at all
+			return this.menu.LINES.current === MODE_GL && !a8.accelerationDisabled() ? a8.OP_RTS : op;
+		}
+
 		if (this.menu.ACCEL.current === 0 || a8.accelerationDisabled())
 			return op;
 		if (SKIPPED_ROUTINES.includes(pc))
