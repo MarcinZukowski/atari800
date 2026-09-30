@@ -1,6 +1,6 @@
 // Alternate Reality: The Dungeon - faster rendering by skipping busy code,
 // smooth walking, and the maze drawn with OpenGL (view3d.js).
-import { createView3D } from "./view3d.js";
+import { createView3D, captureTexture } from "./view3d.js";
 //
 // Movement: the position inside the current cell is $6316/$6317 on a 36-unit
 // grid, and each step adds the step size $6383, which the game derives from
@@ -34,9 +34,18 @@ export default {
 		SMOOTH: { label: "Smooth walking:", options: ["OFF", "ON"], current: 0 },
 		SPEED: { label: "Walking speed:", options: ["1x", "1.5x", "2x", "3x"], current: 1 },
 		VIEW3D: { label: "Maze view:", options: ["Atari", "OpenGL"], current: 1 },
+		// Selecting "wall" or "door" grabs the game's picture of what is straight
+		// ahead, half a cell away, into a texture file (then resets itself)
+		CAPTURE: { label: "Capture texture:", options: ["-", "wall", "door"], current: 0 },
 	},
 
 	onPostGlFrame() {
+		const capture = this.menu.CAPTURE.current;
+		if (capture !== 0) {
+			captureTexture(capture === 1 ? "bricks" : "door");
+			this.menu.CAPTURE.current = 0;
+			view3d.reload();
+		}
 		if (this.menu.VIEW3D.current === 1)
 			view3d.render(this.smoothActive() ? movesPerSecond : GAME_STEPS_PER_SECOND);
 	},

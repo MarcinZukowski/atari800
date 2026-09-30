@@ -83,3 +83,14 @@ floor and ceiling in a frustum of 72 x 80 degrees over the picture rectangle,
 with fog, side shading and interpolation of steps and turns. It stays out of
 the way when the display list is not the maze or a monster is in the cell
 (1938), since the game draws monsters into its own picture.
+
+# Capturing the game's wall art
+
+Right against a wall the game paints the whole picture in one flat colour,
+so the nearest wall carries no pattern; half a cell back (position 17) the
+wall ahead is drawn at full size as cobblestones with red brick edging, and
+farther walls shrink. wall-cobble.rgba is that picture, cut to the wall face
+and sampled at one texel per mode-4 pixel (58 x 52), taken from the
+framebuffer with gl.readPixels(). The "Capture texture" menu entry does the
+same in play: stand half a cell from a wall or door, facing it, choose
+"wall" or "door", and view3d.js reloads with the file.

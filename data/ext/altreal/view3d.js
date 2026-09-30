@@ -25,9 +25,41 @@ const PIC_TOP = (120 - 73) / 120, PIC_BOTTOM = (120 - 145) / 120;
 const H_FOV = 72 * Math.PI / 180;
 const V_FOV = 80 * Math.PI / 180;
 
+import * as std from "std";
 const mem = a8.mem;
 
 /* ------------------------------ textures ------------------------------ */
+
+// Textures captured from the game itself (see captureTexture below) live in
+// these files as raw RGBA with the size in the name; procedural ones are
+// used where a file is missing.
+const CAPTURED = {
+	bricks: "data/ext/altreal/wall-cobble.rgba",
+	door: "data/ext/altreal/door.rgba",
+};
+
+// Loads a captured texture; the file name encodes nothing, so the size comes
+// from the file length: the capture is always CAPTURE_W texels wide
+const CAPTURE_W = 58;
+function loadCaptured(path) {
+	const f = std.open(path, "rb");
+	if (f === null) return null;
+	f.seek(0, std.SEEK_END);
+	const size = f.tell();
+	f.seek(0, std.SEEK_SET);
+	if (size <= 0 || size % (CAPTURE_W * 4) !== 0) { f.close(); return null; }
+	const h = size / (CAPTURE_W * 4);
+	const t = gl.createTexture(CAPTURE_W, h);
+	f.read(t.pixels.buffer, 0, size);
+	f.close();
+	t.finalize();
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);   // keep the pixel art
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+	console.log(`altreal: using captured texture ${path} (${CAPTURE_W}x${h})`);
+	return t;
+}
 
 // Deterministic noise so that textures are stable between runs
 function noise(x, y, seed) {
@@ -89,7 +121,44 @@ function makeTextures() {
 		const v = seam ? 0.25 : 0.42 + 0.12 * noise(plank, 0, 7) + 0.05 * noise(x, y, 8);
 		return [v, v * 0.62, v * 0.35];
 	});
-	return { bricks, floor, ceiling, door };
+	return {
+		bricks: loadCaptured(CAPTURED.bricks) || bricks,
+		door: loadCaptured(CAPTURED.door) || door,
+		floor, ceiling,
+	};
+}
+
+// Grabs the game's own picture of a wall or door seen straight on from half a
+// cell away (the nearest wall is drawn flat, farther ones too small) and
+// saves it as a texture file. The picture rectangle is read from the
+// framebuffer before the OpenGL view is drawn over it.
+export function captureTexture(which) {
+	const [vx, vy, vw, vh] = gl.GetIntegerv(gl.VIEWPORT);
+	const px0 = Math.round(vx + (PIC_LEFT + 1) / 2 * vw), px1 = Math.round(vx + (PIC_RIGHT + 1) / 2 * vw);
+	const py0 = Math.round(vy + (PIC_BOTTOM + 1) / 2 * vh), py1 = Math.round(vy + (PIC_TOP + 1) / 2 * vh);
+	const pw = px1 - px0, ph = py1 - py0;
+	// the wall face at half a cell: about 8-91% of the width, 10-82% of the height (from the top)
+	const x0 = px0 + Math.round(0.083 * pw), x1 = px0 + Math.round(0.91 * pw);
+	const yTop = py1 - Math.round(0.097 * ph), yBot = py1 - Math.round(0.82 * ph);
+	const shot = gl.readPixels(x0, yBot, x1 - x0, yTop - yBot);
+	const sw = x1 - x0, sh = yTop - yBot;
+	// one mode-4 pixel is pw/72 window pixels wide and ph/72 tall
+	const texelW = pw / 72, texelH = ph / 72;
+	const th = Math.floor(sh / texelH);
+	const out = new Uint8Array(CAPTURE_W * th * 4);
+	for (let ty = 0; ty < th; ty++) {
+		const sy = Math.min(sh - 1, Math.floor((th - 1 - ty) * texelH + texelH / 2));   // rows top-down
+		for (let tx = 0; tx < CAPTURE_W; tx++) {
+			const sx = Math.min(sw - 1, Math.floor(tx * sw / CAPTURE_W + texelW / 2));
+			const o = (sy * sw + sx) * 4, d = (ty * CAPTURE_W + tx) * 4;
+			out[d] = shot[o]; out[d + 1] = shot[o + 1]; out[d + 2] = shot[o + 2]; out[d + 3] = 255;
+		}
+	}
+	const path = CAPTURED[which];
+	const f = std.open(path, "wb");
+	f.write(out.buffer, 0, out.length);
+	f.close();
+	console.log(`altreal: captured ${which} texture to ${path} (${CAPTURE_W}x${th})`);
 }
 
 /* ------------------------------ map access ------------------------------ */
@@ -166,12 +235,14 @@ function drawWalls(textures, eyeX, eyeZ, cx, cy) {
 
 export function createView3D() {
 	let textures = null;
+	const reload = () => { textures = null; };
 	// Interpolation state
 	let prevX = null, prevZ = null, prevYaw = null;
 	let curX = 0, curZ = 0, curYaw = 0;
 	let moveFrames = 0, turnFrames = 0;
 
 	return {
+		reload,
 		// Call every frame; draws when the game shows the maze and no monster
 		// is present (the game draws monsters into its own picture).
 		render(movesPerSecond) {

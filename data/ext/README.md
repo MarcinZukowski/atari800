@@ -168,7 +168,8 @@ These games are also discussed in [this video on YouTube](https://www.youtube.co
     1.5, 2 or 3 times it (needs the HIGH acceleration, see the notes for how the engine moves)
   * the maze redrawn with OpenGL ([altreal/view3d.js](altreal/view3d.js)): the level map is read
     from memory and drawn with textured walls and doors, floor, ceiling, fog and shading, with
-    steps and turns interpolated
+    steps and turns interpolated; the wall texture is the game's own cobblestone art, captured
+    from its picture, and a menu action captures more (see the notes)
 * River Raid: [river-raid/init.js](river-raid/init.js), [river-raid.md](river-raid/river-raid.md) (originally in C, now JavaScript)
   * 3D rendering
   * custom sounds example
