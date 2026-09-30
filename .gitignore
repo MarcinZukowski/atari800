@@ -69,3 +69,6 @@ src/config.h.in-20*
 *.atr
 *.xex
 .DS_Store
+
+# Alternate Reality: the automatic map records, one file per character
+data/ext/altreal/maps/

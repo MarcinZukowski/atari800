@@ -1,8 +1,9 @@
 // Alternate Reality: The Dungeon - faster rendering by skipping busy code,
-// smooth walking, the maze drawn with OpenGL (view3d.js) and the disk sides
-// served from files (disks.js).
+// smooth walking, the maze drawn with OpenGL (view3d.js), the disk sides
+// served from files (disks.js) and an automatic map on the M key (automap.js).
 import { createView3D, SPRITE_HOOK } from "./view3d.js";
 import { disks } from "./disks.js";
+import { automap } from "./automap.js";
 //
 // Movement: the position inside the current cell is $6316/$6317 on a 36-unit
 // grid, and each step adds the step size $6383, which the game derives from
@@ -52,6 +53,10 @@ export default {
 		DISKS: { label: "Disk swaps:", options: ["Manual", "Automatic"], current: 1 },
 	},
 
+	onFrame() {
+		automap.track();   // where the player is and what lies ahead, every frame
+	},
+
 	onPostGlFrame() {
 		view3d.options.smoothTextures = this.menu.TEXTURES.current === 1;
 		view3d.options.wide = this.menu.LAYOUT.current === 1;
@@ -62,6 +67,8 @@ export default {
 			view3d.reset();
 		if (view3d.options.wide)
 			view3d.drawWideLayout(drawn);
+		if (automap.shown)
+			automap.draw();
 	},
 
 	smoothActive() {
@@ -76,11 +83,13 @@ export default {
 	calls7856: 0,
 
 	// We intercept execution at these addresses
-	codeInjections: [0x7856, 0x0090, 0x4A69, 0x3884, 0x7858, 0x7A1F, 0x7F1B, STEP_SIZE_SET, JOYSTICK_PACKED, SPRITE_HOOK, ...disks.hooks],
+	codeInjections: [0x7856, 0x0090, 0x4A69, 0x3884, 0x7858, 0x7A1F, 0x7F1B, STEP_SIZE_SET, JOYSTICK_PACKED, SPRITE_HOOK, ...disks.hooks, ...automap.hooks],
 
 	onCodeInjection(pc, op) {
 		if (disks.hooks.includes(pc))
 			return this.menu.DISKS.current === 1 ? disks.onCodeInjection(pc, op) : op;
+		if (automap.hooks.includes(pc))
+			return automap.onCodeInjection(pc, op);
 		if (pc === SPRITE_HOOK) {   // the picture's first interrupt: the monster sprite's registers are valid
 			view3d.captureSprites();
 			return op;

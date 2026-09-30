@@ -196,6 +196,10 @@ These games are also discussed in [this video on YouTube](https://www.youtube.co
     (the monster sprites too), and
     arches open onto what lies beyond. A wide layout puts the view over the whole width with the
     game's texts and compass shrunk above and below it
+  * an automatic map ([altreal/automap.js](altreal/automap.js)): the cells visited and seen are
+    remembered, the M key shows the level's map with walls, doors, arches, the player, the kinds
+    of the cells named from the game's own location line, and marks set with the digit keys; the
+    record is a file per character in `altreal/maps/`, so it survives states and restarts
   * no disk swapping: boot from side 1 as usual, then the game's sector reads are served from the
     five disk images placed in `altreal/` ([altreal/disks.js](altreal/disks.js)), so "Please
     insert Disk..." never comes up (the game only ever reads)

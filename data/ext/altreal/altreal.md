@@ -137,6 +137,38 @@ per push of the stick, and only after 0.4 s of holding it more turns
 follow at the game's own 2.5 a second; the loop would otherwise turn at
 every pass, several quarters per push.
 
+## Text and fonts
+
+* The OS ROM is switched off: `$E000` onwards holds the game's data, not the
+  character set. The text rows use the game's own font at `$1400`, 128 glyphs
+  in ASCII order (the screen codes are ASCII), set as CHBASE by the vertical
+  blank (`$2356`) for the top rows and by the interrupt at `$1BEB` for the
+  rows below the picture. automap.js draws its legend with it.
+* `$1C88` prints a template pointed to by `$16`/`$17` (see "Commands and the
+  status pages" for the codes).
+
+## The automatic map
+
+automap.js keeps, for each level (`$6315`, 1-7), a byte per cell: bit 7
+visited, bit 6 seen, bits 0-2 a mark. The record is a 16 KB file per
+character (the name is at `$6321`) in `maps/`, written after two seconds
+without changes or every ten seconds while they go on, so it survives states
+and restarts; the saved states of this game are 64 KB machines, so there is
+no extended memory bank to keep it in (the `a8.xeBank()` facility would tie
+a record to the state). Every frame the player's cell is
+visited and the cells straight ahead, through open sides and arches up to
+ten cells, are seen. The kind of a cell is the type byte of its map record
+(44 values on level 1), named from the location line at `$04A0` ("You are
+in a corridor") read twelve frames after entering a cell of a kind not yet
+named; the names are kept in the bank too (`8192 + 32 * kind`). The M key
+(at the command dispatcher `$30AA`, where M is not a game command) shows
+the map over the screen: visited cells in a colour per kind, seen ones
+dimmer, the walls of the known cells from the level data at `$B000` (doors
+yellow, locked red, arches blue, secret doors as walls until `$1957`
+reveals them), special cells (flags bit 7) with a white square, the player
+as an arrow, and the marks 1-7 set with the digit keys on the player's
+cell, 0 clearing.
+
 ## Commands and the status pages
 
 * Keyboard: the IRQ at `$2653` translates the key code through `$26D1` (64
