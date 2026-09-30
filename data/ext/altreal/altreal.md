@@ -55,3 +55,31 @@ units a second, the speed the game intended, times the "Walking speed" factor
 which is what the accelerated loop can redraw, and grows to 2 or 3 units above
 that; each move is one redraw. Measured: 124 frames per cell at 1x, 83 at
 1.5x, 62 at 2x, 42 at 3x.
+
+# Map and view
+
+* the level is 32 x 32 cells of 4 bytes at b000 + y*128 + x*4 (3531 builds the
+  address): byte 0 = north (low nibble) and east (high) walls, byte 1 = south
+  (low) and west (high), byte 2 = cell type, byte 3 = flags (bit 7: special,
+  low 5 bits an index kept in 195a). Wall nibbles: 0 open, 13 wall, 1 arched
+  passage, 3/5/6 doors (the movement handlers at 330f/3307 pass through with a
+  message), 8-10 locked doors (3344-334c, need bit 1 of 6388), 11-15 solid
+  (32da clamps the position at the wall)
+* facing 0 decreases y, 1 increases x, 2 increases y, 3 decreases x (tables
+  3b44/3b54). Seen from inside the game the world is mirrored relative to a
+  right-handed map: facing 3, what the nibbles call north is on the left
+* the picture is the middle 18 text columns of the nine mode-4 rows (display
+  list 19be): 144 colour clocks by 72 lines starting at scanline 73, a 2:1
+  window that the game draws as if it were square (mode-4 pixels are 2:1).
+  The rows use three font banks (0800/0c00/1000, switched by the DLIs at
+  1b2f) and the DLIs also change the colours per row group (table 1c19).
+  The 11 columns on each side are solid frame; the right side also holds the
+  compass
+* walls are not textured: 0090 fills them with dither patterns from the
+  256-byte table at 8e00, chosen by a366 and the row
+
+view3d.js redraws the maze with OpenGL from this: textured walls, doors,
+floor and ceiling in a frustum of 72 x 80 degrees over the picture rectangle,
+with fog, side shading and interpolation of steps and turns. It stays out of
+the way when the display list is not the maze or a monster is in the cell
+(1938), since the game draws monsters into its own picture.

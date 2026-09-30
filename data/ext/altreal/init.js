@@ -1,5 +1,6 @@
 // Alternate Reality: The Dungeon - faster rendering by skipping busy code,
-// and smooth walking.
+// smooth walking, and the maze drawn with OpenGL (view3d.js).
+import { createView3D } from "./view3d.js";
 //
 // Movement: the position inside the current cell is $6316/$6317 on a 36-unit
 // grid, and each step adds the step size $6383, which the game derives from
@@ -18,6 +19,8 @@ const SPEED_FACTORS = [1, 1.5, 2, 3];    // the "Walking speed" options
 
 const mem = a8.mem;
 let gameStep = 7;         // the step size the game computed for the character
+const view3d = createView3D();
+let movesPerSecond = GAME_STEPS_PER_SECOND;
 let moveBudget = 0, turnBudget = 0;
 
 export default {
@@ -30,6 +33,12 @@ export default {
 		ACCEL: { label: "Acceleration:", options: ["NO", "LOW", "HIGH"], current: 1 },
 		SMOOTH: { label: "Smooth walking:", options: ["OFF", "ON"], current: 0 },
 		SPEED: { label: "Walking speed:", options: ["1x", "1.5x", "2x", "3x"], current: 1 },
+		VIEW3D: { label: "Maze view:", options: ["Atari", "OpenGL"], current: 1 },
+	},
+
+	onPostGlFrame() {
+		if (this.menu.VIEW3D.current === 1)
+			view3d.render(this.smoothActive() ? movesPerSecond : GAME_STEPS_PER_SECOND);
 	},
 
 	smoothActive() {
@@ -106,7 +115,8 @@ export default {
 			const unitsPerSecond = gameStep * GAME_STEPS_PER_SECOND * factor;
 			const step = Math.max(1, Math.ceil(unitsPerSecond / MAX_MOVES_PER_SECOND));
 			mem[STEP_SIZE] = step;
-			moveBudget = Math.min(moveBudget + unitsPerSecond / step / 60, 2);
+			movesPerSecond = unitsPerSecond / step;
+			moveBudget = Math.min(moveBudget + movesPerSecond / 60, 2);
 			turnBudget = Math.min(turnBudget + TURNS_PER_SECOND * factor / 60, 1);
 		}
 		else if (mem[STEP_SIZE] !== gameStep) {

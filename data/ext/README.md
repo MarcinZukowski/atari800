@@ -91,6 +91,8 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
 * `gl.drawTriangles(positions, normals)` - draws `GL_TRIANGLES` from flat `Float32Array`s (x, y, z
   per vertex; `normals` may be omitted) in a single call. [yoomp/obj.js](yoomp/obj.js) loads
   Wavefront `.obj`/`.mtl` models into that form
+* `gl.readPixels(x, y, width, height)` - the framebuffer as a `Uint8Array` of RGBA bytes, rows
+  bottom-up, in window pixels; for test scripts that want to look at what was drawn
 
 ### The extension object
 
@@ -164,6 +166,9 @@ These games are also discussed in [this video on YouTube](https://www.youtube.co
   * faster rendering
   * smooth walking: small steps instead of five big ones per cell, at the game's own speed or
     1.5, 2 or 3 times it (needs the HIGH acceleration, see the notes for how the engine moves)
+  * the maze redrawn with OpenGL ([altreal/view3d.js](altreal/view3d.js)): the level map is read
+    from memory and drawn with textured walls and doors, floor, ceiling, fog and shading, with
+    steps and turns interpolated
 * River Raid: [river-raid/init.js](river-raid/init.js), [river-raid.md](river-raid/river-raid.md) (originally in C, now JavaScript)
   * 3D rendering
   * custom sounds example

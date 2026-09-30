@@ -344,6 +344,41 @@ static JSValue js_gl_drawTriangles(JSContext *ctx, JSValueConst this_val, int ar
 	return JS_UNDEFINED;
 }
 
+static void pixels_free(JSRuntime *rt, void *opaque, void *ptr)
+{
+	free(ptr);
+}
+
+/* gl.readPixels(x, y, width, height) -> Uint8Array of RGBA bytes, rows from
+   the bottom up, in window pixels. Meant for testing scripts. */
+static JSValue js_gl_readPixels(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+	static void (APIENTRY *readPixels)(GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, GLvoid *) = NULL;
+	uint8_t *buf;
+	size_t size;
+	JSValue ab, arr, targv[3];
+	NEED(4); ARG_I(0, x); ARG_I(1, y); ARG_I(2, w); ARG_I(3, h);
+	if (w <= 0 || h <= 0 || w > 8192 || h > 8192)
+		return JS_ThrowRangeError(ctx, "readPixels: bad size");
+	if (readPixels == NULL) {
+		readPixels = (void (APIENTRY *)(GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, GLvoid *)) SDL_GL_GetProcAddress("glReadPixels");
+		if (readPixels == NULL)
+			return JS_ThrowReferenceError(ctx, "readPixels: glReadPixels not available");
+	}
+	size = (size_t) w * h * 4;
+	buf = malloc(size);
+	if (buf == NULL)
+		return JS_ThrowOutOfMemory(ctx);
+	readPixels(x, y, w, h, GL_RGBA, GL_UNSIGNED_BYTE, buf);
+	ab = JS_NewArrayBuffer(ctx, buf, size, pixels_free, NULL, 0);
+	targv[0] = ab;
+	targv[1] = JS_NewInt32(ctx, 0);
+	targv[2] = JS_NewInt32(ctx, (int32_t) size);
+	arr = JS_NewTypedArray(ctx, 3, targv, JS_TYPED_ARRAY_UINT8);
+	JS_FreeValue(ctx, ab);
+	return arr;
+}
+
 /* ------------------------------ Texture class ------------------------------ */
 
 static JSClassID js_texture_class_id;
@@ -356,10 +391,6 @@ static void texture_finalizer(JSRuntime *rt, JSValue val)
 	free(t);
 }
 
-static void pixels_free(JSRuntime *rt, void *opaque, void *ptr)
-{
-	free(ptr);
-}
 
 static const JSClassDef js_texture_class = { "Texture", texture_finalizer };
 
@@ -516,6 +547,7 @@ static const JSCFunctionListEntry js_gl_funcs[] = {
 	JS_CFUNC_DEF("createTexture", 2, js_gl_createTexture),
 	JS_CFUNC_DEF("loadTextureRGBA", 3, js_gl_loadTextureRGBA),
 	JS_CFUNC_DEF("drawTriangles", 2, js_gl_drawTriangles),
+	JS_CFUNC_DEF("readPixels", 4, js_gl_readPixels),
 
 	/* capabilities */
 	C(BLEND), C(DEPTH_TEST), C(LIGHTING), C(LIGHT0), C(LIGHT1), C(FOG), C(SCISSOR_TEST),
