@@ -347,6 +347,8 @@ static JSValue js_a8_loadSound(JSContext *c, JSValueConst this_val, int argc, JS
 	return obj;
 }
 
+static JSValue js_a8_xeBank(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv);
+
 static const JSCFunctionListEntry js_a8_funcs[] = {
 	JS_CFUNC_DEF("fakeCpuUntilPc", 1, js_a8_fakeCpuUntilPc),
 	JS_CFUNC_DEF("fakeCpuUntilOp", 1, js_a8_fakeCpuUntilOp),
@@ -357,6 +359,7 @@ static const JSCFunctionListEntry js_a8_funcs[] = {
 	JS_CFUNC_DEF("accelerationDisabled", 0, js_a8_accelerationDisabled),
 	JS_CFUNC_DEF("rgb", 1, js_a8_rgb),
 	JS_CFUNC_DEF("loadSound", 1, js_a8_loadSound),
+	JS_CFUNC_DEF("xeBank", 1, js_a8_xeBank),
 	JS_PROP_INT32_DEF("OP_RTS", OP_RTS, JS_PROP_ENUMERABLE),
 	JS_PROP_INT32_DEF("OP_NOP", OP_NOP, JS_PROP_ENUMERABLE),
 	JS_OBJECT_DEF("antic", js_a8_antic_funcs, 4, JS_PROP_ENUMERABLE),
@@ -379,6 +382,23 @@ static JSValue new_external_typed_array(void *ptr, size_t bytes, size_t count, J
 	if (JS_IsException(arr))
 		js_fatal("creating typed array");
 	return arr;
+}
+
+/* a8.xeBank(n): bank n of the extended (XE) memory as a 16 KB Uint8Array,
+   zero copy, or null when the machine has no such bank. A program that does
+   not use extended memory leaves the banks free, and the banks are part of
+   the saved state, so an extension can keep data there that follows the
+   game's save and load. */
+static JSValue js_a8_xeBank(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+	int32_t n;
+	UBYTE *bank;
+	if (argc < 1 || JS_ToInt32(c, &n, argv[0]))
+		return JS_EXCEPTION;
+	bank = MEMORY_XEBank(n);
+	if (bank == NULL)
+		return JS_NULL;
+	return new_external_typed_array(bank, 16384, 16384, JS_TYPED_ARRAY_UINT8);
 }
 
 static void install_globals(void)

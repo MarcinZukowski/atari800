@@ -339,6 +339,16 @@ void MEMORY_InitialiseMachine(void)
 
 #ifndef BASIC
 
+/* For extensions: bank n of the extended (XE) memory, 16 KB, or NULL when
+   the machine has no such bank. A program that does not use extended memory
+   leaves the banks free, and they are part of the saved state. */
+UBYTE *MEMORY_XEBank(int n)
+{
+	if (atarixe_memory == NULL || n < 0 || (ULONG) (n + 1) * 16384 > atarixe_memory_size)
+		return NULL;
+	return atarixe_memory + (ULONG) n * 16384;
+}
+
 void MEMORY_StateSave(UBYTE SaveVerbose)
 {
 	int temp;

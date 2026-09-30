@@ -108,6 +108,7 @@ extern int MEMORY_cartA0BF_enabled;
 int MEMORY_SizeValid(int size);
 void MEMORY_InitialiseMachine(void);
 void MEMORY_StateSave(UBYTE SaveVerbose);
+UBYTE *MEMORY_XEBank(int n);
 void MEMORY_StateRead(UBYTE SaveVerbose, UBYTE StateVersion);
 void MEMORY_CopyFromMem(UWORD from, UBYTE *to, int size);
 void MEMORY_CopyToMem(const UBYTE *from, UWORD to, int size);

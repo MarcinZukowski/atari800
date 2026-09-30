@@ -62,6 +62,9 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
 * `a8.cpu.a`, `a8.cpu.x`, `a8.cpu.y`, `a8.cpu.s`, `a8.cpu.p`, `a8.cpu.pc` - the 6502 registers,
   read/write; they are current inside `onCodeInjection`, where changes take effect on return
 * `a8.antic.dlist`, `a8.antic.hscrol` - ANTIC registers
+* `a8.xeBank(n)` - bank `n` of the extended (XE) memory as a 16 KB `Uint8Array` (zero copy), or
+  `null` when the machine has none. A program that does not use extended memory leaves the banks
+  free, and they are saved in state files, so data kept there follows the game's save and load
 * `a8.antic.pmbase`, `a8.antic.dmactl` - player/missile base and DMA control
 * `a8.gtia.colbk`, `a8.gtia.colpf0`..`colpf3`, `a8.gtia.colpm0`..`colpm3` - GTIA colour registers
 * `a8.gtia.hposp0`..`hposp3`, `sizep0`..`sizep3`, `grafp0`..`grafp3`, `prior`, `gractl` - GTIA
