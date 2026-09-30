@@ -61,7 +61,7 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
   hardware registers; use them instead of `a8.mem` for screen memory under the OS ROM or for I/O
 * `a8.cpu.a`, `a8.cpu.x`, `a8.cpu.y`, `a8.cpu.s`, `a8.cpu.p`, `a8.cpu.pc` - the 6502 registers,
   read/write; they are current inside `onCodeInjection`, where changes take effect on return
-* `a8.antic.dlist`, `a8.antic.hscrol` - ANTIC registers
+* `a8.antic.dlist`, `a8.antic.hscrol`, `a8.antic.vscrol`, `a8.antic.chbase` - ANTIC registers
 * `a8.xeBank(n)` - bank `n` of the extended (XE) memory as a 16 KB `Uint8Array` (zero copy), or
   `null` when the machine has none. A program that does not use extended memory leaves the banks
   free, and they are saved in state files, so data kept there follows the game's save and load
@@ -207,6 +207,10 @@ These games are also discussed in [this video on YouTube](https://www.youtube.co
     five disk images placed in `altreal/` ([altreal/disks.js](altreal/disks.js)), so "Please
     insert Disk..." never comes up (the game only ever reads)
     The notes document the engine: map, movement, picture buffer, art and renderer
+* Robbo: [robbo/init.js](robbo/init.js), [robbo.md](robbo/robbo.md)
+  * the level drawn with OpenGL in a slight perspective ([robbo/view3d.js](robbo/view3d.js)): the
+    floor in the level's colour, walls as blocks, the other tiles as cards above the floor with
+    shadows, the art upscaled with Scale2x, the camera following the game's scrolling
 * River Raid: [river-raid/init.js](river-raid/init.js), [river-raid.md](river-raid/river-raid.md) (originally in C, now JavaScript)
   * 3D rendering
   * custom sounds example

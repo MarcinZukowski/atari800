@@ -202,7 +202,7 @@ static const JSCFunctionListEntry js_a8_cpu_funcs[] = {
 };
 
 /* a8.antic.* and a8.gtia.* getters */
-enum { REG_DLIST, REG_HSCROL, REG_PMBASE, REG_DMACTL, REG_COLBK, REG_COLPF0, REG_COLPF1, REG_COLPF2, REG_COLPF3,
+enum { REG_DLIST, REG_HSCROL, REG_VSCROL, REG_CHBASE, REG_PMBASE, REG_DMACTL, REG_COLBK, REG_COLPF0, REG_COLPF1, REG_COLPF2, REG_COLPF3,
        REG_COLPM0, REG_COLPM1, REG_COLPM2, REG_COLPM3, REG_HPOSP0, REG_HPOSP1, REG_HPOSP2, REG_HPOSP3,
        REG_SIZEP0, REG_SIZEP1, REG_SIZEP2, REG_SIZEP3, REG_GRAFP0, REG_GRAFP1, REG_GRAFP2, REG_GRAFP3,
        REG_PRIOR, REG_GRACTL };
@@ -221,6 +221,8 @@ static JSValue js_a8_get_reg(JSContext *c, JSValueConst this_val, int magic)
 	case REG_COLPM1: return JS_NewInt32(c, GTIA_COLPM1);
 	case REG_COLPM2: return JS_NewInt32(c, GTIA_COLPM2);
 	case REG_COLPM3: return JS_NewInt32(c, GTIA_COLPM3);
+	case REG_VSCROL: return JS_NewInt32(c, ANTIC_VSCROL);
+	case REG_CHBASE: return JS_NewInt32(c, ANTIC_CHBASE);
 	case REG_PMBASE: return JS_NewInt32(c, ANTIC_PMBASE);
 	case REG_DMACTL: return JS_NewInt32(c, ANTIC_DMACTL);
 	case REG_HPOSP0: return JS_NewInt32(c, GTIA_HPOSP0);
@@ -244,6 +246,8 @@ static JSValue js_a8_get_reg(JSContext *c, JSValueConst this_val, int magic)
 static const JSCFunctionListEntry js_a8_antic_funcs[] = {
 	JS_CGETSET_MAGIC_DEF("dlist", js_a8_get_reg, NULL, REG_DLIST),
 	JS_CGETSET_MAGIC_DEF("hscrol", js_a8_get_reg, NULL, REG_HSCROL),
+	JS_CGETSET_MAGIC_DEF("vscrol", js_a8_get_reg, NULL, REG_VSCROL),
+	JS_CGETSET_MAGIC_DEF("chbase", js_a8_get_reg, NULL, REG_CHBASE),
 	JS_CGETSET_MAGIC_DEF("pmbase", js_a8_get_reg, NULL, REG_PMBASE),
 	JS_CGETSET_MAGIC_DEF("dmactl", js_a8_get_reg, NULL, REG_DMACTL),
 };
@@ -362,7 +366,7 @@ static const JSCFunctionListEntry js_a8_funcs[] = {
 	JS_CFUNC_DEF("xeBank", 1, js_a8_xeBank),
 	JS_PROP_INT32_DEF("OP_RTS", OP_RTS, JS_PROP_ENUMERABLE),
 	JS_PROP_INT32_DEF("OP_NOP", OP_NOP, JS_PROP_ENUMERABLE),
-	JS_OBJECT_DEF("antic", js_a8_antic_funcs, 4, JS_PROP_ENUMERABLE),
+	JS_OBJECT_DEF("antic", js_a8_antic_funcs, 6, JS_PROP_ENUMERABLE),
 	JS_OBJECT_DEF("gtia", js_a8_gtia_funcs, 23, JS_PROP_ENUMERABLE),
 	JS_OBJECT_DEF("cpu", js_a8_cpu_funcs, 6, JS_PROP_ENUMERABLE),
 };
