@@ -1,7 +1,7 @@
 // Alternate Reality: The Dungeon - faster rendering by skipping busy code,
 // smooth walking, the maze drawn with OpenGL (view3d.js) and the disk sides
 // served from files (disks.js).
-import { createView3D } from "./view3d.js";
+import { createView3D, SPRITE_HOOK } from "./view3d.js";
 import { disks } from "./disks.js";
 //
 // Movement: the position inside the current cell is $6316/$6317 on a 36-unit
@@ -36,7 +36,7 @@ export default {
 		SMOOTH: { label: "Smooth walking:", options: ["OFF", "ON"], current: 0 },
 		SPEED: { label: "Walking speed:", options: ["1x", "1.5x", "2x", "3x"], current: 1 },
 		VIEW3D: { label: "Maze view:", options: ["Atari", "OpenGL"], current: 1 },
-		TEXTURES: { label: "Textures:", options: ["Original", "Smooth 4x"], current: 1 },
+		TEXTURES: { label: "Textures:", options: ["Original", "Smooth 4x"], current: 1 },   // walls and monsters
 		// Wide: the view over the whole width, the texts shrunk above and below
 		LAYOUT: { label: "Layout:", options: ["Game", "Wide"], current: 0 },
 		// Automatic: the five disk sides are read from the .atr files next to
@@ -68,13 +68,19 @@ export default {
 	calls7856: 0,
 
 	// We intercept execution at these addresses
-	codeInjections: [0x7856, 0x0090, 0x4A69, 0x3884, 0x7858, 0x7A1F, 0x7F1B, STEP_SIZE_SET, JOYSTICK_PACKED, ...disks.hooks],
+	codeInjections: [0x7856, 0x0090, 0x4A69, 0x3884, 0x7858, 0x7A1F, 0x7F1B, STEP_SIZE_SET, JOYSTICK_PACKED, SPRITE_HOOK, ...disks.hooks],
 
 	onCodeInjection(pc, op) {
 		if (disks.hooks.includes(pc))
 			return this.menu.DISKS.current === 1 ? disks.onCodeInjection(pc, op) : op;
-		if (pc === 0x7856)   // moving into font memory? once per drawn frame
+		if (pc === SPRITE_HOOK) {   // the picture's first interrupt: the monster sprite's registers are valid
+			view3d.captureSprites();
+			return op;
+		}
+		if (pc === 0x7856) {   // the picture goes into the fonts: once per drawn frame
 			this.calls7856++;
+			view3d.snapshotArt();   // the wall art is valid now (encounters load code over it)
+		}
 
 		if (pc === STEP_SIZE_SET) {   // the game just computed the character's step size
 			gameStep = mem[STEP_SIZE];   // onPreGlFrame applies the smooth step from it

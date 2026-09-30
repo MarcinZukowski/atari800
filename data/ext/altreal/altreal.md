@@ -11,16 +11,22 @@ screen line 0).
 
 ## The screen
 
-* Display list at `$19BE` while the maze is shown (the extension uses that
-  address to know): three blank instructions (20 lines), six mode-2 rows
-  from `$0400` with interrupt bits after rows 1-4 and 6, nine mode-4 rows
-  from `$04F0` with interrupt bits on rows 3, 4, 6 and 9, then mode-2 rows
-  from `$0658` for the inventory and messages.
+* Display list at `$19BE` while the maze is shown, also during encounters:
+  three blank instructions (20 lines), six mode-2 rows from `$0400` with
+  interrupt bits after rows 1-4 and 6, nine mode-4 rows from `$04F0` with
+  interrupt bits on rows 3, 4, 6 and 9, then mode-2 rows from `$0658` for
+  the inventory and messages. Shops use another list (`$932E`: a mode-6
+  header, then nine mode-4 rows from `$04F0` without interrupt bits, one
+  font) whose picture is the shop's. The extension recognises the maze by
+  the mode-4 rows from `$04F0` carrying the interrupt bits, whatever the
+  list's address.
 * The picture is the middle 18 columns (11-28) of the nine mode-4 rows:
   144 colour clocks by 72 lines, scanlines 81-152 (screen lines 73-144), a
   2:1 window that the game draws as if it were square: mode-4 pixels are
-  twice as wide as tall. The 11 columns on each side are frame; the right
-  side also holds the compass.
+  twice as wide as tall. The 11 columns on each side are frame (every font
+  byte `$FF`) unless the game draws there: the compass on the right, and on
+  the left, in some situations, an emblem (a round clock-like one while the
+  USE menu is up in a treasure room, *measured*).
 * `$1C09` numbers the characters of the picture rows: 0-119 in each group of
   three rows (`$04F0`, `$0568`, `$05E0`). With a different font for each
   group every character cell of the picture has its own eight bytes of font:
@@ -258,8 +264,11 @@ by applying Scale2x twice to the pixel values (288 x 288, drawn with mipmaps
 and linear filtering): the stairs of the stones' edges are rounded, the
 colours stay the game's. The "Layout" entry's Wide mode draws the view over
 the whole screen width, still 2:1, and shrinks the game's text rows (lines
-20-72 and 146-200 of the screen), centred, and the compass into the 36-line
-bands above and below through `gl.drawScreen()`; when the view is not drawn the game's
+20-72 above the picture; below it the rows in use, read from the display
+list, which reach line 217 for a thief's demand and 235 for the battle menu),
+centred, and the compass and the left emblem, when their cells show
+something, into the 36-line bands above and below through `gl.drawScreen()`,
+the bottom band growing upward over the view when the text needs more; when the view is not drawn the game's
 own picture is enlarged into the same place. The floor and ceiling,
 which the game only colours, are grey patterns tinted with the ceiling and
 floor colours. A key over the colours, the table and the art bytes tells
@@ -269,6 +278,45 @@ the game draws monsters into its own picture.
 
 An earlier version captured the wall from the framebuffer; the art in
 memory made that unnecessary.
+
+## Encounters
+
+Monsters are player/missile graphics, not part of the picture. The encounter
+code is an overlay loaded around `$9500`-`$98FF` (present in the encounter
+state, not in the maze one):
+
+* `$9580`-`$95A8`: clears the P/M area `$BC00`-`$BFFF`, SIZEP0-3 = 0, PMBASE =
+  `$B8`, GRACTL = 2 (players, no missiles), PRIOR = `$31` (multicolour
+  players, players in front of the playfield); `$9758`: DMACTL = `$3A`
+  (single-line players).
+* Every frame (`$975D`-`$977E`): COLPM0 = COLPM2 = `$987F`, COLPM1 = COLPM3 =
+  `$9880`, HPOSP0 = HPOSP1 = `$987D`, HPOSP2 = HPOSP3 = `$987D` + 8: two
+  overlapping pairs side by side, 16 colour clocks wide, three colours. The
+  shapes go to `$BC00`-`$BF00` (one byte per scanline), the position comes
+  from an animation script through (`$62`) (`$979A`-`$97B3`: `$5C` plus the
+  script's byte).
+* The overlay replaces `$9000`-`$ADFF` (*measured*: the maze and encounter
+  dumps differ over that whole range, including the renderer's tables from
+  `$8AFD`, the picture buffer, the art table at `$96F1`/`$9701` and all three
+  pictures), so during an encounter the wall art in memory is code and data
+  of the encounter. The game does not redraw the maze then (the fonts keep
+  the picture), which is why it can; view3d.js copies the art whenever
+  `$7856` runs and draws from the copy.
+* `$1938` is `$FF` during an encounter (set at `$2F90` and `$3627`), and
+  `$7600` is 1, which stops the interrupt at `$1B56` from turning players 0
+  and 1 into the frame's bars. `$7600` looks like the screen's state: 0 in
+  the maze (also at the disk prompt), 1 in an encounter, 13 in a shop
+  (*measured* over the four saved states). The interrupt at `$1BEB` zeroes COLPM0/1
+  below the picture, so the registers read at the end of a frame are not
+  the sprite's.
+
+view3d.js draws the maze during encounters too and puts the sprite over it:
+the registers are captured by a code injection at `$1B56`, the shapes are
+read from the P/M area for the picture's scanlines (81 onwards), one colour
+clock per picture pixel from clock 92, with GTIA's priority and multicolour
+OR, into a 72 x 72 texture drawn in front of everything, upscaled with
+Scale2x twice like the walls when "Textures" is Smooth, and rebuilt only
+when the shapes or the registers change.
 
 ## The disks
 

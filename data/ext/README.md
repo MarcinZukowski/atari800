@@ -185,9 +185,11 @@ These games are also discussed in [this video on YouTube](https://www.youtube.co
     1.5, 2 or 3 times it (needs the HIGH acceleration, see the notes for how the engine moves)
   * the maze redrawn with OpenGL ([altreal/view3d.js](altreal/view3d.js)): the level map is read
     from memory and drawn with the game's own projection (so both views agree), plus fog,
-    shading and interpolated steps and turns; the walls, doors
+    shading and interpolated steps and turns, with the game's monster sprites drawn over it;
+    the walls, doors
     and arches carry the game's own art, decoded from its memory in the game's current colours
-    (so the picture flashes when the game flashes it), optionally upscaled 4x with Scale2x, and
+    (so the picture flashes when the game flashes it), optionally upscaled 4x with Scale2x
+    (the monster sprites too), and
     arches open onto what lies beyond. A wide layout puts the view over the whole width with the
     game's texts and compass shrunk above and below it
   * no disk swapping: boot from side 1 as usual, then the game's sector reads are served from the
