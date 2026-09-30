@@ -147,6 +147,8 @@ These games are also discussed in [this video on YouTube](https://www.youtube.co
   * the 3D scene redrawn with OpenGL from the game's own geometry: exact vertex positions
     and view angles are read as the game projects them, the transform is redone in floating
     point, and edges are drawn between sub-pixel end points (3 line styles)
+  * faces found in each model's edge graph (coplanar chordless cycles) and drawn as translucent
+    "glass" or shaded polygons under the lines
 * Zybex: [zybex/init.js](zybex/init.js), [zybex.md](zybex/zybex.md) (originally in C, now JavaScript)
   * scrolling background (grayscale and color modes)
 * Behind Jaggi Lines: [bjl/init.js](bjl/init.js) (originally in C, now JavaScript)
