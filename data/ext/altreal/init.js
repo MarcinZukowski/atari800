@@ -15,7 +15,12 @@ import { disks } from "./disks.js";
 const STEP_SIZE = 0x6383, JOYSTICK = 0x2E, JOYSTICK_PACKED = 0x2642, STEP_SIZE_SET = 0x445E;
 const MASK_FORWARD = 0x01, MASK_BACK = 0x02;   // bits of $2E (see $3B74-$3B76)
 const GAME_STEPS_PER_SECOND = 2.5;       // measured: one redraw per 20-30 frames
+// Turning under acceleration (LOW or HIGH): one quarter turn when the stick is
+// pushed, then, if it is held, more at the game's own rate after a pause (the
+// accelerated loop would otherwise turn many times a second, several quarters
+// per push)
 const TURNS_PER_SECOND = 2.5;            // one turn per game-loop pass, as without acceleration
+const TURN_REPEAT_DELAY = 0.4;           // seconds the stick must be held before turns repeat
 const MAX_MOVES_PER_SECOND = 28;         // the accelerated loop manages about 30 passes a second
 const SPEED_FACTORS = [1, 1.5, 2, 3];    // the "Walking speed" options
 
@@ -24,6 +29,7 @@ let gameStep = 7;         // the step size the game computed for the character
 const view3d = createView3D();
 let movesPerSecond = GAME_STEPS_PER_SECOND;
 let moveBudget = 0, turnBudget = 0;
+let turning = false, turnHeld = 0;     // is the stick pushed sideways, and for how many frames
 
 export default {
 	name: "ALT.REAL. JS HACK by Eru",
@@ -32,8 +38,10 @@ export default {
 
 	menu: {
 		FPS: { label: "Display FPS:", options: ["OFF", "ON"], current: 1 },
-		ACCEL: { label: "Acceleration:", options: ["NO", "LOW", "HIGH"], current: 1 },
-		SMOOTH: { label: "Smooth walking:", options: ["OFF", "ON"], current: 0 },
+		// ON runs the game's drawing, its monster loops and its multiply in no
+		// emulated time, which smooth walking needs; OFF is the original pace
+		ACCEL: { label: "Acceleration:", options: ["OFF", "ON"], current: 1 },
+		SMOOTH: { label: "Smooth walking:", options: ["OFF", "ON"], current: 1 },
 		SPEED: { label: "Walking speed:", options: ["1x", "1.5x", "2x", "3x"], current: 1 },
 		VIEW3D: { label: "Maze view:", options: ["Atari", "OpenGL"], current: 1 },
 		TEXTURES: { label: "Textures:", options: ["Original", "Smooth 4x"], current: 1 },   // walls and monsters
@@ -57,7 +65,7 @@ export default {
 	},
 
 	smoothActive() {
-		return this.menu.SMOOTH.current === 1 && this.menu.ACCEL.current === 2 && !a8.accelerationDisabled();
+		return this.menu.SMOOTH.current === 1 && this.menu.ACCEL.current === 1 && !a8.accelerationDisabled();
 	},
 
 	onActivate() {
@@ -88,20 +96,28 @@ export default {
 		}
 		if (pc === JOYSTICK_PACKED) {
 			// The joystick was just packed into $2E (and is still in A, which the
-			// caller tests): let a move or a turn through only when its budget allows
-			if (this.smoothActive()) {
-				const j = mem[JOYSTICK];
-				let allow = true;
-				if (j & (MASK_FORWARD | MASK_BACK)) {
+			// caller tests): let a move through only when its budget allows (smooth
+			// walking), and a turn once per push, then at the game's rate when held
+			const j = mem[JOYSTICK];
+			const accelerated = this.menu.ACCEL.current === 1 && !a8.accelerationDisabled();
+			let allow = true;
+			if (j & (MASK_FORWARD | MASK_BACK)) {
+				turning = false;
+				if (this.smoothActive()) {
 					if (moveBudget >= 1) moveBudget -= 1; else allow = false;
 				}
-				else if (j & 0x0F) {
-					if (turnBudget >= 1) turnBudget -= 1; else allow = false;
+			}
+			else if (j & 0x0F) {
+				if (accelerated) {
+					if (!turning) { turning = true; turnHeld = 0; turnBudget = 0; }
+					else if (turnHeld >= TURN_REPEAT_DELAY * 60 && turnBudget >= 1) turnBudget -= 1;
+					else allow = false;
 				}
-				if (!allow) {
-					mem[JOYSTICK] = j & 0x80;   // directions released, trigger bit kept
-					a8.cpu.a = j & 0x80;
-				}
+			}
+			else turning = false;
+			if (!allow) {
+				mem[JOYSTICK] = j & 0x80;   // directions released, trigger bit kept
+				a8.cpu.a = j & 0x80;
 			}
 			return op;
 		}
@@ -109,19 +125,13 @@ export default {
 		if (a8.accelerationDisabled() || this.menu.ACCEL.current === 0)
 			return op;
 
-		// This one on LOW and HIGH
-		if (pc === 0x90)   // drawing?
-			return a8.fakeCpuUntilPc(0x00D5);
-
-		if (this.menu.ACCEL.current === 1)
-			return op;
-
-		// These on HIGH only
+		// The busy loops run in no emulated time (the hot spots in altreal.md)
 		switch (pc) {
-		case 0x4A69: return a8.fakeCpuUntilPc(0x4A82);
-		case 0x3884: return a8.fakeCpuUntilPc(0x38CE);
-		case 0x7858: return a8.fakeCpuUntilPc(0x7887);   // moving into font memory?
-		case 0x7A1F: return a8.fakeCpuUntilPc(0x7A36);
+		case 0x0090: return a8.fakeCpuUntilPc(0x00D5);   // the column filler
+		case 0x7858: return a8.fakeCpuUntilPc(0x7887);   // the picture into the fonts
+		case 0x4A69: return a8.fakeCpuUntilPc(0x4A82);   // the loop over the monsters
+		case 0x3884: return a8.fakeCpuUntilPc(0x38CE);   // monsters at the player's cell
+		case 0x7A1F: return a8.fakeCpuUntilPc(0x7A36);   // the multiply
 		case 0x7F1B: return a8.fakeCpuUntilPc(0x7F4A);
 		}
 		return op;
@@ -140,8 +150,8 @@ export default {
 			mem[STEP_SIZE] = step;
 			movesPerSecond = unitsPerSecond / step;
 			moveBudget = Math.min(moveBudget + movesPerSecond / 60, 2);
-			turnBudget = Math.min(turnBudget + TURNS_PER_SECOND * factor / 60, 1);
 		}
+		if (turning) { turnHeld++; turnBudget = Math.min(turnBudget + TURNS_PER_SECOND / 60, 1); }
 		else if (mem[STEP_SIZE] !== gameStep) {
 			mem[STEP_SIZE] = gameStep;   // smooth walking was switched off: give the game its step back
 		}

@@ -185,7 +185,8 @@ These games are also discussed in [this video on YouTube](https://www.youtube.co
 * Alternate Reality: [altreal/init.js](altreal/init.js), [altreal.md](altreal/altreal.md) (originally in C, now JavaScript)
   * faster rendering
   * smooth walking: small steps instead of five big ones per cell, at the game's own speed or
-    1.5, 2 or 3 times it (needs the HIGH acceleration, see the notes for how the engine moves)
+    1.5, 2 or 3 times it (needs the acceleration, see the notes for how the engine moves), and
+    one quarter turn per push of the stick
   * the maze redrawn with OpenGL ([altreal/view3d.js](altreal/view3d.js)): the level map is read
     from memory and drawn with the game's own projection (so both views agree), plus fog,
     shading and interpolated steps and turns, with the game's monster sprites drawn over it;

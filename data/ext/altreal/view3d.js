@@ -232,8 +232,12 @@ function makePlanes() {
 // on rows 3, 4, 6 and 9 that switch the font banks. A shop's list shows
 // nine mode-4 rows from $04F0 too, but without those interrupts (one font),
 // and its picture is the shop's, not the maze's.
-const PICTURE_SCREEN = 0x04F0;
+// The game's screen state at $7600 (0 in the maze, 1 in an encounter, 13 in a
+// shop, 234 when dead) tells the rest apart: the death screen keeps the maze's
+// display list but shows its own picture.
+const PICTURE_SCREEN = 0x04F0, SCREEN_STATE = 0x7600;
 function pictureDisplayed() {
+	if (mem[SCREEN_STATE] > 1) return false;
 	let a = a8.antic.dlist;
 	for (let i = 0; i < 64; i++) {
 		const ins = mem[a++], mode = ins & 0x0F;
@@ -302,11 +306,18 @@ function cellWalls(x, y) {
 
 /* ------------------------------ projection ------------------------------ */
 
-// Half-height in picture lines of a wall at distance d along the view
+// Half-height in picture lines of a wall at distance d along the view. Under
+// the game's law a wall right in front is 70 of the 72 lines, and what is
+// beside it shows at the edges (the game paints the picture one flat colour
+// when you touch a wall); here the first two units are the full 36 and the
+// first cell runs linearly from there to the table's value, so a wall you
+// stand at fills the picture.
+const TOUCH = 2, FULL_HALF_HEIGHT = PIC / 2;
 function halfHeight(d) {
 	const c = d / CELL;
 	if (c >= VIEW_RANGE) return 0;
-	if (c <= 0) return MAX_HALF_HEIGHT - c * DEPTH_AT_CELL[1];   // behind the eye: the first segment continued
+	if (d <= TOUCH) return FULL_HALF_HEIGHT + (TOUCH - d) * DEPTH_AT_CELL[1] / CELL;   // at and behind the eye: growing
+	if (c < 1) return FULL_HALF_HEIGHT - (FULL_HALF_HEIGHT - (MAX_HALF_HEIGHT - DEPTH_AT_CELL[1])) * (d - TOUCH) / (CELL - TOUCH);
 	const i = Math.floor(c), t = c - i;
 	return MAX_HALF_HEIGHT - (DEPTH_AT_CELL[i] + (DEPTH_AT_CELL[i + 1] - DEPTH_AT_CELL[i]) * t);
 }

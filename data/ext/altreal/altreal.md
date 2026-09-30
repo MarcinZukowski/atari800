@@ -123,13 +123,19 @@ Found while looking into why walking is drawn in a few big steps.
   second while walking; with the drawing skipped the main loop runs at about
   30 passes a second (*measured*).
 
-"Smooth walking" in init.js uses this: with the drawing accelerated, the
+"Acceleration" in init.js runs the hot spots below in no emulated time (the
+column filler, the picture's copy into the fonts, the monster loops, the
+multiply): the main loop then makes about 30 passes a second instead of 2-3.
+"Smooth walking" uses this: with the drawing accelerated, the
 joystick is let through so that the character covers 17.5 * (game step / 7)
 units a second, the speed the game intended, times the "Walking speed" factor
 (1, 1.5, 2 or 3). The step is one unit while that fits in 28 moves a second,
 which is what the accelerated loop can redraw, and grows to 2 or 3 units above
 that; each move is one redraw. Measured: 124 frames per cell at 1x, 83 at
-1.5x, 62 at 2x, 42 at 3x.
+1.5x, 62 at 2x, 42 at 3x. Turning under acceleration is one quarter turn
+per push of the stick, and only after 0.4 s of holding it more turns
+follow at the game's own 2.5 a second; the loop would otherwise turn at
+every pass, several quarters per push.
 
 ## Commands and the status pages
 
@@ -274,7 +280,11 @@ so that both pictures agree: the wall corners are projected with the depth
 law above (the scale at a distance is the half-height over 18 units, across
 as well as up), drawn in the 72 x 72 picture space that the viewport shows
 2:1, with the distance in the depth buffer and the fog. Walls seen at an
-angle keep a height per end and a linear texture, as in the game. The eye
+angle keep a height per end and a linear texture, as in the game. One
+departure: under the game's law a wall right in front is 70 of the 72
+lines and what is beside it shows at the edges (the game paints the picture
+one flat colour when you touch a wall), so here a wall within two units
+fills the picture and the first cell's law runs linearly from there. The eye
 takes the game's position along the facing but sits in the middle of the
 cell across it, as the game's renderer ignores that coordinate; a turn
 slides it there. Added are fog, side shading and interpolation of steps and
@@ -333,9 +343,11 @@ state, not in the maze one):
   `$7856` runs and draws from the copy.
 * `$1938` is `$FF` during an encounter (set at `$2F90` and `$3627`), and
   `$7600` is 1, which stops the interrupt at `$1B56` from turning players 0
-  and 1 into the frame's bars. `$7600` looks like the screen's state: 0 in
-  the maze (also at the disk prompt), 1 in an encounter, 13 in a shop
-  (*measured* over the four saved states). The interrupt at `$1BEB` zeroes COLPM0/1
+  and 1 into the frame's bars. `$7600` is the screen's state: 0 in the maze
+  (also at the disk prompt and with the USE menu up), 1 in an encounter, 13
+  in a shop, 234 on the death screen (*measured* over the saved states). The
+  death screen keeps the maze's display list but shows its own picture, so
+  the extension draws the view and the wide layout only for states 0 and 1. The interrupt at `$1BEB` zeroes COLPM0/1
   below the picture, so the registers read at the end of a frame are not
   the sprite's.
 
@@ -395,7 +407,7 @@ missing fall through to the real drive.
 ## Hot spots
 
 Instruction frequencies over a walk, from the monitor's profile, which is
-where the accelerations in init.js come from (`$0090`: the column filler;
+where the acceleration in init.js comes from (`$0090`: the column filler;
 `$7875`: the font copy; `$4A69`/`$3884`: the monster loops; `$7A25`: the
 multiply).
 
