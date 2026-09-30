@@ -131,6 +131,35 @@ which is what the accelerated loop can redraw, and grows to 2 or 3 units above
 that; each move is one redraw. Measured: 124 frames per cell at 1x, 83 at
 1.5x, 62 at 2x, 42 at 3x.
 
+## Commands and the status pages
+
+* Keyboard: the IRQ at `$2653` translates the key code through `$26D1` (64
+  entries: the letters a-z, digits, `, . < > ; / - = + *`, RETURN, ESC,
+  BACKSPACE) into the command latch `$30`; `$2643` fetches it. The console
+  keys become commands `$10`-`$12` (`$268A`-`$269B`).
+* The main loop (`$30A5`-`$30D8`) looks the command up in `$3B78` (13
+  entries: `G D U C S E Q P , .` and `$10 $11 $13`) and calls the routine
+  from `$3B85`/`$3B92`: G `$3756`, D `$3768`, U `$3771`, C `$377A`, S `$3783`
+  (only when `$7600` is 0), E `$3683`, Q `$37D6`, P `$384A`, `,` and `$11`
+  `$3C8C`, `.` and `$10` `$3C71`, `$13` `$2CAB`. While bit 7 of `$1937` is
+  set the first five are refused.
+* The text below the picture is a paged status display: `$2F2C`-`$2F6D` sets
+  up 8 pages from the tables `$2F70`/`$2F78` (`$1913`/`$1923`, count `$1934`,
+  current page `$1933`), `$3C2D` prints the current one; `.` (or `>`) steps
+  forward (`$3C71`), `,` (or `<`) back (`$3C8C`). The pages: provisions
+  (`$3CDE`: food, torches, water), coins and other possessions (`$3D84`),
+  weapons and armour (`$3E31`), apparel (`$3EA2`), active magic (`$3ED1`),
+  known diseases (`$3EE9`), curses (`$3F03`). *Measured*: pressing `.` in the
+  maze shows "Gold Coins 0, Silver Coins 32, Copper Coins 0" for the saved
+  character.
+* The templates' print codes (interpreter at `$1C88`, dispatch through
+  `$1FBF`/`$1FD4` for codes `$A0`-`$B4`): `$A6 col row` positions, `$B1 lo hi
+  width` prints the 16-bit value at that address, high byte first
+  (`$1DD9`), `$B2 lo hi width` a byte (`$1DEC`). So gold is at
+  `$63B1`/`$63B2`, silver `$63B3`/`$63B4`, copper `$63B5`/`$63B6` (all high
+  byte first), gems `$63B7`, jewels `$63B9`, crystals `$63BE`, keys `$63BF`,
+  compasses `$63C0`, timepieces `$63C1`.
+
 ## The picture buffer
 
 * `$8F7B`: the picture, 72 rows of 18 bytes, 2 bits per pixel, high bits
