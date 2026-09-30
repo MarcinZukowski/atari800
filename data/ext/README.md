@@ -86,7 +86,9 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
 * `gl.createTexture(width, height)` and `gl.loadTextureRGBA(path, width, height)` return a `Texture`:
   * `pixels` - a `Uint8Array` that *is* the RGBA texture memory (4 bytes per pixel)
   * `width`, `height`, `id` (the OpenGL texture name)
-  * `finalize()` - uploads `pixels` to OpenGL; call it before drawing and after every change
+  * `finalize()` - uploads `pixels` to OpenGL; call it before drawing and after every change.
+    For mipmaps, bind the texture and set `gl.GENERATE_MIPMAP` to `gl.TRUE` before it, then
+    choose a `*_MIPMAP_*` minification filter ([altreal/view3d.js](altreal/view3d.js) does)
   * `draw(texL, texR, texT, texB, scrL, scrR, scrT, scrB, z = -2)` - draws the texture on a quad
 * `gl.drawTriangles(positions, normals)` - draws `GL_TRIANGLES` from flat `Float32Array`s (x, y, z
   per vertex; `normals` may be omitted) in a single call. [yoomp/obj.js](yoomp/obj.js) loads
@@ -167,9 +169,12 @@ These games are also discussed in [this video on YouTube](https://www.youtube.co
   * smooth walking: small steps instead of five big ones per cell, at the game's own speed or
     1.5, 2 or 3 times it (needs the HIGH acceleration, see the notes for how the engine moves)
   * the maze redrawn with OpenGL ([altreal/view3d.js](altreal/view3d.js)): the level map is read
-    from memory and drawn with textured walls and doors, floor, ceiling, fog and shading, with
-    steps and turns interpolated; the wall texture is the game's own cobblestone art, captured
-    from its picture, and a menu action captures more (see the notes)
+    from memory and drawn with the game's own projection (so both views agree), plus fog,
+    shading and interpolated steps and turns; the walls, doors
+    and arches carry the game's own art, decoded from its memory in the game's current colours
+    (so the picture flashes when the game flashes it), optionally upscaled 4x with Scale2x, and
+    arches open onto what lies beyond.
+    The notes document the engine: map, movement, picture buffer, art and renderer
 * River Raid: [river-raid/init.js](river-raid/init.js), [river-raid.md](river-raid/river-raid.md) (originally in C, now JavaScript)
   * 3D rendering
   * custom sounds example
