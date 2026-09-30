@@ -118,6 +118,13 @@ soon as its fingerprint matches, without going through the TAB menu:
 
     A8_EXT_SELECT=ZYBEX build/src/atari800 -state zyb.a8s
 
+Input can be scripted with atari800's `-playback file` (`-playbacknoexit` keeps running at
+the end). The file is plain text: the line `Atari800 event recording, version: 1`, one line
+with the POKEY random seed (`0`), then per frame eight lines: `key shift consol` (`-1 0 7`
+for nothing), the ports 0/1 and 2/3 joystick bytes (`255` centred; stick 0 forward is `254`,
+right `247`), four trigger lines (`1` = released) and a screen checksum (`00000000`, the
+mismatch is only logged). This is how the walks in the Alternate Reality notes were measured.
+
 ## Technicalities
 
 This work was a quick hack, without paying much respect to things like
@@ -153,8 +160,10 @@ These games are also discussed in [this video on YouTube](https://www.youtube.co
   * scrolling background (grayscale and color modes)
 * Behind Jaggi Lines: [bjl/init.js](bjl/init.js) (originally in C, now JavaScript)
   * faster rendering
-* Alternate Reality: [altreal/init.js](altreal/init.js), [altreal.md](altreal.md) (originally in C, now JavaScript)
+* Alternate Reality: [altreal/init.js](altreal/init.js), [altreal.md](altreal/altreal.md) (originally in C, now JavaScript)
   * faster rendering
+  * smooth walking: one-unit steps at the game's own speed instead of five big ones per cell
+    (needs the HIGH acceleration, see the notes for how the engine moves)
 * River Raid: [river-raid/init.js](river-raid/init.js), [river-raid.md](river-raid/river-raid.md) (originally in C, now JavaScript)
   * 3D rendering
   * custom sounds example

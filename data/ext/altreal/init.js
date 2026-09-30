@@ -1,4 +1,22 @@
-// Alternate Reality: The Dungeon - faster rendering by skipping busy code.
+// Alternate Reality: The Dungeon - faster rendering by skipping busy code,
+// and smooth walking.
+//
+// Movement: the position inside the current cell is $6316/$6317 on a 36-unit
+// grid, and each step adds the step size $6383, which the game derives from
+// the character's speed (6-15 units, halved by a flag, at least 4, 2 when
+// exhausted; set at $4430-$445E). The renderer draws any position, so with
+// the drawing accelerated the step can be one unit and the joystick gated so
+// that the walking speed stays what the game meant: many small steps instead
+// of five big ones per cell.
+
+const STEP_SIZE = 0x6383, JOYSTICK = 0x2E, JOYSTICK_PACKED = 0x2642, STEP_SIZE_SET = 0x445E;
+const MASK_FORWARD = 0x01, MASK_BACK = 0x02;   // bits of $2E (see $3B74-$3B76)
+const GAME_STEPS_PER_SECOND = 2.5;             // measured: one redraw per 20-30 frames
+const TURNS_PER_SECOND = 2.5;             // one turn per game-loop pass, as without acceleration
+
+const mem = a8.mem;
+let gameStep = 7;         // the step size the game computed for the character
+let moveBudget = 0, turnBudget = 0;
 
 export default {
 	name: "ALT.REAL. JS HACK by Eru",
@@ -8,17 +26,52 @@ export default {
 	menu: {
 		FPS: { label: "Display FPS:", options: ["OFF", "ON"], current: 1 },
 		ACCEL: { label: "Acceleration:", options: ["NO", "LOW", "HIGH"], current: 1 },
+		SMOOTH: { label: "Smooth walking:", options: ["OFF", "ON"], current: 0 },
+	},
+
+	smoothActive() {
+		return this.menu.SMOOTH.current === 1 && this.menu.ACCEL.current === 2 && !a8.accelerationDisabled();
+	},
+
+	onActivate() {
+		gameStep = mem[STEP_SIZE];
 	},
 
 	// Counts calls to $7856 (once per drawn frame), used for the FPS display
 	calls7856: 0,
 
 	// We intercept execution at these addresses
-	codeInjections: [0x7856, 0x0090, 0x4A69, 0x3884, 0x7858, 0x7A1F, 0x7F1B],
+	codeInjections: [0x7856, 0x0090, 0x4A69, 0x3884, 0x7858, 0x7A1F, 0x7F1B, STEP_SIZE_SET, JOYSTICK_PACKED],
 
 	onCodeInjection(pc, op) {
 		if (pc === 0x7856)   // moving into font memory? once per drawn frame
 			this.calls7856++;
+
+		if (pc === STEP_SIZE_SET) {   // the game just computed the character's step size
+			gameStep = mem[STEP_SIZE];
+			if (this.smoothActive())
+				mem[STEP_SIZE] = 1;
+			return op;
+		}
+		if (pc === JOYSTICK_PACKED) {
+			// The joystick was just packed into $2E (and is still in A, which the
+			// caller tests): let a move or a turn through only when its budget allows
+			if (this.smoothActive()) {
+				const j = mem[JOYSTICK];
+				let allow = true;
+				if (j & (MASK_FORWARD | MASK_BACK)) {
+					if (moveBudget >= 1) moveBudget -= 1; else allow = false;
+				}
+				else if (j & 0x0F) {
+					if (turnBudget >= 1) turnBudget -= 1; else allow = false;
+				}
+				if (!allow) {
+					mem[JOYSTICK] = j & 0x80;   // directions released, trigger bit kept
+					a8.cpu.a = j & 0x80;
+				}
+			}
+			return op;
+		}
 
 		if (a8.accelerationDisabled() || this.menu.ACCEL.current === 0)
 			return op;
@@ -44,5 +97,15 @@ export default {
 	onPreGlFrame() {
 		if (this.menu.FPS.current === 1)
 			a8.printFps(this.calls7856, 0x9f, 0x90, 0, -2);
+
+		if (this.smoothActive()) {
+			// one-unit steps at the speed the game's own step size implies
+			mem[STEP_SIZE] = 1;
+			moveBudget = Math.min(moveBudget + gameStep * GAME_STEPS_PER_SECOND / 60, 2);
+			turnBudget = Math.min(turnBudget + TURNS_PER_SECOND / 60, 1);
+		}
+		else if (mem[STEP_SIZE] === 1 && gameStep !== 1) {
+			mem[STEP_SIZE] = gameStep;   // smooth walking was switched off: give the game its step back
+		}
 	},
 };
