@@ -95,6 +95,10 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
   Wavefront `.obj`/`.mtl` models into that form
 * `gl.readPixels(x, y, width, height)` - the framebuffer as a `Uint8Array` of RGBA bytes, rows
   bottom-up, in window pixels; for test scripts that want to look at what was drawn
+* `gl.drawScreen(x0, y0, x1, y1, left, right, top, bottom, z = -2)` - draws that region of the
+  emulated screen (pixels of the displayed area, y down; `gl.screenSize()` gives its size) onto
+  a rectangle in GL coordinates, with linear filtering: for rearranging the game's screen, like
+  the wide layout of Alternate Reality
 
 ### The extension object
 
@@ -173,7 +177,8 @@ These games are also discussed in [this video on YouTube](https://www.youtube.co
     shading and interpolated steps and turns; the walls, doors
     and arches carry the game's own art, decoded from its memory in the game's current colours
     (so the picture flashes when the game flashes it), optionally upscaled 4x with Scale2x, and
-    arches open onto what lies beyond.
+    arches open onto what lies beyond. A wide layout puts the view over the whole width with the
+    game's texts and compass shrunk above and below it.
     The notes document the engine: map, movement, picture buffer, art and renderer
 * River Raid: [river-raid/init.js](river-raid/init.js), [river-raid.md](river-raid/river-raid.md) (originally in C, now JavaScript)
   * 3D rendering

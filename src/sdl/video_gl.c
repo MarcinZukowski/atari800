@@ -1115,6 +1115,35 @@ static void DisplayBIT3(GLvoid *dest)
 #endif
 
 
+/* For extensions that rearrange the screen: draws the region x0..x1, y0..y1
+   of the displayed screen (in its pixels, y down) onto the rectangle l..r,
+   t..b in GL coordinates at depth z, with linear filtering so that scaled
+   text stays legible; the screen texture's own filtering is put back after. */
+void SDL_VIDEO_GL_DrawScreenRegion(float x0, float y0, float x1, float y1, float l, float r, float t, float b, float z)
+{
+	GLfloat s0 = (x0 + screen_hshift) / 1024.0f, s1 = (x1 + screen_hshift) / 1024.0f;
+	GLfloat t0 = (y0 + screen_vshift) / 512.0f, t1 = (y1 + screen_vshift) / 512.0f;
+	GLint filtering = SDL_VIDEO_GL_filtering ? GL_LINEAR : GL_NEAREST;
+	gl.BindTexture(GL_TEXTURE_2D, textures[0]);
+	gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	gl.Begin(GL_QUADS);
+	gl.TexCoord2f(s0, t0); gl.Vertex3f(l, t, z);
+	gl.TexCoord2f(s1, t0); gl.Vertex3f(r, t, z);
+	gl.TexCoord2f(s1, t1); gl.Vertex3f(r, b, z);
+	gl.TexCoord2f(s0, t1); gl.Vertex3f(l, b, z);
+	gl.End();
+	gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filtering);
+	gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filtering);
+}
+
+/* The displayed screen's size in pixels */
+void SDL_VIDEO_GL_ScreenSize(int *width, int *height)
+{
+	*width = VIDEOMODE_actual_width;
+	*height = VIDEOMODE_src_height;
+}
+
 void SDL_VIDEO_GL_DisplayScreen(void)
 {
 #if SDL2

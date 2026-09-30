@@ -16,6 +16,7 @@
 
 const MAP = 0xB000, CELL = 36, EYE_HEIGHT = 18;
 const VIEW_RANGE = 10;                 // cells drawn around the player: the table ends there
+const TURN_FRAMES = 12;                // frames a turn takes
 const isLocked = (n) => n >= 8 && n <= 10;
 
 // The wall art: 16 pointers indexed by the wall nibble (0 = no wall), each to
@@ -31,9 +32,21 @@ const SECRET_DOORS_SHOWN = 0x1957;     // bit 7: wall types 5 and 6 are drawn wi
 const COLOUR_PF0 = 0x18BA, COLOUR_PF1 = 0x18BB, COLOUR_PF2 = 0x18BC;
 const COLOUR_CEILING = 0x18BD, COLOUR_FLOOR = 0x18BE;
 
-// The picture rectangle in GL screen coordinates (336 x 240 Atari pixels)
-const PIC_LEFT = (8 + 11 * 8 - 168) / 168, PIC_RIGHT = (8 + 29 * 8 - 168) / 168;
-const PIC_TOP = (120 - 73) / 120, PIC_BOTTOM = (120 - 145) / 120;
+// The game's screen, in pixels of the displayed area (336 x 240, y down): the
+// picture, the text rows above it (name, stats, experience, the message),
+// the compass beside it, the inventory and the messages below
+const SCREEN_W = 336, SCREEN_H = 240;
+const PICTURE = [8 + 11 * 8, 73, 8 + 29 * 8, 145];   // x0, y0, x1, y1
+const TOP_TEXT = [8, 20, 328, 72];
+const BOTTOM_TEXT = [8, 146, 328, 200];
+const COMPASS = [256, 82, 312, 138];
+// The wide layout: the view over the full width, still 2:1, in the middle;
+// the texts and the compass shrunk into the bands above and below
+const WIDE_Y0 = (SCREEN_H - SCREEN_W / 2) / 2, WIDE_Y1 = SCREEN_H - WIDE_Y0;   // 36..204
+const WIDE_VIEW = [0, WIDE_Y0, SCREEN_W, WIDE_Y1];
+// Screen pixels to GL coordinates
+const gx = (px) => px / (SCREEN_W / 2) - 1, gy = (py) => 1 - py / (SCREEN_H / 2);
+const Z_2D = -2;   // where the emulator draws its own screen
 // The game's projection, reproduced so that the view matches its picture: the
 // picture is 72 x 72 pixels (shown 2:1), a wall's half-height in lines is
 // 35 minus a "depth" that the table at $8D72 gives at each cell boundary
@@ -313,6 +326,13 @@ function drawWalls(art, cx, cy) {
 	gl.Disable(gl.BLEND);
 }
 
+// Draws a region of the game's screen with its top-left corner at (x, y),
+// scaled; all in screen pixels
+function drawScreenRegion(region, x, y, scale) {
+	const [x0, y0, x1, y1] = region;
+	gl.drawScreen(x0, y0, x1, y1, gx(x), gx(x + (x1 - x0) * scale), gy(y), gy(y + (y1 - y0) * scale), Z_2D);
+}
+
 /* ------------------------------ the view ------------------------------ */
 
 export function createView3D() {
@@ -323,11 +343,42 @@ export function createView3D() {
 	let tracking = false;
 	let prevX = 0, prevZ = 0, prevYaw = 0;
 	let curX = 0, curZ = 0, curYaw = 0;
-	let moveFrames = 0, turnFrames = 0;
+	let moveFrames = 0, turnFrames = 0, moveDuration = 1;
 
 	return {
 		// Settings the menu changes
-		options: { smoothTextures: true },
+		options: { smoothTextures: true, wide: false },
+
+		// The wide layout, after render(): black bands, the game's texts and
+		// compass shrunk into them, and, when the view was not drawn (a
+		// monster, or the Atari view chosen), the game's own picture enlarged
+		// into the view's place. Nothing when the game shows another screen.
+		drawWideLayout(viewDrawn) {
+			if (a8.antic.dlist !== 0x19BE)
+				return;
+			gl.PushAttrib(gl.ENABLE_BIT); gl.PushAttrib(gl.CURRENT_BIT);
+			gl.Disable(gl.DEPTH_TEST); gl.Disable(gl.BLEND); gl.Disable(gl.TEXTURE_2D);
+			gl.Color4f(0, 0, 0, 1);
+			for (const [y0, y1] of [[0, WIDE_Y0], [WIDE_Y1, SCREEN_H]]) {
+				gl.Begin(gl.QUADS);
+				gl.Vertex3f(-1, gy(y0), Z_2D); gl.Vertex3f(1, gy(y0), Z_2D);
+				gl.Vertex3f(1, gy(y1), Z_2D); gl.Vertex3f(-1, gy(y1), Z_2D);
+				gl.End();
+			}
+			gl.Enable(gl.TEXTURE_2D);
+			gl.Color4f(1, 1, 1, 1);
+			if (!viewDrawn)
+				drawScreenRegion(PICTURE, WIDE_VIEW[0], WIDE_VIEW[1], (WIDE_Y1 - WIDE_Y0) / (PICTURE[3] - PICTURE[1]));
+			// the texts fill the bands' height, centred; the compass fits the top
+			// band's right end
+			const st = WIDE_Y0 / (TOP_TEXT[3] - TOP_TEXT[1]);
+			drawScreenRegion(TOP_TEXT, (SCREEN_W - (TOP_TEXT[2] - TOP_TEXT[0]) * st) / 2, 0, st);
+			const sc = (WIDE_Y0 - 2) / (COMPASS[3] - COMPASS[1]);
+			drawScreenRegion(COMPASS, SCREEN_W - 2 - (COMPASS[2] - COMPASS[0]) * sc, 1, sc);
+			const sb = WIDE_Y0 / (BOTTOM_TEXT[3] - BOTTOM_TEXT[1]);
+			drawScreenRegion(BOTTOM_TEXT, (SCREEN_W - (BOTTOM_TEXT[2] - BOTTOM_TEXT[0]) * sb) / 2, WIDE_Y1, sb);
+			gl.PopAttrib(); gl.PopAttrib();
+		},
 
 		// Call when a frame goes by without render(): the next one starts fresh
 		reset() { tracking = false; },
@@ -345,7 +396,11 @@ export function createView3D() {
 				planes = makePlanes();
 
 			const cx = mem[0x6313], cy = mem[0x6314], facing = mem[0x6312];
-			const x = cx * CELL + mem[0x6316] + 0.5, z = cy * CELL + mem[0x6317] + 0.5;
+			// The eye: the game's position along the facing, but centred across
+			// it, as the game's own renderer ignores the position across (a turn
+			// therefore slides the eye to the middle of the cell)
+			const alongX = facing & 1, x = cx * CELL + (alongX ? mem[0x6316] + 0.5 : CELL / 2);
+			const z = cy * CELL + (alongX ? CELL / 2 : mem[0x6317] + 0.5);
 			// World: x east, z south (the map's y), y up; yaw 0 looks north and
 			// turns clockwise with the facing
 			const yaw = facing * 90;
@@ -357,10 +412,15 @@ export function createView3D() {
 				moveFrames = turnFrames = 1000;
 				tracking = true;
 			}
-			if (x !== curX || z !== curZ) { prevX = curX; prevZ = curZ; curX = x; curZ = z; moveFrames = 0; }
-			if (yaw !== curYaw) { prevYaw = curYaw; curYaw = yaw; turnFrames = 0; }
-			const moveT = Math.min(1, ++moveFrames / Math.max(1, 60 / Math.max(1, movesPerSecond)));
-			const turnT = Math.min(1, ++turnFrames / 12);
+			const turned = yaw !== curYaw;
+			if (turned) { prevYaw = curYaw; curYaw = yaw; turnFrames = 0; }
+			if (x !== curX || z !== curZ) {
+				prevX = curX; prevZ = curZ; curX = x; curZ = z; moveFrames = 0;
+				// a step takes the time between steps; the slide of a turn, the turn's
+				moveDuration = turned ? TURN_FRAMES : Math.max(1, 60 / Math.max(1, movesPerSecond));
+			}
+			const moveT = Math.min(1, ++moveFrames / moveDuration);
+			const turnT = Math.min(1, ++turnFrames / TURN_FRAMES);
 			const ease = (t) => t * t * (3 - 2 * t);
 			eye.x = prevX + (curX - prevX) * ease(moveT);
 			eye.z = prevZ + (curZ - prevZ) * ease(moveT);
@@ -369,10 +429,11 @@ export function createView3D() {
 			const eyeYaw = (prevYaw + dyaw * ease(turnT)) * Math.PI / 180;
 			eye.sin = Math.sin(eyeYaw); eye.cos = Math.cos(eyeYaw);
 
-			// Viewport: the game's picture rectangle
+			// Viewport: the game's picture rectangle, or the wide one
+			const rect = this.options.wide ? WIDE_VIEW : PICTURE;
 			const [vx, vy, vw, vh] = gl.GetIntegerv(gl.VIEWPORT);
-			const px0 = Math.round(vx + (PIC_LEFT + 1) / 2 * vw), px1 = Math.round(vx + (PIC_RIGHT + 1) / 2 * vw);
-			const py0 = Math.round(vy + (PIC_BOTTOM + 1) / 2 * vh), py1 = Math.round(vy + (PIC_TOP + 1) / 2 * vh);
+			const px0 = Math.round(vx + (gx(rect[0]) + 1) / 2 * vw), px1 = Math.round(vx + (gx(rect[2]) + 1) / 2 * vw);
+			const py0 = Math.round(vy + (gy(rect[3]) + 1) / 2 * vh), py1 = Math.round(vy + (gy(rect[1]) + 1) / 2 * vh);
 			gl.PushAttrib(gl.ENABLE_BIT); gl.PushAttrib(gl.SCISSOR_BIT); gl.PushAttrib(gl.CURRENT_BIT);
 			gl.Viewport(px0, py0, px1 - px0, py1 - py0);
 			gl.Scissor(px0, py0, px1 - px0, py1 - py0);

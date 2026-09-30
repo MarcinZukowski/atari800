@@ -35,14 +35,20 @@ export default {
 		SPEED: { label: "Walking speed:", options: ["1x", "1.5x", "2x", "3x"], current: 1 },
 		VIEW3D: { label: "Maze view:", options: ["Atari", "OpenGL"], current: 1 },
 		TEXTURES: { label: "Textures:", options: ["Original", "Smooth 4x"], current: 1 },
+		// Wide: the view over the whole width, the texts shrunk above and below
+		LAYOUT: { label: "Layout:", options: ["Game", "Wide"], current: 0 },
 	},
 
 	onPostGlFrame() {
 		view3d.options.smoothTextures = this.menu.TEXTURES.current === 1;
+		view3d.options.wide = this.menu.LAYOUT.current === 1;
+		let drawn = false;
 		if (this.menu.VIEW3D.current === 1)
-			view3d.render(this.smoothActive() ? movesPerSecond : GAME_STEPS_PER_SECOND);
+			drawn = view3d.render(this.smoothActive() ? movesPerSecond : GAME_STEPS_PER_SECOND);
 		else
 			view3d.reset();
+		if (view3d.options.wide)
+			view3d.drawWideLayout(drawn);
 	},
 
 	smoothActive() {

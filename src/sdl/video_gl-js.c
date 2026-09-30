@@ -28,6 +28,7 @@
 
 #include "sdl/video_gl-js.h"
 #include "sdl/video_gl-common.h"
+#include "sdl/video_gl.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -484,6 +485,38 @@ static JSValue js_texture_draw(JSContext *ctx, JSValueConst this_val, int argc, 
 	return JS_UNDEFINED;
 }
 
+/* gl.drawScreen(x0, y0, x1, y1, left, right, top, bottom, z = -2): draws that
+   region of the emulated screen (pixels of the displayed area, y down) onto
+   the rectangle given in GL coordinates; for extensions that rearrange the
+   screen */
+static JSValue js_gl_drawScreen(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+	float z = Z_VALUE_2D;
+	if (argc < 8)
+		return JS_ThrowTypeError(ctx, "drawScreen expects 8 or 9 arguments");
+	{
+		ARG_F(0, x0); ARG_F(1, y0); ARG_F(2, x1); ARG_F(3, y1);
+		ARG_F(4, l); ARG_F(5, r); ARG_F(6, t); ARG_F(7, b);
+		if (argc > 8) {
+			ARG_F(8, zz);
+			z = zz;
+		}
+		SDL_VIDEO_GL_DrawScreenRegion(x0, y0, x1, y1, l, r, t, b, z);
+	}
+	return JS_UNDEFINED;
+}
+
+/* gl.screenSize() -> [width, height]: the displayed area in pixels */
+static JSValue js_gl_screenSize(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+	int w, h;
+	JSValue a = JS_NewArray(ctx);
+	SDL_VIDEO_GL_ScreenSize(&w, &h);
+	JS_SetPropertyUint32(ctx, a, 0, JS_NewInt32(ctx, w));
+	JS_SetPropertyUint32(ctx, a, 1, JS_NewInt32(ctx, h));
+	return a;
+}
+
 enum { TEX_WIDTH, TEX_HEIGHT, TEX_ID };
 
 static JSValue js_texture_get(JSContext *ctx, JSValueConst this_val, int magic)
@@ -545,6 +578,8 @@ static const JSCFunctionListEntry js_gl_funcs[] = {
 	JS_CFUNC_DEF("Lightfv", 3, js_gl_Lightfv),
 	JS_CFUNC_DEF("GetIntegerv", 1, js_gl_GetIntegerv),
 	JS_CFUNC_DEF("createTexture", 2, js_gl_createTexture),
+	JS_CFUNC_DEF("drawScreen", 9, js_gl_drawScreen),
+	JS_CFUNC_DEF("screenSize", 0, js_gl_screenSize),
 	JS_CFUNC_DEF("loadTextureRGBA", 3, js_gl_loadTextureRGBA),
 	JS_CFUNC_DEF("drawTriangles", 2, js_gl_drawTriangles),
 	JS_CFUNC_DEF("readPixels", 4, js_gl_readPixels),

@@ -50,6 +50,9 @@ void SDL_VIDEO_GL_InterpolateScanlinesChanged(void);
 void SDL_VIDEO_GL_Cleanup(void);
 
 void SDL_VIDEO_GL_DisplayScreen(void);
+/* For extensions: draw a region of the displayed screen, and its size (see video_gl.c) */
+void SDL_VIDEO_GL_DrawScreenRegion(float x0, float y0, float x1, float y1, float l, float r, float t, float b, float z);
+void SDL_VIDEO_GL_ScreenSize(int *width, int *height);
 void SDL_VIDEO_GL_PaletteUpdate(void);
 int SDL_VIDEO_GL_SetVideoMode(VIDEOMODE_resolution_t const *res, int windowed, VIDEOMODE_MODE_t mode, int rotate90);
 int SDL_VIDEO_GL_SupportsVideomode(VIDEOMODE_MODE_t mode, int stretch, int rotate90);

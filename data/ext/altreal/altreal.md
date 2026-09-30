@@ -239,8 +239,11 @@ so that both pictures agree: the wall corners are projected with the depth
 law above (the scale at a distance is the half-height over 18 units, across
 as well as up), drawn in the 72 x 72 picture space that the viewport shows
 2:1, with the distance in the depth buffer and the fog. Walls seen at an
-angle keep a height per end and a linear texture, as in the game. Added are
-fog, side shading and interpolation of steps and turns. The textures are the
+angle keep a height per end and a linear texture, as in the game. The eye
+takes the game's position along the facing but sits in the middle of the
+cell across it, as the game's renderer ignores that coordinate; a turn
+slides it there. Added are fog, side shading and interpolation of steps and
+turns. The textures are the
 game's 72 x 72 art
 decoded from memory through the art table, in the colours at `$18BA`-`$18BE`
 looked up in the emulator's palette, so every wall type looks as the game
@@ -253,7 +256,11 @@ beyond, as in the game. The "Textures" menu entry chooses between the art
 as it is, sampled nearest like the game's own scaling, and a 4x version made
 by applying Scale2x twice to the pixel values (288 x 288, drawn with mipmaps
 and linear filtering): the stairs of the stones' edges are rounded, the
-colours stay the game's. The floor and ceiling,
+colours stay the game's. The "Layout" entry's Wide mode draws the view over
+the whole screen width, still 2:1, and shrinks the game's text rows (lines
+20-72 and 146-200 of the screen), centred, and the compass into the 36-line
+bands above and below through `gl.drawScreen()`; when the view is not drawn the game's
+own picture is enlarged into the same place. The floor and ceiling,
 which the game only colours, are grey patterns tinted with the ceiling and
 floor colours. A key over the colours, the table and the art bytes tells
 when the textures must be rebuilt. The view stays out of the way when the
