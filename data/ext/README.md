@@ -234,7 +234,13 @@ These games are also discussed in [this video on YouTube](https://www.youtube.co
     five disk images placed in `altreal/` ([altreal/disks.js](altreal/disks.js)), so "Please
     insert Disk..." never comes up (the game only ever reads)
     The notes document the engine: map, movement, picture buffer, art and renderer
-* Numen: [numen/init.js](numen/init.js), [numen.md](numen/numen.md)
+* Numen: [numen/init.js](numen/init.js), [numen/world3d.js](numen/world3d.js) (the demo's sector levels drawn with OpenGL), [numen.md](numen/numen.md)
+  * the 3D scenes drawn again with OpenGL ([numen/world3d.js](numen/world3d.js)): the demo's engine is a
+    sector renderer, and its level tables (sectors with floor and ceiling heights, walls, sprites, the
+    backdrop) are read from memory and drawn through the demo's own camera at the window's resolution,
+    with the camera gliding between the demo's positions; optional shading, shadows and a light fog,
+    the view over the whole picture, a ground texture (a grain, dithers as tiles) and smooth edges.
+    Works for the forest and the maze; the notes document the engine's tables and projection
   * the demo's 3D scenes run about ten times faster: the hottest code, found with the emulator's profile,
     runs in no emulated time (`createAccelerator` in [common.js](common.js), usable by any game)
   * their picture smoothed with Scale2x over the scene's 4 x 4 pixel grid ([smooth2d.js](smooth2d.js),
