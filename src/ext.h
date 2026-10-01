@@ -41,6 +41,8 @@ char *ext_fps_str(int current_value);
 int ext_fakecpu_until_pc(int end_pc);
 int ext_fakecpu_until_op(int end_op);
 int ext_fakecpu_until_after_op(int end_op);
+int ext_fakecpu_while_in(int lo, int hi, int max_insns);
+void ext_set_code_injections(const int *addresses, int count);
 
 typedef unsigned char byte;
 

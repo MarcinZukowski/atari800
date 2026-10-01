@@ -62,6 +62,10 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
 * `a8.cpu.a`, `a8.cpu.x`, `a8.cpu.y`, `a8.cpu.s`, `a8.cpu.p`, `a8.cpu.pc` - the 6502 registers,
   read/write; they are current inside `onCodeInjection`, where changes take effect on return
 * `a8.antic.dlist`, `a8.antic.hscrol`, `a8.antic.vscrol`, `a8.antic.chbase` - ANTIC registers
+* `a8.profile(what)` - the monitor's profile as a `Float64Array` of 65536 entries: how many times
+  the instruction at each address ran (`"count"`, the default) or the cycles it took (`"cycles"`),
+  since the start or the last `a8.profileReset()`; `null` when the emulator was built without
+  `--enable-monitorprofile`. For finding the routines worth accelerating with `a8.fakeCpuUntil*`
 * `a8.xeBank(n)` - bank `n` of the extended (XE) memory as a 16 KB `Uint8Array` (zero copy), or
   `null` when the machine has none. A program that does not use extended memory leaves the banks
   free, and they are saved in state files, so data kept there follows the game's save and load
@@ -74,6 +78,13 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
   * `a8.fakeCpuUntilPc(pc)` - run the CPU (without side effects on the machine) until reaching address `pc`
   * `a8.fakeCpuUntilOp(op)` - run the CPU until reaching opcode `op` (e.g. `a8.OP_RTS`)
   * `a8.fakeCpuUntilAfterOp(op)` - the same, but also execute that opcode (e.g. return from the routine)
+  * `a8.fakeCpuWhileIn(lo, hi, maxInstructions = 1000000)` - runs the current instruction and the
+    following ones in no emulated time while the PC stays in `lo..hi`, up to the budget; returns the
+    number of instructions run, negative when the budget ran out (a loop waiting for an interrupt
+    or VCOUNT cannot end this way)
+  * `a8.setCodeInjections([addresses])` - replaces, at run time, the addresses `onCodeInjection` is
+    called for; with `a8.profile()` these make `createAccelerator()` in [common.js](common.js)
+    possible, which runs a program's hottest code in no emulated time
 * `a8.printFps(value, fg, bg, x, y)` - counts frames (a change of `value` is a new frame)
   and prints the rate on the Atari screen at `x, y`. Typically called from `onPreGlFrame`
 * `a8.accelerationDisabled()` - true while CTRL is held

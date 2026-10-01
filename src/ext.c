@@ -305,6 +305,41 @@ static int fakecpu_until(int end_pc, int end_op, int after)
 	return OP_NOP;
 }
 
+/* Runs the instruction at PC and the following ones in no emulated time for
+   as long as the PC stays within lo..hi, but at most max_insns of them: a
+   loop waiting for something that cannot change meanwhile (a counter the
+   interrupts advance, VCOUNT) would otherwise never end. Returns how many
+   instructions ran, negative when the budget ran out. */
+int ext_fakecpu_while_in(int lo, int hi, int max_insns)
+{
+	int n = 0;
+	fakecpu_begin();
+	CPU_regPC--;   /* re-execute the current instruction */
+	for (;;) {
+		fakecpu_step();
+		n++;
+		if (CPU_regPC < lo || CPU_regPC > hi)
+			break;
+		if (n >= max_insns) {
+			n = -n;
+			break;
+		}
+	}
+	fakecpu_end();
+	return n;
+}
+
+/* Replaces the active extension's code injection addresses */
+void ext_set_code_injections(const int *addresses, int count)
+{
+	int i;
+	memset(code_injection_map, 0, RAM_SIZE);
+	for (i = 0; i < count; i++)
+		if (addresses[i] >= 0 && addresses[i] < RAM_SIZE)
+			code_injection_map[addresses[i]] = 1;
+	code_injection_map_set = count > 0;
+}
+
 int ext_fakecpu_until_pc(int end_pc)
 {
 	return fakecpu_until(end_pc, 0, 0);

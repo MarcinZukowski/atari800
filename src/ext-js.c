@@ -42,6 +42,7 @@
 #include "antic.h"
 #include "colours.h"
 #include "cpu.h"
+#include "monitor.h"
 #include "gtia.h"
 #include "memory.h"
 #include "ui_basic.h"
@@ -122,6 +123,50 @@ static JSValue js_a8_fakeCpuUntilOp(JSContext *c, JSValueConst this_val, int arg
 	if (JS_ToInt32(c, &op, argv[0]))
 		return JS_EXCEPTION;
 	return JS_NewInt32(c, ext_fakecpu_until_op(op));
+}
+
+/* a8.fakeCpuWhileIn(lo, hi, maxInstructions = 1000000) -> instructions run,
+   negative when the budget ran out */
+static JSValue js_a8_fakeCpuWhileIn(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+	int32_t lo, hi, max = 1000000;
+	if (argc < 2 || JS_ToInt32(c, &lo, argv[0]) || JS_ToInt32(c, &hi, argv[1]))
+		return JS_EXCEPTION;
+	if (argc > 2 && JS_ToInt32(c, &max, argv[2]))
+		return JS_EXCEPTION;
+	return JS_NewInt32(c, ext_fakecpu_while_in(lo, hi, max));
+}
+
+/* a8.setCodeInjections([addresses]): replaces the addresses onCodeInjection is
+   called for, at run time */
+static JSValue js_a8_setCodeInjections(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+	JSValue lenv;
+	int32_t len, i;
+	int *addresses;
+	if (argc < 1)
+		return JS_ThrowTypeError(c, "setCodeInjections expects an array");
+	lenv = JS_GetPropertyStr(c, argv[0], "length");
+	if (JS_ToInt32(c, &len, lenv)) {
+		JS_FreeValue(c, lenv);
+		return JS_EXCEPTION;
+	}
+	JS_FreeValue(c, lenv);
+	addresses = (int *) malloc((len > 0 ? len : 1) * sizeof(int));
+	for (i = 0; i < len; i++) {
+		JSValue v = JS_GetPropertyUint32(c, argv[0], i);
+		int32_t a;
+		if (JS_ToInt32(c, &a, v)) {
+			JS_FreeValue(c, v);
+			free(addresses);
+			return JS_EXCEPTION;
+		}
+		JS_FreeValue(c, v);
+		addresses[i] = a;
+	}
+	ext_set_code_injections(addresses, len);
+	free(addresses);
+	return JS_UNDEFINED;
 }
 
 static JSValue js_a8_fakeCpuUntilAfterOp(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv)
@@ -352,11 +397,15 @@ static JSValue js_a8_loadSound(JSContext *c, JSValueConst this_val, int argc, JS
 }
 
 static JSValue js_a8_xeBank(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv);
+static JSValue js_a8_profile(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv);
+static JSValue js_a8_profileReset(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv);
 
 static const JSCFunctionListEntry js_a8_funcs[] = {
 	JS_CFUNC_DEF("fakeCpuUntilPc", 1, js_a8_fakeCpuUntilPc),
 	JS_CFUNC_DEF("fakeCpuUntilOp", 1, js_a8_fakeCpuUntilOp),
 	JS_CFUNC_DEF("fakeCpuUntilAfterOp", 1, js_a8_fakeCpuUntilAfterOp),
+	JS_CFUNC_DEF("fakeCpuWhileIn", 3, js_a8_fakeCpuWhileIn),
+	JS_CFUNC_DEF("setCodeInjections", 1, js_a8_setCodeInjections),
 	JS_CFUNC_DEF("peek", 1, js_a8_peek),
 	JS_CFUNC_DEF("poke", 2, js_a8_poke),
 	JS_CFUNC_DEF("printFps", 5, js_a8_printFps),
@@ -364,6 +413,8 @@ static const JSCFunctionListEntry js_a8_funcs[] = {
 	JS_CFUNC_DEF("rgb", 1, js_a8_rgb),
 	JS_CFUNC_DEF("loadSound", 1, js_a8_loadSound),
 	JS_CFUNC_DEF("xeBank", 1, js_a8_xeBank),
+	JS_CFUNC_DEF("profile", 1, js_a8_profile),
+	JS_CFUNC_DEF("profileReset", 0, js_a8_profileReset),
 	JS_PROP_INT32_DEF("OP_RTS", OP_RTS, JS_PROP_ENUMERABLE),
 	JS_PROP_INT32_DEF("OP_NOP", OP_NOP, JS_PROP_ENUMERABLE),
 	JS_OBJECT_DEF("antic", js_a8_antic_funcs, 6, JS_PROP_ENUMERABLE),
@@ -386,6 +437,58 @@ static JSValue new_external_typed_array(void *ptr, size_t bytes, size_t count, J
 	if (JS_IsException(arr))
 		js_fatal("creating typed array");
 	return arr;
+}
+
+/* a8.profile(what): the monitor's profile, a Float64Array of 65536 entries:
+   how many times the instruction at each address ran ("count", the default)
+   or the cycles it took ("cycles"), since the start or the last
+   a8.profileReset(). Null when the emulator was built without the profile
+   (configure --enable-monitorprofile). */
+static JSValue js_a8_profile(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+#ifdef MONITOR_PROFILE
+	int cycles = 0;
+	JSValue buf, argv2[1], arr, ctor, global;
+	double *values;
+	int i;
+	if (argc > 0) {
+		const char *what = JS_ToCString(c, argv[0]);
+		if (what == NULL)
+			return JS_EXCEPTION;
+		cycles = strcmp(what, "cycles") == 0;
+		JS_FreeCString(c, what);
+	}
+	values = (double *) malloc(0x10000 * sizeof(double));
+	if (values == NULL)
+		return JS_ThrowOutOfMemory(c);
+	for (i = 0; i < 0x10000; i++)
+		values[i] = (double) (cycles ? MONITOR_coverage[i].cycles : MONITOR_coverage[i].count);
+	buf = JS_NewArrayBufferCopy(c, (const uint8_t *) values, 0x10000 * sizeof(double));
+	free(values);
+	if (JS_IsException(buf))
+		return buf;
+	global = JS_GetGlobalObject(c);
+	ctor = JS_GetPropertyStr(c, global, "Float64Array");
+	JS_FreeValue(c, global);
+	argv2[0] = buf;
+	arr = JS_CallConstructor(c, ctor, 1, argv2);
+	JS_FreeValue(c, ctor);
+	JS_FreeValue(c, buf);
+	return arr;
+#else
+	return JS_NULL;
+#endif
+}
+
+/* a8.profileReset(): zeroes the profile */
+static JSValue js_a8_profileReset(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+#ifdef MONITOR_PROFILE
+	memset(MONITOR_coverage, 0, sizeof(MONITOR_coverage));
+	MONITOR_coverage_insns = 0;
+	MONITOR_coverage_cycles = 0;
+#endif
+	return JS_UNDEFINED;
 }
 
 /* a8.xeBank(n): bank n of the extended (XE) memory as a 16 KB Uint8Array,
