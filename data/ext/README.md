@@ -205,6 +205,10 @@ These games are also discussed in [this video on YouTube](https://www.youtube.co
     point, and edges are drawn between sub-pixel end points (3 line styles)
   * faces found in each model's edge graph (coplanar chordless cycles) and drawn as translucent
     "glass" or shaded polygons under the lines
+  * the 3D window as a scene ([mercenary/view3d.js](mercenary/view3d.js)), each part its own option:
+    sky and a ground plane with an exact horizon instead of the game's row-by-row fill, lines as
+    ribbons that thin out with distance, ground marks cut at the horizon as the game's pen trick
+    cuts them, rooms drawn solid, a light grain over ground and faces, fog and lighting
 * Zybex: [zybex/init.js](zybex/init.js), [zybex.md](zybex/zybex.md) (originally in C, now JavaScript)
   * scrolling background (grayscale and color modes)
 * Behind Jaggi Lines: [bjl/init.js](bjl/init.js) (originally in C, now JavaScript)

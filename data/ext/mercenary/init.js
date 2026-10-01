@@ -3,9 +3,13 @@
 // again with OpenGL from the game's own geometry: the vertices' exact 24-bit
 // positions and 10-bit view angles are read as the game projects them, the
 // transform is redone in floating point, and every edge is drawn between the
-// resulting sub-pixel end points. The addresses come from mercenary.md; the
-// engine's structure follows the C64 version's analysis by gamesexplained.
+// resulting sub-pixel end points. With the scene options the whole 3D window
+// is drawn as a scene (view3d.js): sky and ground with an exact horizon,
+// lines that thin out with distance, fog, lighting and a grain. The
+// addresses come from mercenary.md; the engine's structure follows the C64
+// version's analysis by gamesexplained.
 import { rgb, word } from "../common.js";
+import { drawScene, toView } from "./view3d.js";
 
 const MODE_A8 = 0, MODE_GL = 1, MODE_BOTH = 2;                       // line drawing mode
 const TYPE_LINE = 0, TYPE_POLYGON_LINE = 1, TYPE_POLYGON_FILL = 2;   // GL line type
@@ -41,6 +45,8 @@ const PROJECT_VERTEX = 0x4B44;
 const LINE_SETUP = 0x3E4E;
 const BUILDING_EDGES = 0x3B58;          // start of the location's edge loop
 const DRAW_OBJECT = 0x3B99;             // draw_object X
+const PLOT_SLOT = 0x538A;               // a far object: one dot at slot X's projection
+const GAME_DLIST = 0x2800;              // the display list of the game's view
 const BUILDING_EDGE_FROM = 0x1E80, BUILDING_EDGE_TO = 0x1EC0;   // the location's edge tables
 const EYE = 0x70;                                        // X, height, Y: 24 bits each, low byte first
 const VERTEX_X = [0x1D00, 0x1D40, 0x9F40];               // the location's vertex tables, low/mid/high
@@ -62,7 +68,14 @@ const sin10 = (a) => Math.sin((a + 0.5) * Math.PI / 512);
 const cos10 = (a) => Math.cos((a + 0.5) * Math.PI / 512);
 
 let pendingVertex = null;      // exact eye-relative position awaiting PROJECT_VERTEX
-const slots = new Array(64);   // per slot: { xp, yp, z } in view space, floats
+const slots = new Array(64);   // per slot: { xp, yp, z } in view space and w: [X, height, Y] from the eye, floats
+
+// The view a frame was drawn with: the matrix (rows: across, down, depth of
+// eye-relative X, height, Y), the eye, the projection, and whether it is an
+// interior. Taken at the frame's first projected vertex and kept with its lines
+let shownView = null, preparedView = null;
+// Far objects, which the game plots as single dots
+let shownPoints = [], preparedPoints = [];
 
 // Edges are grouped per model (the location's building, each object) so
 // that faces can be found in each model's edge graph. A group has a key
@@ -225,46 +238,76 @@ function captureSquareCentre() {
 	                 ((row << 16) | 0x8000) - ((mem[0x78] << 16) | (mem[0x77] << 8))];
 }
 
-// PROJECT_VERTEX: redo the game's transform in floating point. In flight the
-// view matrix from roll r, pitch p and heading h applies to (X, height, Y);
-// on foot and underground only the heading does.
+// The game's view transform, redone in floating point: in flight the view
+// matrix from roll r, pitch p and heading h applies to (X, height, Y); on
+// foot and underground only the heading does.
+function currentView() {
+	let m;
+	if (mem[0xA6] !== 0 || (mem[0xA7] & 0x80)) {
+		const h = angle(0x2A), sh = sin10(h), ch = cos10(h);
+		m = [[ch, 0, -sh], [0, -1, 0], [-sh, 0, -ch]];
+	}
+	else {
+		const r = angle(0x26), p = angle(0x28), h = angle(0x2A);
+		const sr = sin10(r), cr = cos10(r), sp = sin10(p), cp = cos10(p), sh = sin10(h), ch = cos10(h);
+		m = [[cr * ch + sr * sp * sh, -sr * cp, -cr * sh + sr * sp * ch],
+		     [sr * ch - cr * sp * sh, cr * cp, -(sr * sh + cr * sp * ch)],
+		     [cp * sh, sp, cp * ch]];
+	}
+	if (mem[0xF1] & 1)   // mirror flag
+		m[0] = m[0].map((v) => -v);
+	const fe = mem[0x1F] >> 2;
+	return { m, eye: eyePosition(), indoor: mem[0xA6] !== 0, focal: 2 ** (fe >= 32 ? fe - 64 : fe), cx: mem[0x8C], cy: mem[0x8D] };
+}
+
+// PROJECT_VERTEX: the vertex in view space, by the frame's matrix
 function captureProjection() {
 	let rel = pendingVertex;
 	pendingVertex = null;
 	if (rel === null)   // a path we do not intercept (the far-object dot): take the game's floats
 		rel = [gfloat(mem[0x50], mem[0x51]), gfloat(mem[0x52], mem[0x53]), gfloat(mem[0x54], mem[0x55])];
-	const [X, H, Y] = rel;
-	let xp, yp, z;
-	if (mem[0xA6] !== 0 || (mem[0xA7] & 0x80)) {
-		const h = angle(0x2A), sh = sin10(h), ch = cos10(h);
-		xp = X * ch - Y * sh;
-		yp = -H;
-		z = -(X * sh + Y * ch);
-	}
-	else {
-		const r = angle(0x26), p = angle(0x28), h = angle(0x2A);
-		const sr = sin10(r), cr = cos10(r), sp = sin10(p), cp = cos10(p), sh = sin10(h), ch = cos10(h);
-		xp = X * (cr * ch + sr * sp * sh) + H * (-sr * cp) + Y * (-cr * sh + sr * sp * ch);
-		yp = X * (sr * ch - cr * sp * sh) + H * (cr * cp) + Y * (-(sr * sh + cr * sp * ch));
-		z = X * (cp * sh) + H * sp + Y * (cp * ch);
-	}
-	if (mem[0xF1] & 1)   // mirror flag
-		xp = -xp;
-	slots[mem[0x17]] = { xp, yp, z };
+	if (preparedView === null)
+		preparedView = currentView();
+	const m = preparedView.m, [X, H, Y] = rel;
+	slots[mem[0x17]] = {
+		xp: m[0][0] * X + m[0][1] * H + m[0][2] * Y, yp: m[1][0] * X + m[1][1] * H + m[1][2] * Y, z: m[2][0] * X + m[2][1] * H + m[2][2] * Y,
+		w: rel,
+	};
+}
+
+// PLOT_SLOT: a far object is a dot at slot X
+function capturePoint() {
+	const s = a8.cpu.x, f = slots[s];
+	if (mem[SLOT_FLAGS + s] !== 0 || preparedPoints.length >= MAX_LINES) return;
+	preparedPoints.push(f !== undefined && f.z > Z_NEAR ? f : { flat: true, sx: mem[SLOT_SX + s], sy: mem[SLOT_SY + s] });
 }
 
 function beginGroup(key) {
-	currentGroup = { key, edges: [], verts: new Map() };
+	currentGroup = { key, edges: [], verts: new Map(), room: false };
 	preparedGroups.push(currentGroup);
 }
 
-// The location's building: identified by its edge table
+// The location's building: identified by its edge table. The whole model is
+// read here, whatever part of it the game goes on to draw: all the edges
+// (those up to index $96 are the structure, drawn white; the ones above it
+// ground marks; in an interior all are the room's) and all the vertices
+// relative to the eye, so that its faces are complete from the first frame
 function beginBuildingGroup() {
-	const count = mem[0x6F] + 1;
+	const count = mem[0x6F] + 1, vertices = mem[0x6E] + 1, split = mem[0x96], indoor = mem[0xA6] !== 0;
 	let h = count;
 	for (let i = 0; i < count; i++)
 		h = (h * 31 + mem[BUILDING_EDGE_FROM + i] * 64 + mem[BUILDING_EDGE_TO + i]) >>> 0;
 	beginGroup("b" + h.toString(16));
+	const [ex, eh, ey] = eyePosition();
+	const model = { edges: [], rel: new Map() };
+	for (let i = 0; i < count; i++)
+		if (indoor || i <= split) model.edges.push([mem[BUILDING_EDGE_FROM + i], mem[BUILDING_EDGE_TO + i]]);
+	for (let i = 0; i < vertices; i++)
+		model.rel.set(i, [s24(mem[VERTEX_X[0] + i], mem[VERTEX_X[1] + i], mem[VERTEX_X[2] + i]) - ex,
+		                  s24(mem[VERTEX_H[0] + i], mem[VERTEX_H[1] + i], mem[VERTEX_H[2] + i]) - eh,
+		                  s24(mem[VERTEX_Y[0] + i], mem[VERTEX_Y[1] + i], mem[VERTEX_Y[2] + i]) - ey]);
+	currentGroup.model = model;
+	currentGroup.room = indoor;
 }
 
 // An object: identified by its model
@@ -293,7 +336,7 @@ function captureEdge() {
 	const colourAnd = mem[0x5243] === 0x3D;
 	if (preparedLines.length < MAX_LINES)
 		preparedLines.push({ a: ends[0], b: ends[1], colourAnd });
-	// structure edges (white) with full 3D data take part in face detection
+	// an object's structure edges (white) with full 3D data take part in face detection
 	if (currentGroup !== null && colourAnd && !ends[0].flat && !ends[1].flat) {
 		const sa = a8.cpu.x, sb = a8.cpu.y;
 		currentGroup.edges.push([sa, sb]);
@@ -385,13 +428,40 @@ function detectFaces(edges, verts) {
 	return [...faces.values()];
 }
 
+// The faces of a group's model, as lists of slots. A building's come from its
+// whole model; an object's from the edges seen, found again when a later
+// frame shows more of them
 function facesOf(group) {
-	let faces = faceCache.get(group.key);
-	if (faces === undefined) {
-		faces = group.edges.length >= 3 ? detectFaces(group.edges, group.verts) : [];
-		faceCache.set(group.key, faces);
+	let entry = faceCache.get(group.key);
+	if (group.model) {
+		if (entry === undefined) {
+			const verts = new Map();
+			for (const [slot, [X, H, Y]] of group.model.rel) verts.set(slot, { xp: X, yp: H, z: Y });
+			const edges = group.model.edges.filter(([a, b]) => verts.has(a) && verts.has(b));
+			entry = { faces: edges.length >= 3 ? detectFaces(edges, verts) : [], edges: edges.length };
+			faceCache.set(group.key, entry);
+		}
 	}
-	return faces;
+	else if (entry === undefined || group.edges.length > entry.edges) {
+		entry = { faces: group.edges.length >= 3 ? detectFaces(group.edges, group.verts) : [], edges: group.edges.length };
+		faceCache.set(group.key, entry);
+	}
+	return entry.faces;
+}
+
+// A face's corners in view space for the frame's view: a building's from its
+// model, an object's as captured
+function facePoints(group, face, view) {
+	if (group.model) {
+		const points = [];
+		for (const slot of face) {
+			const rel = group.model.rel.get(slot);
+			if (rel === undefined) return [];
+			points.push({ ...toView(view, rel[0], rel[1], rel[2]), w: rel });
+		}
+		return points;
+	}
+	return face.map((s) => group.verts.get(s)).filter((p) => p !== undefined && p.w !== undefined);
 }
 
 // Sutherland-Hodgman clip of a view-space polygon against the near plane
@@ -414,7 +484,7 @@ function drawFaces(style) {
 	const list = [];
 	for (const g of shownGroups) {
 		for (const face of facesOf(g)) {
-			const pts = face.map((s) => g.verts.get(s)).filter((p) => p !== undefined);
+			const pts = shownView !== null ? facePoints(g, face, shownView) : [];
 			if (pts.length < 3) continue;
 			const clipped = clipPolygonNear(pts);
 			if (clipped.length < 3) continue;
@@ -554,6 +624,10 @@ export default {
 		LINES: { label: "Line drawing mode:", options: ["Atari native", "OpenGL", "Both"], current: MODE_GL },
 		GLTYPE: { label: "GL line type:", options: ["Line", "Polygon-Line", "Polygon-Fill"], current: TYPE_LINE },
 		FACES: { label: "Faces:", options: ["OFF", "Glass", "Shaded"], current: FACES_GLASS },
+		SCENERY: { label: "Sky and ground:", options: ["Atari", "OpenGL"], current: 1 },
+		TAPER: { label: "Line width:", options: ["Fixed", "By distance"], current: 1 },
+		TEXTURES: { label: "Textures:", options: ["OFF", "ON"], current: 1 },
+		SHADE: { label: "Fog and lighting:", options: ["OFF", "ON"], current: 1 },
 	},
 
 	// The C version was consulted on every instruction; listing the
@@ -564,7 +638,7 @@ export default {
 		FILL_ONE_COLOUR,
 		FILL_TWO_COLOURS,
 		VERTEX_REL, MODEL_VERTEX_ORIENTED, SQUARE_CENTRE_REL, PROJECT_VERTEX, LINE_SETUP,
-		BUILDING_EDGES, DRAW_OBJECT,
+		BUILDING_EDGES, DRAW_OBJECT, PLOT_SLOT,
 	],
 
 	onActivate() {
@@ -574,6 +648,9 @@ export default {
 		preparedGroups = [];
 		currentGroup = null;
 		shownDl = -1;
+		shownView = preparedView = null;
+		shownPoints = [];
+		preparedPoints = [];
 		pendingVertex = null;
 		slots.fill(undefined);
 	},
@@ -587,6 +664,7 @@ export default {
 		case PROJECT_VERTEX: captureProjection(); return op;
 		case BUILDING_EDGES: beginBuildingGroup(); return op;
 		case DRAW_OBJECT: beginObjectGroup(); return op;
+		case PLOT_SLOT: capturePoint(); return op;
 		case LINE_SETUP:
 			captureEdge();
 			// In OpenGL-only mode the game need not draw the edge at all
@@ -618,8 +696,12 @@ export default {
 		if (dl !== shownDl) {
 			[shownLines, preparedLines] = [preparedLines, shownLines];
 			[shownGroups, preparedGroups] = [preparedGroups, shownGroups];
+			[shownPoints, preparedPoints] = [preparedPoints, shownPoints];
+			if (preparedView !== null) shownView = preparedView;
+			preparedView = null;
 			preparedLines.length = 0;
 			preparedGroups.length = 0;
+			preparedPoints.length = 0;
 			currentGroup = null;
 			shownDl = dl;
 		}
@@ -630,6 +712,25 @@ export default {
 		if (mode === MODE_A8)
 			return;
 		const type = this.menu.GLTYPE.current;
+
+		// The scene in 3D: instead of the game's lines, and with "Sky and
+		// ground" instead of its whole picture
+		if (mode === MODE_GL && type === TYPE_LINE && shownView !== null && a8.antic.dlist === GAME_DLIST) {
+			const faces = [];
+			if (this.menu.FACES.current !== FACES_OFF) {
+				for (const g of shownGroups) {
+					for (const face of facesOf(g)) {
+						const points = facePoints(g, face, shownView);
+						if (points.length >= 3) faces.push({ points, room: g.room });
+					}
+				}
+			}
+			drawScene({ view: shownView, lines: shownLines, points: shownPoints, faces }, {
+				scenery: this.menu.SCENERY.current === 1, taper: this.menu.TAPER.current === 1,
+				textures: this.menu.TEXTURES.current === 1, shade: this.menu.SHADE.current === 1, faces: this.menu.FACES.current,
+			});
+			return;
+		}
 
 		gl.PushAttrib(gl.ENABLE_BIT);
 		gl.PushAttrib(gl.POLYGON_BIT);

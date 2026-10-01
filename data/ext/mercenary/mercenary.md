@@ -106,3 +106,55 @@ Projection and edges:
 * 3e4e - line set-up for the edge between slots X and Y: clipping, octant
   choice, then one of the eight line routines
 * 53b7/53bd - switch the line routines between AND (white) and ORA (ground marks)
+
+# The view's picture
+
+* a1-a4 - the colours of the view's four pixel values (shadows of the colour
+  registers for the 3D window; the hardware registers hold the dashboard's
+  by the end of the frame): a1 value 0, the structures' white; a2 value 1,
+  the sky; a3 value 2, the ground; a4 value 3, the ground marks
+* Outdoors every frame fills the window row by row: 586f with $55 (sky) for
+  the rows above the horizon and $AA (ground) below, 570e for the rows the
+  horizon crosses, each with one switch point. On foot the horizon is the
+  boundary of rows 74 and 75, a row and a half above where the ground's
+  vanishing line projects (76.5)
+* The lines' two pens: AND clears a pixel to value 0 (white); ORA sets its low
+  bit, which turns ground (2) into mark (3) and leaves sky (1) as it is: a
+  mark shows on the ground only, the horizon cuts it without any geometry
+* In an interior (a6 not zero) nothing is filled per row: the whole window
+  is value 2 and the room's edges are ORA lines, so they show everywhere
+* 3b58 - the location's edges, from index 6f down to 0: ORA pen first, AND
+  pen from index 96 on, so edges above 96 are marks and the rest structure
+  (an interior has 96 above 6f: all marks)
+* 538a - plots one white pixel at slot X's projection when its flags are
+  zero: a far object is drawn as a dot
+
+# The scene in OpenGL (view3d.js)
+
+With "Line drawing mode: OpenGL" and "GL line type: Line" the 3D window is
+drawn as a scene. The vertices are kept in view space as the game projects
+them, and a frustum reproduces its projection (x = centre + 64 x'/z,
+y = centre + 128 y'/z, a pixel's coordinate being its middle), so everything
+else can be real geometry. Options, each on its own:
+
+* Sky and ground: the window is cleared to the sky's colour and the ground is
+  a plane at height 0 drawn as rings around the point under the eye, each twice
+  as wide as the last, out past the far plane: its edge is the horizon,
+  exact at any roll and pitch. An interior is cleared to its one colour.
+  Far-object dots are drawn again from the slots
+* Line width by distance: an edge is a ribbon facing the eye, 22 world units
+  wide, kept between 1.6 and 4.2 window pixels; marks are cut at the eye's
+  level, which is the horizon on the screen, as the ORA pen cuts them
+* Faces: a location's faces come from its whole model, read from the edge
+  and vertex tables when its edge loop starts, not from the edges that
+  happen to be drawn; an interior's room is drawn solid in the room's colour
+* Textures: one tiling noise texture multiplies the ground at four sizes
+  (512 to 2 million units a tile) and the faces at one; far away it blurs
+  to its mean and does nothing
+* Fog and lighting: exponential fog (toward a paled sky outdoors, toward the
+  dark indoors), a haze band over the horizon and a darker zenith, faces lit
+  by a fixed sun, floors darker and ceilings lighter than walls
+
+*Measured*: on the five saved states (surface on foot, in flight with roll,
+three interiors) the scene lines up with the game's own picture; drawing it
+takes 1-2 ms a frame.
