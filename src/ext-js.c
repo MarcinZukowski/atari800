@@ -46,6 +46,9 @@
 #include "gtia.h"
 #include "memory.h"
 #include "ui_basic.h"
+#ifdef VIDEO_RECORDING
+#include "file_export.h"
+#endif
 
 #include "sdl/sfx.h"
 #include "sdl/video_gl-js.h"
@@ -340,6 +343,33 @@ static JSValue js_a8_accelerationDisabled(JSContext *c, JSValueConst this_val, i
 	return JS_NewBool(c, ext_acceleration_disabled());
 }
 
+/* a8.recordVideo(path) starts a video recording into that file (.avi), as
+   the menu's "Record video" does: true when it started. a8.stopRecording()
+   ends it. For test scripts and for extensions that make their own clips. */
+static JSValue js_a8_recordVideo(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+#ifdef VIDEO_RECORDING
+	const char *path;
+	int ok;
+	if (argc < 1 || (path = JS_ToCString(c, argv[0])) == NULL)
+		return JS_ThrowTypeError(c, "recordVideo(path) needs a file name");
+	ok = File_Export_StartRecording(path);
+	JS_FreeCString(c, path);
+	return JS_NewBool(c, ok);
+#else
+	return JS_FALSE;
+#endif
+}
+
+static JSValue js_a8_stopRecording(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+#ifdef VIDEO_RECORDING
+	return JS_NewBool(c, File_Export_IsRecording() && File_Export_StopRecording());
+#else
+	return JS_FALSE;
+#endif
+}
+
 /* a8.rgb(colour) -> [r, g, b] with components in 0..255 */
 static JSValue js_a8_rgb(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv)
 {
@@ -410,6 +440,8 @@ static const JSCFunctionListEntry js_a8_funcs[] = {
 	JS_CFUNC_DEF("poke", 2, js_a8_poke),
 	JS_CFUNC_DEF("printFps", 5, js_a8_printFps),
 	JS_CFUNC_DEF("accelerationDisabled", 0, js_a8_accelerationDisabled),
+	JS_CFUNC_DEF("recordVideo", 1, js_a8_recordVideo),
+	JS_CFUNC_DEF("stopRecording", 0, js_a8_stopRecording),
 	JS_CFUNC_DEF("rgb", 1, js_a8_rgb),
 	JS_CFUNC_DEF("loadSound", 1, js_a8_loadSound),
 	JS_CFUNC_DEF("xeBank", 1, js_a8_xeBank),

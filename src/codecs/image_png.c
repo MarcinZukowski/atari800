@@ -174,6 +174,53 @@ static int PNG_SaveToBuffer(UBYTE *buf, int bufsize, UBYTE *ptr1, UBYTE *ptr2)
 }
 #endif
 
+#ifdef VIDEO_CODEC_PNG
+/* The frames of a true-colour video are large (the display's size, three
+   bytes a pixel) and there are fifty or sixty a second: they are written with
+   the fastest compression and a single cheap filter, whatever the compression
+   level set for pictures. */
+int PNG_SaveRGBToBuffer(UBYTE *buf, int bufsize, UBYTE *rgb, int width, int height)
+{
+	png_structp png_ptr;
+	png_infop info_ptr;
+	png_bytep *rows;
+	int y;
+	int result;
+
+	png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+	if (png_ptr == NULL)
+		return -1;
+	info_ptr = png_create_info_struct(png_ptr);
+	if (info_ptr == NULL) {
+		png_destroy_write_struct(&png_ptr, NULL);
+		return -1;
+	}
+	rows = (png_bytep *) Util_malloc(height * sizeof(png_bytep));
+	for (y = 0; y < height; y++)
+		rows[y] = rgb + y * width * 3;
+
+	image_buffer = buf;
+	max_buffer_size = bufsize;
+	current_png_size = 0;
+
+	png_set_write_fn(png_ptr, NULL, png_write_fn_callback, NULL);
+	png_set_compression_level(png_ptr, 1);
+	png_set_filter(png_ptr, PNG_FILTER_TYPE_BASE, PNG_FILTER_SUB);
+	png_set_IHDR(png_ptr, info_ptr, width, height, 8, PNG_COLOR_TYPE_RGB,
+		PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+	png_set_rows(png_ptr, info_ptr, rows);
+	png_write_png(png_ptr, info_ptr, PNG_TRANSFORM_IDENTITY, NULL);
+	png_destroy_write_struct(&png_ptr, &info_ptr);
+	free(rows);
+
+	result = current_png_size;
+	image_buffer = NULL;
+	max_buffer_size = 0;
+	current_png_size = -1;
+	return result;
+}
+#endif
+
 IMAGE_CODEC_t Image_Codec_PNG = {
 	"png",
 	"Portable Network Graphics",

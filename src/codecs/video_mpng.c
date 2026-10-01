@@ -32,7 +32,8 @@
 
 static int MPNG_Init(int width, int height, int left_margin, int top_margin)
 {
-	int comp_size = width * height;
+	/* (true colour: three bytes a pixel and a filter byte a row) */
+	int comp_size = video_rgb_width ? width * height * 3 + height : width * height;
 
 	/* In the worst case, PNG can store uncompressed image. Due to the overhead
 	   in the format the resulting data will be larger than the source data.
@@ -41,11 +42,13 @@ static int MPNG_Init(int width, int height, int left_margin, int top_margin)
 
 	/* Conservative upper bound taken from zlib v1.2.1 source via lcl.c */
 	comp_size = comp_size + ((comp_size + 7) >> 3) + ((comp_size + 63) >> 6) + 11;
-	return comp_size;
+	return comp_size + 1024; /* and the PNG's own chunks */
 }
 
 static int MPNG_CreateFrame(UBYTE *source, int keyframe, UBYTE *buf, int bufsize)
 {
+	if (video_rgb_width)
+		return PNG_SaveRGBToBuffer(buf, bufsize, source, video_rgb_width, video_rgb_height);
 	return Image_Codec_PNG.to_buffer(buf, bufsize, source, NULL);
 }
 
@@ -63,4 +66,5 @@ VIDEO_CODEC_t Video_Codec_MPNG = {
 	&MPNG_Init,
 	&MPNG_CreateFrame,
 	&MPNG_End,
+	TRUE,
 };

@@ -24,6 +24,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "screen.h"
 #include "colours.h"
 #include "cfg.h"
@@ -38,6 +39,9 @@
 #endif
 #ifdef VIDEO_CODEC_ZMBV
 #include "codecs/video_zmbv.h"
+#endif
+#ifdef WITH_EXT
+#include "ext.h"
 #endif
 
 /* Global pointer to current video codec, or NULL if one has not been
@@ -56,6 +60,21 @@ static VIDEO_CODEC_t *requested_video_codec = NULL;
    (only the differences from the previous frame) */
 #define MAX_KEYFRAME_INTERVAL 500
 int video_codec_keyframe_interval = 0;
+
+int video_frame_width = 0;
+int video_frame_height = 0;
+
+int video_source = VIDEO_SOURCE_AUTO;
+int video_rgb_width = 0;
+int video_rgb_height = 0;
+UBYTE *video_rgb_frame = NULL;
+static VIDEO_DisplaySize display_size = NULL;
+static char const * const video_source_cfg_strings[VIDEO_SOURCE_SIZE] = { "AUTO", "ATARI", "DISPLAY" };
+
+void CODECS_VIDEO_SetDisplay(VIDEO_DisplaySize size)
+{
+	display_size = size;
+}
 
 
 static VIDEO_CODEC_t *known_video_codecs[] = {
@@ -139,6 +158,13 @@ int CODECS_VIDEO_Initialise(int *argc, char *argv[])
 			}
 			else a_m = TRUE;
 		}
+		else if (strcmp(argv[i], "-vsource") == 0) {
+			if (i_a) {
+				if ((video_source = CFG_MatchTextParameter(argv[++i], video_source_cfg_strings, VIDEO_SOURCE_SIZE)) < 0)
+					a_i = TRUE;
+			}
+			else a_m = TRUE;
+		}
 		else if (strcmp(argv[i], "-keyint") == 0) {
 			if (i_a) {
 				video_codec_keyframe_interval = Util_sscandec(argv[++i]);
@@ -155,6 +181,9 @@ int CODECS_VIDEO_Initialise(int *argc, char *argv[])
 				Log_print(video_codec_args(buf));
 				Log_print("\t                 Select video codec (default: auto)");
 				Log_print("\t-keyint <num>    Set video keyframe interval to one keyframe every num frames");
+				Log_print("\t-vsource auto|atari|display");
+				Log_print("\t                 Record the Atari screen, or the display's picture in true colour");
+				Log_print("\t                 (OpenGL, with what extensions draw; auto: when an extension is active)");
 			}
 			argv[j++] = argv[i];
 		}
@@ -185,6 +214,12 @@ int CODECS_VIDEO_ReadConfig(char *string, char *ptr)
 			}
 		}
 	}
+	else if (strcmp(string, "VIDEO_SOURCE") == 0) {
+		int i = CFG_MatchTextParameter(ptr, video_source_cfg_strings, VIDEO_SOURCE_SIZE);
+		if (i < 0)
+			return FALSE;
+		video_source = i;
+	}
 	else if (strcmp(string, "VIDEO_CODEC_KEYFRAME_INTERVAL") == 0) {
 		int num = Util_sscandec(ptr);
 		if (num < 500)
@@ -204,6 +239,7 @@ void CODECS_VIDEO_WriteConfig(FILE *fp)
 		fprintf(fp, "VIDEO_CODEC=%s\n", requested_video_codec->codec_id);
 	}
 	fprintf(fp, "VIDEO_CODEC_KEYFRAME_INTERVAL=%d\n", video_codec_keyframe_interval);
+	fprintf(fp, "VIDEO_SOURCE=%s\n", video_source_cfg_strings[video_source]);
 }
 
 
@@ -212,7 +248,13 @@ int CODECS_VIDEO_Init(void)
 	if (video_codec_keyframe_interval == 0)
 		video_codec_keyframe_interval = (Atari800_tv_mode == Atari800_TV_PAL ? 50 : 60);
 
+	int display_width = 0;
+	int display_height = 0;
+	int want_display = video_source == VIDEO_SOURCE_DISPLAY;
+
 	CODECS_IMAGE_SetMargins();
+	video_frame_width = image_codec_width;
+	video_frame_height = image_codec_height;
 
 	if (!video_codec) {
 		if (!requested_video_codec) {
@@ -223,7 +265,34 @@ int CODECS_VIDEO_Init(void)
 		}
 	}
 
-	video_buffer_size = video_codec->init(image_codec_width, image_codec_height, image_codec_left_margin, image_codec_top_margin);
+	/* The display's picture instead of the Atari screen: in true colour and
+	   at the display's size (made even, which later conversions like). Only
+	   a codec that takes true colour can encode it: Motion-PNG. */
+	video_rgb_width = video_rgb_height = 0;
+#ifdef WITH_EXT
+	if (video_source == VIDEO_SOURCE_AUTO && ext_is_active())
+		want_display = TRUE;
+#endif
+	if (want_display && display_size != NULL && display_size(&display_width, &display_height)
+	    && display_width >= 2 && display_height >= 2) {
+#ifdef VIDEO_CODEC_PNG
+		if (!video_codec->supports_rgb) {
+			Log_print("Recording the display in true colour: using the %s codec instead of %s", Video_Codec_MPNG.codec_id, video_codec->codec_id);
+			video_codec = &Video_Codec_MPNG;
+		}
+		video_rgb_width = display_width & ~1;
+		video_rgb_height = display_height & ~1;
+		video_rgb_frame = (UBYTE *)Util_malloc(video_rgb_width * video_rgb_height * 3);
+		memset(video_rgb_frame, 0, video_rgb_width * video_rgb_height * 3);
+		video_frame_width = video_rgb_width;
+		video_frame_height = video_rgb_height;
+		Log_print("Recording the display: %dx%d, true colour", video_rgb_width, video_rgb_height);
+#else
+		Log_print("Recording the display needs the PNG video codec: recording the Atari screen");
+#endif
+	}
+
+	video_buffer_size = video_codec->init(video_frame_width, video_frame_height, image_codec_left_margin, image_codec_top_margin);
 	if (video_buffer_size < 0) {
 		Log_print("Failed to initialize %s video codec", video_codec->codec_id);
 		return 0;
@@ -240,6 +309,11 @@ void CODECS_VIDEO_End(void)
 		free(video_buffer);
 		video_buffer_size = 0;
 		video_buffer = NULL;
+	}
+	video_rgb_width = video_rgb_height = 0;
+	if (video_rgb_frame) {
+		free(video_rgb_frame);
+		video_rgb_frame = NULL;
 	}
 	video_codec = NULL;
 }

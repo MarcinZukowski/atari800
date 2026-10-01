@@ -336,7 +336,7 @@ int CONTAINER_AddVideoFrame(void)
 		is_keyframe = TRUE;
 	}
 
-	size = video_codec->frame((UBYTE *)Screen_atari, is_keyframe, video_buffer, video_buffer_size);
+	size = video_codec->frame(video_rgb_width ? video_rgb_frame : (UBYTE *)Screen_atari, is_keyframe, video_buffer, video_buffer_size);
 	if (size < 0) {
 		/* failed creating video frame; force close of file */
 		Log_print("video codec %s failed encoding frame", video_codec->codec_id);

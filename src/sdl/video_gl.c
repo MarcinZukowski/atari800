@@ -57,6 +57,9 @@
 
 #ifdef WITH_EXT
 #include "ext.h"
+#ifdef VIDEO_RECORDING
+#include "codecs/video.h"
+#endif
 #endif
 
 #ifndef M_PI
@@ -1158,6 +1161,56 @@ void SDL_VIDEO_GL_ScreenSize(int *width, int *height)
 	*height = VIDEOMODE_src_height;
 }
 
+#ifdef VIDEO_RECORDING
+/* The picture as a video source (see codecs/video.h): its size is the
+   viewport's, the part of the window the Atari's picture takes. */
+static int DisplaySize(int *width, int *height)
+{
+	if (SDL_VIDEO_screen == NULL || !(SDL_VIDEO_screen->flags & SDL_OpenGL_FLAG))
+		return FALSE;
+	*width = VIDEOMODE_dest_width;
+	*height = VIDEOMODE_dest_height;
+	return TRUE;
+}
+
+/* Reads back what was just drawn - the Atari's picture and all that the
+   extensions drew over it - into the recorder's frame, turned the right way
+   up, and scaled when the window was resized since the recording began. */
+static void CaptureDisplay(void)
+{
+	static void (APIENTRY *read_pixels)(GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, GLvoid *) = NULL;
+	static UBYTE *pixels = NULL;
+	static int pixels_size = 0;
+	int w = VIDEOMODE_dest_width;
+	int h = VIDEOMODE_dest_height;
+	int x, y;
+
+	if (w < 1 || h < 1)
+		return;
+	if (read_pixels == NULL) {
+		read_pixels = (void (APIENTRY *)(GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, GLvoid *)) SDL_GL_GetProcAddress("glReadPixels");
+		if (read_pixels == NULL)
+			return;
+	}
+	if (pixels_size < w * h * 4) {
+		free(pixels);
+		pixels_size = w * h * 4;
+		pixels = (UBYTE *) Util_malloc(pixels_size);
+	}
+	read_pixels(VIDEOMODE_dest_offset_left, VIDEOMODE_dest_offset_top, w, h, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+	for (y = 0; y < video_rgb_height; y++) {
+		const UBYTE *row = pixels + (h - 1 - y * h / video_rgb_height) * w * 4; /* OpenGL's rows start at the bottom */
+		UBYTE *out = video_rgb_frame + y * video_rgb_width * 3;
+		for (x = 0; x < video_rgb_width; x++) {
+			const UBYTE *p = row + (x * w / video_rgb_width) * 4;
+			*out++ = p[0];
+			*out++ = p[1];
+			*out++ = p[2];
+		}
+	}
+}
+#endif /* VIDEO_RECORDING */
+
 void SDL_VIDEO_GL_DisplayScreen(void)
 {
 #if SDL2
@@ -1247,6 +1300,10 @@ void SDL_VIDEO_GL_DisplayScreen(void)
 #ifdef WITH_EXT
 	ext_post_gl_frame();
 #endif
+#ifdef VIDEO_RECORDING
+	if (video_rgb_width)
+		CaptureDisplay();
+#endif
 
 	SDL_GL_SwapBuffers();
 #endif /* SDL2 */
@@ -1293,6 +1350,9 @@ static int InitGlLibrary(void)
 void SDL_VIDEO_GL_InitSDL(void)
 {
 	SDL_VIDEO_opengl_available = InitGlLibrary();
+#ifdef VIDEO_RECORDING
+	CODECS_VIDEO_SetDisplay(DisplaySize);
+#endif
 #if SDL2
 	// for OpenGL 4.1
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);

@@ -63,6 +63,11 @@ int ext_acceleration_disabled(void)
 	return alt_held || ctrl_held;
 }
 
+int ext_is_active(void)
+{
+	return current != NULL;
+}
+
 void ext_register(ext_extension *ext)
 {
 	EXT_ASSERT_NOT_NULL(ext);

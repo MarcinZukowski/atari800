@@ -88,6 +88,10 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
 * `a8.printFps(value, fg, bg, x, y)` - counts frames (a change of `value` is a new frame)
   and prints the rate on the Atari screen at `x, y`. Typically called from `onPreGlFrame`
 * `a8.accelerationDisabled()` - true while CTRL is held
+* `a8.recordVideo(path)` starts a video recording into that `.avi` file, as the emulator's "Record
+  video" does, and returns whether it started; `a8.stopRecording()` ends it. With the OpenGL display
+  and an extension active the video is the display's own picture in true colour, with everything the
+  extension draws (see "Recording" below)
 * `a8.loadSound(path)` - loads a WAV file; the result has a `play()` method.
   The sound is mixed on top of the POKEY output
 
@@ -103,6 +107,14 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
   `gl.QUADS`, `gl.SRC_ALPHA`, `gl.VIEWPORT`, ... (see the `C(...)` list in `video_gl-js.c`)
 * The framebuffer is multisampled where the system has it (four samples), so polygon edges are
   smooth; `gl.Disable(gl.MULTISAMPLE)` turns that off, `gl.GetIntegerv(gl.SAMPLES)` tells how many
+* Recording: the emulator's video recording used to hold the Atari's screen only (8 bits a pixel
+  with the Atari palette), so nothing an extension draws. Now the source can be the display:
+  `-vsource auto|atari|display` (`VIDEO_SOURCE` in the configuration file). `display` records
+  what the OpenGL display shows, read back after the extensions have drawn, in true colour at the
+  size the picture has in the window as the recording starts; `auto`, the default, does so when
+  an extension is active at that moment and records the Atari screen otherwise. True colour is
+  encoded as Motion-PNG whatever codec is set (the others are 8-bit), with fast compression: about
+  8 MB a second at 672 x 480, in real time. The picture lags the sound by one frame
 * `gl.createTexture(width, height)` and `gl.loadTextureRGBA(path, width, height)` return a `Texture`:
   * `pixels` - a `Uint8Array` that *is* the RGBA texture memory (4 bytes per pixel)
   * `width`, `height`, `id` (the OpenGL texture name)

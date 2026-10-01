@@ -28,6 +28,10 @@ void ext_register(struct ext_extension *ext);
 /* TRUE while ALT (extensions off) or CTRL (acceleration off) is held */
 int ext_acceleration_disabled(void);
 
+/* TRUE when an extension is active (the video recorder then takes the
+   display's picture, which holds what the extension draws) */
+int ext_is_active(void);
+
 /* Frame counter display: a change of current_value counts as a new frame */
 char *ext_fps_str(int current_value);
 

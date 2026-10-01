@@ -94,6 +94,7 @@ static int num_streams;
 static int AVI_WriteHeader(FILE *fp) {
 	int i;
 	int list_size;
+	int palette_size;
 
 	fseek(fp, 0, SEEK_SET);
 
@@ -107,7 +108,8 @@ static int AVI_WriteHeader(FILE *fp) {
 
 	/* total header size includes hdrl identifier plus avih size PLUS the video stream
 	   header which is (strl header LIST + (strh + strf + strn)) */
-	list_size = 4 + 8 + 56 + (12 + (8 + 56 + 8 + 40 + 256*4 + 8 + 16));
+	palette_size = video_rgb_width ? 0 : 256*4; /* true colour has no palette */
+	list_size = 4 + 8 + 56 + (12 + (8 + 56 + 8 + 40 + palette_size + 8 + 16));
 
 #ifdef AUDIO_RECORDING
 	/* if audio is included, add size of audio stream strl header LIST + (strh + strf + strn) */
@@ -125,15 +127,15 @@ static int AVI_WriteHeader(FILE *fp) {
 
 	/* 56 bytes */
 	fputl((ULONG)(1000000 / fps), fp); /* microseconds per frame */
-	fputl(image_codec_width * image_codec_height * 3, fp); /* approximate bytes per second of video + audio FIXME: should likely be (width * height * 3 + audio) * fps */
+	fputl(video_frame_width * video_frame_height * 3, fp); /* approximate bytes per second of video + audio FIXME: should likely be (width * height * 3 + audio) * fps */
 	fputl(0, fp); /* reserved */
 	fputl(0x10, fp); /* flags; 0x10 indicates the index at the end of the file */
 	fputl(video_frame_count, fp); /* number of frames in the video */
 	fputl(0, fp); /* initial frames, always zero for us */
 	fputl(num_streams, fp); /* 2 = video and audio, 1 = video only */
-	fputl(image_codec_width * image_codec_height * 3, fp); /* suggested buffer size */
-	fputl(image_codec_width, fp); /* video width */
-	fputl(image_codec_height, fp); /* video height */
+	fputl(video_frame_width * video_frame_height * 3, fp); /* suggested buffer size */
+	fputl(video_frame_width, fp); /* video width */
+	fputl(video_frame_height, fp); /* video height */
 	fputl(0, fp); /* reserved */
 	fputl(0, fp);
 	fputl(0, fp);
@@ -144,7 +146,7 @@ static int AVI_WriteHeader(FILE *fp) {
 	/* 12 bytes for video stream strl LIST chuck header; LIST payload size includes the
 	   4 bytes of the 'strl' identifier plus the strh + strf + strn sizes */
 	fputs("LIST", fp);
-	fputl(4 + 8 + 56 + 8 + 40 + 256*4 + 8 + 16, fp);
+	fputl(4 + 8 + 56 + 8 + 40 + palette_size + 8 + 16, fp);
 	fputs("strl", fp);
 
 	/* Stream header format is document at https://docs.microsoft.com/en-us/previous-versions/windows/desktop/api/avifmt/ns-avifmt-avistreamheader */
@@ -164,7 +166,7 @@ static int AVI_WriteHeader(FILE *fp) {
 	fputl((ULONG)(fps * 1000000), fp); /* rate = frames per second / scale */
 	fputl(0, fp); /* start */
 	fputl(video_frame_count, fp); /* length (for video is number of frames) */
-	fputl(image_codec_width * image_codec_height * 3, fp); /* suggested buffer size */
+	fputl(video_frame_width * video_frame_height * 3, fp); /* suggested buffer size */
 	fputl(0, fp); /* quality */
 	fputl(0, fp); /* sample size (0 = variable sample size) */
 	fputl(0, fp); /* rcRect, ignored */
@@ -172,23 +174,23 @@ static int AVI_WriteHeader(FILE *fp) {
 
 	/* 8 bytes for stream format indicator */
 	fputs("strf", fp);
-	fputl(40 + 256*4, fp); /* length of header + palette info */
+	fputl(40 + palette_size, fp); /* length of header + palette info */
 
 	/* 40 bytes for stream format data */
 	fputl(40, fp); /* header_size */
-	fputl(image_codec_width, fp); /* width */
-	fputl(image_codec_height, fp); /* height */
+	fputl(video_frame_width, fp); /* width */
+	fputl(video_frame_height, fp); /* height */
 	fputw(1, fp); /* number of bitplanes */
-	fputw(8, fp); /* bits per pixel: 8 = paletted */
+	fputw(video_rgb_width ? 24 : 8, fp); /* bits per pixel: 8 = paletted */
 	fwrite(video_codec->avi_compression, 4, 1, fp);
-	fputl(image_codec_width * image_codec_height * 3, fp); /* image_size */
+	fputl(video_frame_width * video_frame_height * 3, fp); /* image_size */
 	fputl(0, fp); /* x pixels per meter (!) */
 	fputl(0, fp); /* y pikels per meter */
-	fputl(256, fp); /* colors_used */
+	fputl(video_rgb_width ? 0 : 256, fp); /* colors_used */
 	fputl(0, fp); /* colors_important (0 = all are important) */
 
 	/* 256 * 4 = 1024 bytes of palette in ARGB little-endian order */
-	for (i = 0; i < 256; i++) {
+	for (i = 0; palette_size && i < 256; i++) {
 		fputc(Colours_GetB(i), fp);
 		fputc(Colours_GetG(i), fp);
 		fputc(Colours_GetR(i), fp);
