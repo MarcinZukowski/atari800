@@ -113,6 +113,8 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
   Wavefront `.obj`/`.mtl` models into that form
 * `gl.readPixels(x, y, width, height)` - the framebuffer as a `Uint8Array` of RGBA bytes, rows
   bottom-up, in window pixels; for test scripts that want to look at what was drawn
+* [smooth2d.js](smooth2d.js): `createSmoother(pixelW, pixelH)` reads a screen region back at a game's
+  pixel grid, upscales it with Scale2x twice and draws it over its place (Alternate Reality, Numen)
 * `gl.drawScreen(x0, y0, x1, y1, left, right, top, bottom, z = -2)` - draws that region of the
   emulated screen (pixels of the displayed area, y down; `gl.screenSize()` gives its size) onto
   a rectangle in GL coordinates, with linear filtering: for rearranging the game's screen, like
@@ -218,6 +220,11 @@ These games are also discussed in [this video on YouTube](https://www.youtube.co
     five disk images placed in `altreal/` ([altreal/disks.js](altreal/disks.js)), so "Please
     insert Disk..." never comes up (the game only ever reads)
     The notes document the engine: map, movement, picture buffer, art and renderer
+* Numen: [numen/init.js](numen/init.js), [numen.md](numen/numen.md)
+  * the demo's 3D scenes run about ten times faster: the hottest code, found with the emulator's profile,
+    runs in no emulated time (`createAccelerator` in [common.js](common.js), usable by any game)
+  * their picture smoothed with Scale2x over the scene's 4 x 4 pixel grid ([smooth2d.js](smooth2d.js),
+    the shared smoother that Alternate Reality's shops use too)
 * Robbo: [robbo/init.js](robbo/init.js), [robbo.md](robbo/robbo.md)
   * the level drawn with OpenGL in a slight perspective ([robbo/view3d.js](robbo/view3d.js)): the
     floor in the level's colour, walls as blocks, the other tiles as cards above the floor with
