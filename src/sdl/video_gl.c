@@ -679,7 +679,21 @@ static int SetVideoMode(int w, int h, int windowed)
 	Uint32 flags = SDL_OPENGL | (windowed ? SDL_RESIZABLE : SDL_OpenGL_FULLSCREEN);
 	/* In OpenGL mode, the SDL screen is always opened with the default
 	   desktop depth - it is the most compatible way. */
+#ifdef WITH_EXT
+	/* The extensions draw polygons of their own: ask for a multisampled
+	   framebuffer, so that their edges come out smooth (GL_MULTISAMPLE, on by
+	   default, switches it). Where there is none the mode is set without. */
+	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
 	SDL_VIDEO_screen = SDL_SetVideoMode(w, h, SDL_VIDEO_native_bpp, flags);
+	if (SDL_VIDEO_screen == NULL) {
+		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);
+		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 0);
+		SDL_VIDEO_screen = SDL_SetVideoMode(w, h, SDL_VIDEO_native_bpp, flags);
+	}
+#else
+	SDL_VIDEO_screen = SDL_SetVideoMode(w, h, SDL_VIDEO_native_bpp, flags);
+#endif
 	if (SDL_VIDEO_screen == NULL) {
 		/* Some SDL_SetVideoMode errors can be averted by reinitialising the SDL video subsystem. */
 		Log_print("Setting video mode: %dx%dx%d failed: %s. Reinitialising video.", w, h, SDL_VIDEO_native_bpp, SDL_GetError());

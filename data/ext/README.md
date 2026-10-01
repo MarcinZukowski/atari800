@@ -101,6 +101,8 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
   `gl.LineWidth`, `gl.PolygonMode`, `gl.PushAttrib`, `gl.PopAttrib`, `gl.GetIntegerv(pname)` (returns an array)
 * Constants without the `GL_` prefix, like WebGL: `gl.TEXTURE_2D`, `gl.BLEND`, `gl.DEPTH_TEST`,
   `gl.QUADS`, `gl.SRC_ALPHA`, `gl.VIEWPORT`, ... (see the `C(...)` list in `video_gl-js.c`)
+* The framebuffer is multisampled where the system has it (four samples), so polygon edges are
+  smooth; `gl.Disable(gl.MULTISAMPLE)` turns that off, `gl.GetIntegerv(gl.SAMPLES)` tells how many
 * `gl.createTexture(width, height)` and `gl.loadTextureRGBA(path, width, height)` return a `Texture`:
   * `pixels` - a `Uint8Array` that *is* the RGBA texture memory (4 bytes per pixel)
   * `width`, `height`, `id` (the OpenGL texture name)
