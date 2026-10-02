@@ -38,9 +38,13 @@ $(OBJ)/%.o: $(SRC)/%.c $(SRC)/web/config.h
 	emcc $(CFLAGS) -c $< -o $@
 
 # The page, and the extensions as the native build has them
+# (the page says when it was built, to tell a stale copy from the current one)
+BUILD := $(shell date "+%Y-%m-%d %H:%M") $(shell git -C .. rev-parse --short HEAD 2>/dev/null)
+
 page:
 	@mkdir -p $(OUT)
 	cp $(PAGE) $(OUT)/
+	sed 's/@BUILD@/$(BUILD)/' index.html > $(OUT)/index.html
 	rm -rf $(OUT)/ext && mkdir -p $(OUT)/ext
 	cd $(EXT_DIR) && for d in *; do [ -f "$$d/init.js" ] && cp -R "$$d" $(abspath $(OUT))/ext/; done; cp *.js extensions.json $(abspath $(OUT))/ext/ 2>/dev/null; true
 	# what a user keeps beside an extension but must not be published: disk images, documents, saved maps
@@ -48,7 +52,7 @@ page:
 	cd $(OUT) && find ext -type f | sort > files.txt
 
 serve: all
-	cd $(OUT) && python3 -m http.server 8800
+	python3 serve.py $(OUT) 8800
 
 clean:
 	rm -rf $(OBJ) $(OUT)

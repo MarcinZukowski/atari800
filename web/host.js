@@ -59,13 +59,19 @@ const shim = makeGl(g, { width: SCREEN_W, height: SCREEN_H });
 
 /* ------------------------------ sound ------------------------------ */
 
-let audio = null, playhead = 0;
+let audio = null, output = null, playhead = 0;
 const soundOn = () => $("sound").checked;
 // A browser keeps a page silent until the visitor has clicked or pressed a key: the sound is there but
 // suspended. The page says so over the picture until it runs
 const showSoundHint = () => { $("sound-hint").hidden = !(audio !== null && audio.state !== "running" && soundOn()); };
-try { audio = new AudioContext({ sampleRate: M._web_sound_rate() }); audio.addEventListener("statechange", showSoundHint); } catch (e) { audio = null; }
+try {
+	audio = new AudioContext({ sampleRate: M._web_sound_rate() });
+	output = audio.createGain(); output.connect(audio.destination);   // everything the page plays goes through here
+	audio.addEventListener("statechange", () => { log(`sound: ${audio.state}`); showSoundHint(); });
+	log(`sound: ${audio.state}` + (audio.state === "running" ? "" : ", waiting for a click or a key"));
+} catch (e) { audio = null; log(`no sound: ${e.message}`); }
 $("sound").addEventListener("change", showSoundHint);
+for (const id of ["sound", "pause", "turbo", "extensions"]) $(id).addEventListener("change", (e) => e.target.blur());   // the space bar is the Atari's
 showSoundHint();
 function startAudio() {
 	if (audio !== null && audio.state === "suspended") audio.resume().then(showSoundHint, () => { });
@@ -80,7 +86,7 @@ function playFrame() {
 	const now = audio.currentTime;
 	if (playhead < now + 0.02 || playhead > now + 0.3) playhead = now + 0.06;   // fell behind, or ran ahead: start over a little ahead
 	const source = audio.createBufferSource();
-	source.buffer = buffer; source.connect(audio.destination); source.start(playhead);
+	source.buffer = buffer; source.connect(output); source.start(playhead);
 	playhead += buffer.duration;
 }
 
@@ -102,7 +108,7 @@ window.addEventListener("keydown", (e) => {
 });
 window.addEventListener("keyup", (e) => { held.delete(e.code); if (e.code === lastKey) lastKey = null; showSuspended(); });
 window.addEventListener("blur", () => { held.clear(); lastKey = null; showSuspended(); });
-window.addEventListener("pointerdown", startAudio);
+for (const type of ["pointerdown", "mousedown", "click", "touchend"]) window.addEventListener(type, startAudio);   // whichever the browser counts as the visitor's doing
 
 function sendInput() {
 	const shift = held.has("ShiftRight"), control = held.has("ControlLeft");   // (left Shift is the page's own key)
@@ -388,7 +394,7 @@ function emulateFrame() {
 	sendInput();
 	M._web_frame();
 	frames++;
-	playFrame();
+	if (!$("turbo").checked) playFrame();
 	if (!extensionsOn()) return;
 	if (active === null && loading === null) {
 		const ext = extensions.find((e) => (!wanted || e.name.includes(wanted) || e.dir.endsWith("/" + wanted)) && matches(e));
@@ -401,10 +407,20 @@ function emulateFrame() {
 let last = performance.now(), owed = 0;
 function tick(now) {
 	const period = 1000 / (M._web_is_pal() ? 49.8607 : 59.9227);
-	owed = Math.min(owed + now - last, 4 * period);
-	last = now;
 	let ran = 0;
-	while (owed >= period) { emulateFrame(); owed -= period; ran++; }
+	$("pause-hint").hidden = !$("pause").checked;
+	if ($("pause").checked) owed = 0;   // the picture stays as it is
+	else if ($("turbo").checked) {
+		// as many frames as fit in most of a display frame
+		const until = performance.now() + 12;
+		do { emulateFrame(); ran++; } while (performance.now() < until && ran < 500);
+		owed = 0;
+	}
+	else {
+		owed = Math.min(owed + now - last, 4 * period);
+		while (owed >= period) { emulateFrame(); owed -= period; ran++; }
+	}
+	last = now;
 	if (ran) showFrame();
 	requestAnimationFrame(tick);
 }
@@ -426,4 +442,4 @@ if (params.has("frames")) {
 requestAnimationFrame(tick);
 
 // For tests and the curious
-globalThis.atari800 = { M, load, frames: () => frames, active: () => active, emulateFrame, showFrame, canvas, setFullscreenLayout };
+globalThis.atari800 = { M, load, frames: () => frames, active: () => active, emulateFrame, showFrame, canvas, setFullscreenLayout, audio: () => audio, audioOutput: () => output };

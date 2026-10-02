@@ -18,13 +18,15 @@
 	canvas { display: block; background: #000; image-rendering: pixelated; }
 	#drop { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; background: rgba(0, 0, 0, 0.72); pointer-events: none; }
 	#drop.hidden { display: none; }
-	#sound-hint { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); padding: 5px 14px; border: 1px solid var(--accent); border-radius: 999px;
+	.hint { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); padding: 5px 14px; border: 1px solid var(--accent); border-radius: 999px;
 		background: rgba(21, 21, 19, 0.85); color: var(--accent); white-space: nowrap; pointer-events: none; }
+	#pause-hint { bottom: auto; top: 18px; }
 	.bar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-content: start; padding: 12px; overflow-y: auto; background: var(--ground); }
 	#general { border-right: 1px solid var(--edge); }
 	#program { border-left: 1px solid var(--edge); }
 	section { min-width: 0; background: var(--panel); border: 1px solid var(--edge); padding: 10px 12px; }
 	h1 { font-size: 15px; margin: 0; color: var(--accent); letter-spacing: 0.04em; }
+	#build { color: var(--dim); font-size: 11px; }
 	h2 { font-size: 11px; margin: 0 0 8px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.12em; font-weight: normal; }
 	#extension { color: var(--accent); }
 	#fps { color: var(--dim); float: right; }
@@ -80,6 +82,7 @@
 	<aside id="general" class="bar">
 		<section>
 			<h1>atari800</h1>
+			<small id="build">built @BUILD@</small>
 		</section>
 		<section>
 			<h2>Program</h2>
@@ -95,6 +98,8 @@
 			<h2>Switches</h2>
 			<label class="check" id="extensions-label"><input type="checkbox" id="extensions" checked> Extensions <small>(left Shift to temporarily disable)</small></label>
 			<label class="check"><input type="checkbox" id="sound" checked> Sound</label>
+			<label class="check"><input type="checkbox" id="pause"> Pause</label>
+			<label class="check"><input type="checkbox" id="turbo"> Turbo <small>(as fast as it goes, silent)</small></label>
 			<button id="fullscreen" style="margin-top: 8px">Full screen</button>
 		</section>
 		<section>
@@ -118,7 +123,8 @@
 	<div id="stage">
 		<canvas id="screen" width="672" height="480"></canvas>
 		<div id="drop">Drop a saved state (.a8s), a disk image or a program here,<br>or choose one under Program.</div>
-		<div id="sound-hint" hidden>Click or press a key for sound</div>
+		<div id="sound-hint" class="hint" hidden>Click or press a key for sound</div>
+		<div id="pause-hint" class="hint" hidden>Paused</div>
 	</div>
 	<aside id="program" class="bar">
 		<section>

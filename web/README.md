@@ -76,6 +76,14 @@ left Ctrl are the Atari's Shift and Control. Holding left Shift turns the
 extensions off for as long as it is held, to compare with the program as it
 is.
 
+Pause stops the emulation with the picture as it is; Turbo runs it as fast
+as the browser manages, without sound.
+
+`make serve` serves with `serve.py`, which tells the browser to ask before
+reusing a file, so a rebuilt site shows on a plain reload; the page says
+when it was built under its title, to tell a stale copy from the current
+one.
+
 Browsers keep a page silent until the visitor has clicked or pressed a key;
 until then the page shows "Click or press a key for sound" over the picture.
 
