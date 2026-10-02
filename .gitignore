@@ -72,3 +72,7 @@ src/config.h.in-20*
 
 # Alternate Reality: the automatic map records, one file per character
 data/ext/altreal/maps/
+
+# the web build
+web/dist/
+web/obj/

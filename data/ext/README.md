@@ -191,6 +191,14 @@ Some notes:
     tools/ext-helper install
     ```
 
+## In the browser
+
+The same scripts run in a web page: [web/](../../web/README.md) builds the emulator core as a
+WebAssembly module and a page that hosts the extensions, with `a8` made of the module's memory
+and `gl` implemented on WebGL 2. An extension needs nothing special for it, as long as it keeps
+to the API above: the files it reads must be in its own directory (they are fetched when it is
+activated), and what it draws must go through `gl`.
+
 # Games extended (in order of creation)
 
 These games are also discussed in [this video on YouTube](https://www.youtube.com/watch?v=075qLp5kIlc).

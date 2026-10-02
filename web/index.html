@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>atari800 with game extensions</title>
+<script type="importmap">{ "imports": { "std": "./std.js", "os": "./os.js" } }</script>
+<style>
+	:root { color-scheme: dark; --ink: #d8d8d0; --dim: #8a8a80; --edge: #33332e; --ground: #151513; --panel: #1d1d1a; --accent: #e8b84a; }
+	* { box-sizing: border-box; }
+	body { margin: 0; background: var(--ground); color: var(--ink); font: 14px/1.45 ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+	main { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; align-items: flex-start; padding: 20px 16px; }
+	#stage { position: relative; flex: 0 1 672px; min-width: 0; }
+	canvas { display: block; width: 100%; height: auto; aspect-ratio: 336 / 240; background: #000; border: 1px solid var(--edge); image-rendering: pixelated; }
+	#drop { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; background: rgba(0, 0, 0, 0.72); pointer-events: none; }
+	#drop.hidden { display: none; }
+	aside { flex: 1 1 280px; max-width: 360px; display: grid; gap: 14px; }
+	section { background: var(--panel); border: 1px solid var(--edge); padding: 12px 14px; }
+	h1 { font-size: 15px; margin: 0; color: var(--accent); letter-spacing: 0.04em; }
+	h2 { font-size: 11px; margin: 0 0 8px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.12em; font-weight: normal; }
+	#extension { color: var(--accent); }
+	#menu { display: grid; gap: 6px; margin-top: 8px; }
+	#menu label { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+	select, input[type=file] { font: inherit; color: var(--ink); background: var(--ground); border: 1px solid var(--edge); padding: 2px 4px; max-width: 100%; }
+	label.check { display: block; }
+	#demos { display: grid; gap: 4px; }
+	a { color: var(--accent); }
+	dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0; }
+	dt { color: var(--accent); white-space: nowrap; } dd { margin: 0; color: var(--dim); }
+	#log { margin: 0; max-height: 140px; overflow: auto; color: var(--dim); font-size: 12px; white-space: pre-wrap; }
+	#fps { color: var(--dim); float: right; }
+</style>
+</head>
+<body>
+<main>
+	<div id="stage">
+		<canvas id="screen" width="672" height="480"></canvas>
+		<div id="drop">Drop a saved state (.a8s), a disk image or a program here,<br>or choose one on the right.</div>
+	</div>
+	<aside>
+		<section>
+			<h1>atari800 <span id="fps"></span></h1>
+			<div>Extension: <span id="extension">none</span></div>
+			<div id="menu"></div>
+		</section>
+		<section>
+			<h2>Program</h2>
+			<input type="file" id="file">
+			<div id="demos"></div>
+		</section>
+		<section>
+			<h2>Switches</h2>
+			<label class="check"><input type="checkbox" id="extensions" checked> Extensions</label>
+			<label class="check"><input type="checkbox" id="sound" checked> Sound</label>
+		</section>
+		<section>
+			<h2>Keys</h2>
+			<dl>
+				<dt>arrows, right Ctrl</dt><dd>joystick and fire</dd>
+				<dt>F2 F3 F4</dt><dd>Option, Select, Start</dd>
+				<dt>F5</dt><dd>reset (with Shift: cold start)</dd>
+				<dt>F6 F7</dt><dd>Help, Break</dd>
+				<dt>left Ctrl</dt><dd>held: no acceleration</dd>
+			</dl>
+		</section>
+		<section>
+			<h2>Log</h2>
+			<pre id="log"></pre>
+		</section>
+	</aside>
+</main>
+<script type="module" src="host.js"></script>
+</body>
+</html>
