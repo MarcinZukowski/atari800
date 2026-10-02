@@ -60,10 +60,15 @@ const shim = makeGl(g, { width: SCREEN_W, height: SCREEN_H });
 /* ------------------------------ sound ------------------------------ */
 
 let audio = null, playhead = 0;
-const soundOn = () => $("sound") === null || $("sound").checked;
+const soundOn = () => $("sound").checked;
+// A browser keeps a page silent until the visitor has clicked or pressed a key: the sound is there but
+// suspended. The page says so over the picture until it runs
+const showSoundHint = () => { $("sound-hint").hidden = !(audio !== null && audio.state !== "running" && soundOn()); };
+try { audio = new AudioContext({ sampleRate: M._web_sound_rate() }); audio.addEventListener("statechange", showSoundHint); } catch (e) { audio = null; }
+$("sound").addEventListener("change", showSoundHint);
+showSoundHint();
 function startAudio() {
-	if (audio === null) { try { audio = new AudioContext({ sampleRate: M._web_sound_rate() }); } catch (e) { audio = null; } }
-	if (audio !== null && audio.state === "suspended") audio.resume();
+	if (audio !== null && audio.state === "suspended") audio.resume().then(showSoundHint, () => { });
 }
 // The frame's samples (16 bits, as the emulator made them) queued right after the last frame's
 function playFrame() {

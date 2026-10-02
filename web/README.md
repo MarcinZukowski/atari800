@@ -76,6 +76,9 @@ left Ctrl are the Atari's Shift and Control. Holding left Shift turns the
 extensions off for as long as it is held, to compare with the program as it
 is.
 
+Browsers keep a page silent until the visitor has clicked or pressed a key;
+until then the page shows "Click or press a key for sound" over the picture.
+
 The page fills the window: a bar on the left for the page's own controls,
 the picture, and a bar on the right for the active extension (its name, a
 link to its source, its menu, and its panel). A menu entry with two values
