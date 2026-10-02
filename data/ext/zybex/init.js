@@ -1,6 +1,8 @@
 // Zybex: scrolling high-resolution background (grayscale or colour).
 import { drawQuad } from "../common.js";
 
+const DIR = a8.extDir;   // this extension's directory, for its pictures
+
 export default {
 	name: "ZYBEX JS HACK by Eru",
 
@@ -29,8 +31,8 @@ export default {
 		};
 		this.textures = [
 			null,
-			load("data/ext/zybex/bkg1-gs-512x512.rgba"),
-			load("data/ext/zybex/bkg1-512x512.rgba"),
+			load(`${DIR}/bkg1-gs-512x512.rgba`),
+			load(`${DIR}/bkg1-512x512.rgba`),
 		];
 	},
 

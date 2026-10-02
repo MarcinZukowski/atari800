@@ -120,13 +120,14 @@ const listing = (await (await fetch("files.txt")).text()).split("\n").filter(Boo
 const extensions = [];
 for (const path of listing.filter((p) => /^ext\/[^/]+\/init\.js$/.test(p))) {
 	try {
+		a8.extDir = path.replace(/\/init\.js$/, "");   // the extension's directory, as the native host sets it while loading
 		const ext = (await import("./" + path)).default;
-		ext.dir = path.split("/")[1];
+		ext.dir = a8.extDir;
 		extensions.push(ext);
 	}
 	catch (e) { log(`extension ${path}: ${e.message}`); }
 }
-log(`${extensions.length} extensions: ${extensions.map((e) => e.dir).join(", ")}`);
+log(`${extensions.length} extensions: ${extensions.map((e) => e.dir.split("/").pop()).join(", ")}`);
 
 let active = null, loading = null, pending = null, failed = false;
 const extensionsOn = () => $("extensions") === null || $("extensions").checked;
@@ -156,9 +157,8 @@ function buildMenu(ext) {
 // The extension whose fingerprint is in memory: its data files are fetched first, since the scripts read them without waiting
 async function activate(ext) {
 	loading = ext;
-	for (const path of listing.filter((p) => p.startsWith(`ext/${ext.dir}/`) && !/\.(js|md)$/.test(p))) {
-		const key = "data/" + path;
-		if (!files.has(key)) { try { files.set(key, await fileBytes(path)); } catch (e) { log(e.message); } }
+	for (const path of listing.filter((p) => p.startsWith(ext.dir + "/") && !/\.(js|md)$/.test(p))) {
+		if (!files.has(path)) { try { files.set(path, await fileBytes(path)); } catch (e) { log(e.message); } }
 	}
 	if (loading !== ext) return;   // something else was loaded meanwhile
 	loading = null; failed = false; active = ext;
@@ -166,6 +166,7 @@ async function activate(ext) {
 	// the menu can be preset from the address: ?menu=KEY:2,OTHER:0
 	for (const part of (params.get("menu") || "").split(",").filter(Boolean)) { const [key, value] = part.split(":"); if (ext.menu && ext.menu[key]) ext.menu[key].current = +value; }
 	buildMenu(ext);
+	a8.extDir = ext.dir;
 	a8.setCodeInjections(ext.codeInjections || []);
 	hook("onActivate");
 	log(`active extension: ${ext.name}`);
@@ -235,7 +236,7 @@ function emulateFrame() {
 	playFrame();
 	if (!extensionsOn()) return;
 	if (active === null && loading === null) {
-		const ext = extensions.find((e) => (!wanted || e.name.includes(wanted) || e.dir === wanted) && matches(e));
+		const ext = extensions.find((e) => (!wanted || e.name.includes(wanted) || e.dir.endsWith("/" + wanted)) && matches(e));
 		if (ext) pending = activate(ext).finally(() => { pending = null; });
 	}
 	hook("onFrame");

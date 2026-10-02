@@ -3,6 +3,8 @@
 // See river-raid.md for the reverse-engineering notes the addresses come from.
 import { word } from "../common.js";
 
+const DIR = a8.extDir;   // this extension's directory, for its files
+
 // Game data layout
 const COLOR_LOS = 0xBB30;    // lo byte of each enemy colour table, indexed by colour id
 const COLOR_DATA = 0xB700;   // enemy colours, one byte per line
@@ -327,16 +329,16 @@ let fireSound = null;
 let explosionSounds = [];
 
 function initSounds() {
-	fireSound = a8.loadSound("data/ext/river-raid/Flash-laser-04.wav");
+	fireSound = a8.loadSound(`${DIR}/Flash-laser-04.wav`);
 	// Silence the Atari fire sound: NOP out STA $D204 / STX $D205
 	mem.fill(0xEA, 0xB3B0, 0xB3B0 + 6);
 
 	explosionSounds = [
-		"data/ext/river-raid/snd-boom1.wav",
-		"data/ext/river-raid/snd-boom2.wav",
-		"data/ext/river-raid/snd-expl1.wav",
-		"data/ext/river-raid/snd-expl2.wav",
-		"data/ext/river-raid/snd-expl3.wav",
+		`${DIR}/snd-boom1.wav`,
+		`${DIR}/snd-boom2.wav`,
+		`${DIR}/snd-expl1.wav`,
+		`${DIR}/snd-expl2.wav`,
+		`${DIR}/snd-expl3.wav`,
 	].map((file) => a8.loadSound(file));
 	// Silence the Atari enemy explosion: NOP out STA $D202 / STX $D203
 	mem.fill(0xEA, 0xB37E, 0xB37E + 6);

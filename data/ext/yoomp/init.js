@@ -2,13 +2,15 @@
 import { drawQuad, rgb } from "../common.js";
 import { loadObj } from "./obj.js";
 
+const DIR = a8.extDir;   // this extension's directory, for its files
+
 const BALL_FILES = [
 	null,   // 0 = the original Atari ball
-	"data/ext/yoomp/ball-yoomp-bw.obj",
-	"data/ext/yoomp/ball-yoomp.obj",
-	"data/ext/yoomp/ball-amiga.obj",
-	"data/ext/yoomp/ball-amiga-2.obj",
-	"data/ext/yoomp/beach-ball.obj",
+	`${DIR}/ball-yoomp-bw.obj`,
+	`${DIR}/ball-yoomp.obj`,
+	`${DIR}/ball-amiga.obj`,
+	`${DIR}/ball-amiga-2.obj`,
+	`${DIR}/beach-ball.obj`,
 ];
 
 // Zero page locations used by the game
@@ -41,7 +43,7 @@ export default {
 		for (let i = 1; i < BALL_FILES.length; i++)
 			this.balls[i] = loadObj(BALL_FILES[i]);
 
-		this.background = gl.loadTextureRGBA("data/ext/yoomp/rof-gray.rgba", 476, 476);
+		this.background = gl.loadTextureRGBA(`${DIR}/rof-gray.rgba`, 476, 476);
 
 		// Make the centre of the background semi-transparent
 		const { width, height, pixels } = this.background;

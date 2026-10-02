@@ -572,9 +572,23 @@ static const char *hook_names[EXT_HOOK_COUNT] = {
 	"onActivate", "onPreGlFrame", "onPostGlFrame", "onCodeInjection", "onFrame"
 };
 
+/* a8.extDir: the directory of the extension being loaded or activated, for
+   the files it ships (a script reads it at the top of its modules) */
+static void set_ext_dir(const char *dir)
+{
+	JSValue global = JS_GetGlobalObject(ctx);
+	JSValue a8 = JS_GetPropertyStr(ctx, global, "a8");
+	JS_SetPropertyStr(ctx, a8, "extDir", JS_NewString(ctx, dir));
+	JS_FreeValue(ctx, a8);
+	JS_FreeValue(ctx, global);
+}
+
 void ext_js_call_hook(ext_extension *ext, enum ext_hook hook)
 {
-	JSValue ret = JS_Call(ctx, ext->hooks[hook], ext->self, 0, NULL);
+	JSValue ret;
+	if (hook == EXT_HOOK_ACTIVATE)
+		set_ext_dir(ext->dir);
+	ret = JS_Call(ctx, ext->hooks[hook], ext->self, 0, NULL);
 	if (JS_IsException(ret))
 		js_fatal(hook_names[hook]);
 	JS_FreeValue(ctx, ret);
@@ -737,6 +751,10 @@ static void register_extension(JSValue obj, const char *path)
 	ext = calloc(1, sizeof(ext_extension));
 	EXT_ASSERT_NOT_NULL(ext);
 	ext->self = obj;
+	ext->dir = strdup(path);
+	EXT_ASSERT_NOT_NULL(ext->dir);
+	if (strrchr(ext->dir, '/') != NULL)
+		*strrchr(ext->dir, '/') = '\0';   /* <dir>/init.js */
 	ext->menu = JS_UNDEFINED;
 	for (i = 0; i < EXT_HOOK_COUNT; i++)
 		ext->hooks[i] = JS_UNDEFINED;
@@ -864,7 +882,7 @@ static void load_module(const char *path)
 
 void ext_js_init(void)
 {
-	const char *dirname = "data/ext";
+	const char *dirname = ext_dir;
 	DIR *dir;
 	struct dirent *dp;
 	char buf[1024];
@@ -884,9 +902,12 @@ void ext_js_init(void)
 
 	install_globals();
 
-	/* Load every data/ext/<name>/init.js */
+	/* Load every <ext_dir>/<name>/init.js */
 	dir = opendir(dirname);
-	EXT_ASSERT_NOT_NULL(dir);
+	if (dir == NULL) {
+		printf("No extensions: there is no directory %s\n", dirname);
+		return;
+	}
 	while ((dp = readdir(dir)) != NULL) {
 		struct stat stbuf;
 		snprintf(buf, sizeof(buf), "%s/%s", dirname, dp->d_name);
@@ -895,6 +916,9 @@ void ext_js_init(void)
 		snprintf(buf, sizeof(buf), "%s/%s/init.js", dirname, dp->d_name);
 		if (stat(buf, &stbuf) == -1)
 			continue;
+		snprintf(buf, sizeof(buf), "%s/%s", dirname, dp->d_name);
+		set_ext_dir(buf);
+		snprintf(buf, sizeof(buf), "%s/%s/init.js", dirname, dp->d_name);
 		load_module(buf);
 	}
 	closedir(dir);

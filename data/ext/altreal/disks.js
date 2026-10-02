@@ -21,7 +21,7 @@ const SECTOR_SIZE = 128, ATR_HEADER = 16;
 
 // The images: side n of the set is "(v1,sn)"; disk 1 has one side, disks 2
 // and 3 two each
-const DIR = "data/ext/altreal/";
+const DIR = a8.extDir + "/";
 function sideFile(disk, side) {
 	const n = disk === 1 ? 1 : disk === 2 ? 1 + side : 3 + side;
 	return `${DIR}Alternate Reality The Dungeon (v1,s${n}).atr`;

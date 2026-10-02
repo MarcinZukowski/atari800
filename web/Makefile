@@ -6,9 +6,11 @@
 #   make serve      serve dist/ on http://localhost:8800
 #   make clean
 
+# EXT_DIR: the extensions to put on the site (any directory of <name>/init.js)
 SRC = ../src
 OUT = dist
 OBJ = obj
+EXT_DIR = ../data/ext
 
 CORE = acidtest afile antic artifact atari binload cartridge cartridge_info cassette cfg \
        colours colours_external colours_ntsc colours_pal compfile cpu crc32 cycle_map devices \
@@ -39,9 +41,9 @@ $(OBJ)/%.o: $(SRC)/%.c $(SRC)/web/config.h
 page:
 	@mkdir -p $(OUT)
 	cp $(PAGE) $(OUT)/
-	rm -rf $(OUT)/ext && cp -R ../data/ext $(OUT)/ext
-	rm -f $(OUT)/ext/altreal/*.pdf $(OUT)/ext/altreal/*.atr; rm -rf $(OUT)/ext/altreal/maps
-	cd $(OUT) && find ext -type f | sort > files.txt
+	rm -rf $(OUT)/ext && mkdir -p $(OUT)/ext
+	cd $(EXT_DIR) && for d in *; do [ -f "$$d/init.js" ] && cp -R "$$d" $(abspath $(OUT))/ext/; done; cp *.js $(abspath $(OUT))/ext/ 2>/dev/null; true
+	cd $(OUT) && find ext -type f ! -name '*.pdf' ! -name '*.atr' ! -name '*.map' ! -name '.DS_Store' | sort > files.txt
 
 serve: all
 	cd $(OUT) && python3 -m http.server 8800

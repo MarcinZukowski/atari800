@@ -25,6 +25,7 @@ enum ext_hook {
 typedef struct ext_extension {
 	JSValue self;              /* the exported object; hooks are called with this = self */
 	char *name;
+	char *dir;                 /* its directory: a8.extDir while it is loaded and when it is activated */
 
 	/* Detection: the bytes that must be found at fp_address in Atari memory */
 	int fp_address;

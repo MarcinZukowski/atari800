@@ -7,7 +7,7 @@
 // are in a corridor.") the first time a cell of that kind is entered, and
 // the text is drawn with the game's own font.
 //
-// The record is a file per character in data/ext/altreal/maps/, written
+// The record is a file per character in the extension's maps/ directory, written
 // when it changes: the saved states of this game are 64 KB machines without
 // extended memory to keep it in, and a file survives states, restarts and
 // the emulator's save and load alike. (The a8.xeBank() facility exists for
@@ -36,7 +36,7 @@ const mem = a8.mem;
 /* ------------------------------ the record ------------------------------ */
 
 const NAME = 0x6321, NAME_LEN = 16;        // the character's name in the stats block
-const MAPS_DIR = "data/ext/altreal/maps", RECORD_SIZE = 16384;
+const MAPS_DIR = `${a8.extDir}/maps`, RECORD_SIZE = 16384;
 const SAVE_QUIET = 120, SAVE_LATEST = 600; // frames: save after a pause in the changes, or at least this often
 
 let store = null, storeName = null, dirty = false, quiet = 0, dirtyFor = 0;

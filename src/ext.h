@@ -14,6 +14,16 @@
 #error "WITH_EXT is expected"
 #endif
 
+#include <stdio.h>
+
+/* Where the extensions live, <ext_dir>/<name>/init.js: the -ext-dir option
+   or EXT_DIR in the configuration file; "data/ext" unless set. These three
+   are called from the platform's own option and configuration handlers. */
+extern char ext_dir[];
+int ext_initialise(int *argc, char *argv[]);
+int ext_read_config(char *option, char *parameters);
+void ext_write_config(FILE *fp);
+
 /* Hooks called by the emulator */
 void ext_init(void);
 void ext_frame(void);

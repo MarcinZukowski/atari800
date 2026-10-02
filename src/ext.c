@@ -33,8 +33,10 @@
 #include "antic.h"
 #include "cpu.h"
 #include "memory.h"
+#include "log.h"
 #include "monitor.h"
 #include "ui.h"
+#include "util.h"
 
 #define MAX_EXTENSIONS 64
 static ext_extension *extensions[MAX_EXTENSIONS];
@@ -51,6 +53,43 @@ static int ctrl_held = 0;   /* acceleration off while held */
    as its fingerprint matches, without going through the TAB menu. For
    developing and testing extensions. */
 static const char *preselect_name = NULL;
+
+char ext_dir[FILENAME_MAX] = "data/ext";
+
+int ext_initialise(int *argc, char *argv[])
+{
+	int i, j;
+	for (i = j = 1; i < *argc; i++) {
+		if (strcmp(argv[i], "-ext-dir") == 0) {
+			if (i + 1 >= *argc) {
+				Log_print("Missing argument for '%s'", argv[i]);
+				return FALSE;
+			}
+			Util_strlcpy(ext_dir, argv[++i], sizeof(ext_dir));
+		}
+		else {
+			if (strcmp(argv[i], "-help") == 0) {
+				Log_print("\t-ext-dir <path>  The directory of the game extensions (default: data/ext)");
+			}
+			argv[j++] = argv[i];
+		}
+	}
+	*argc = j;
+	return TRUE;
+}
+
+int ext_read_config(char *option, char *parameters)
+{
+	if (strcmp(option, "EXT_DIR") != 0)
+		return FALSE;
+	Util_strlcpy(ext_dir, parameters, sizeof(ext_dir));
+	return TRUE;
+}
+
+void ext_write_config(FILE *fp)
+{
+	fprintf(fp, "EXT_DIR=%s\n", ext_dir);
+}
 
 int ext_acceleration_disabled(void)
 {

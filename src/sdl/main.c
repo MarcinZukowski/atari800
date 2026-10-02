@@ -76,6 +76,9 @@ void PLATFORM_ConfigInit(void)
 int PLATFORM_Configure(char *option, char *parameters)
 {
 	return SDL_VIDEO_ReadConfig(option, parameters) ||
+#ifdef WITH_EXT
+	       ext_read_config(option, parameters) ||
+#endif
 	       SDL_INPUT_ReadConfig(option, parameters);
 }
 
@@ -83,6 +86,9 @@ void PLATFORM_ConfigSave(FILE *fp)
 {
 	SDL_VIDEO_WriteConfig(fp);
 	SDL_INPUT_WriteConfig(fp);
+#ifdef WITH_EXT
+	ext_write_config(fp);
+#endif
 }
 
 int PLATFORM_Initialise(int *argc, char *argv[])
@@ -110,6 +116,9 @@ int PLATFORM_Initialise(int *argc, char *argv[])
 	}
 
 	if (!SDL_VIDEO_Initialise(argc, argv)
+#ifdef WITH_EXT
+	    || !ext_initialise(argc, argv)
+#endif
 #ifdef SOUND
 	    || !Sound_Initialise(argc, argv)
 #endif
