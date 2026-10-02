@@ -71,9 +71,10 @@ If the extensions' directory has an `extensions.json` with
 extension's source there (that address plus its directory name).
 
 Keys: arrows and right Ctrl are the joystick, F2/F3/F4 Option/Select/Start,
-F5 reset (with Shift a cold start), F6 Help, F7 Break. Holding left Ctrl
-turns the extensions off for as long as it is held, to compare with the
-program as it is.
+F5 reset (with right Shift a cold start), F6 Help, F7 Break. Right Shift and
+left Ctrl are the Atari's Shift and Control. Holding left Shift turns the
+extensions off for as long as it is held, to compare with the program as it
+is.
 
 The page fills the window: a bar on the left for the page's own controls,
 the picture, and a bar on the right for the active extension (its name, a

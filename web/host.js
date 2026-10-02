@@ -83,7 +83,7 @@ function playFrame() {
 
 const held = new Set();
 let lastKey = null;
-const SUSPEND = "ControlLeft";   // held: the extensions are off, to see the program as it is
+const SUSPEND = "ShiftLeft";   // held: the extensions are off, to see the program as it is (the Atari's Shift is the right one)
 const suspended = () => held.has(SUSPEND);
 const showSuspended = () => $("extensions-label").classList.toggle("suspended", suspended());
 window.addEventListener("keydown", (e) => {
@@ -100,7 +100,7 @@ window.addEventListener("blur", () => { held.clear(); lastKey = null; showSuspen
 window.addEventListener("pointerdown", startAudio);
 
 function sendInput() {
-	const shift = held.has("ShiftLeft") || held.has("ShiftRight"), control = false;   // (left Ctrl is the page's own key)
+	const shift = held.has("ShiftRight"), control = held.has("ControlLeft");   // (left Shift is the page's own key)
 	let key = AKEY_NONE;
 	if (held.has("F5")) key = shift ? AKEY_COLDSTART : AKEY_WARMSTART;
 	else if (held.has("F7")) key = AKEY_BREAK;
