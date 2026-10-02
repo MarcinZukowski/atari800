@@ -2038,6 +2038,20 @@ void CARTRIDGE_Exit(void)
 
 #ifndef BASIC
 
+/* Version 8 states saved before Atari800 5.0 (the RAM cartridges, 2023) have
+   no "raw" field after the cartridge's state, and the version number did not
+   change when it was added. Tells the two layouts apart by what follows:
+   with the field, the next INT is 0 or 1 and the one after is a disk drive's
+   status (or the piggyback cartridge's type), a small number; without it, the
+   INT after the next one starts with a file name's length and has that
+   name's first characters in its upper bytes. */
+static int StateHasRawField(void)
+{
+	int next[2];
+	StateSav_PeekINT(next, 2);
+	return (next[0] == 0 || next[0] == 1) && (next[1] & ~0xffff) == 0;
+}
+
 void CARTRIDGE_StateRead(UBYTE version)
 {
 	int saved_type = CARTRIDGE_NONE;
@@ -2058,7 +2072,7 @@ void CARTRIDGE_StateRead(UBYTE version)
 		if (version >= 7)
 			/* Read the cartridge's state (current bank etc.). */
 			StateSav_ReadINT(&CARTRIDGE_main.state, 1);
-		if (version >= 8) {
+		if (version >= 8 && StateHasRawField()) {
 			/* Read the cartridge's image type (raw, cart - for RAM carts updating on remove). */
 			StateSav_ReadINT(&CARTRIDGE_main.raw, 1);
 		}
@@ -2096,7 +2110,7 @@ void CARTRIDGE_StateRead(UBYTE version)
 			   did not store the cartridge state. */
 			return;
 		}
-		if (version >= 8) {
+		if (version >= 8 && StateHasRawField()) {
 			/* Read the cartridge's image type (raw, cart - for RAM carts updating on remove). */
 			StateSav_ReadINT(&CARTRIDGE_piggyback.raw, 1);
 		}

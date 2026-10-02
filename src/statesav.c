@@ -122,6 +122,28 @@ static void GetGZErrorText(void)
 	Log_print("State file I/O failed.");
 }
 
+/* Bytes looked at ahead of their turn (StateSav_PeekINT): the next reads
+   take them first */
+static UBYTE lookahead[16];
+static int lookahead_len = 0;
+
+/* Reads from the state file, lookahead bytes first. Returns 0 on failure. */
+static int ReadBytes(void *buf, int len)
+{
+	UBYTE *p = (UBYTE *) buf;
+	if (lookahead_len > 0) {
+		int n = len < lookahead_len ? len : lookahead_len;
+		memcpy(p, lookahead, n);
+		memmove(lookahead, lookahead + n, lookahead_len - n);
+		lookahead_len -= n;
+		p += n;
+		len -= n;
+		if (len == 0)
+			return 1;
+	}
+	return GZREAD(StateFile, p, len) != 0;
+}
+
 /* Value is memory location of data, num is number of type to save */
 void StateSav_SaveUBYTE(const UBYTE *data, int num)
 {
@@ -142,7 +164,7 @@ void StateSav_ReadUBYTE(UBYTE *data, int num)
 	if (!StateFile || nFileError != Z_OK)
 		return;
 
-	if (GZREAD(StateFile, data, num) == 0)
+	if (!ReadBytes(data, num))
 		GetGZErrorText();
 }
 
@@ -186,12 +208,12 @@ void StateSav_ReadUWORD(UWORD *data, int num)
 	while (num > 0) {
 		UBYTE byte1, byte2;
 
-		if (GZREAD(StateFile, &byte1, 1) == 0) {
+		if (!ReadBytes(&byte1, 1)) {
 			GetGZErrorText();
 			break;
 		}
 
-		if (GZREAD(StateFile, &byte2, 1) == 0) {
+		if (!ReadBytes(&byte2, 1)) {
 			GetGZErrorText();
 			break;
 		}
@@ -254,46 +276,51 @@ void StateSav_SaveINT(const int *data, int num)
 	}
 }
 
+/* The INT format: little-endian, sign and magnitude */
+static int DecodeINT(const UBYTE *bytes)
+{
+	int temp = ((bytes[3] & 0x7f) << 24) | (bytes[2] << 16) | (bytes[1] << 8) | bytes[0];
+	return (bytes[3] & 0x80) ? -temp : temp;
+}
+
 void StateSav_ReadINT(int *data, int num)
 {
 	if (!StateFile || nFileError != Z_OK)
 		return;
 
 	while (num > 0) {
-		UBYTE signbit = 0;
-		int temp;
-		UBYTE byte1, byte2, byte3, byte4;
+		UBYTE bytes[4];
 
-		if (GZREAD(StateFile, &byte1, 1) == 0) {
+		if (!ReadBytes(bytes, 4)) {
 			GetGZErrorText();
 			break;
 		}
-
-		if (GZREAD(StateFile, &byte2, 1) == 0) {
-			GetGZErrorText();
-			break;
-		}
-
-		if (GZREAD(StateFile, &byte3, 1) == 0) {
-			GetGZErrorText();
-			break;
-		}
-
-		if (GZREAD(StateFile, &byte4, 1) == 0) {
-			GetGZErrorText();
-			break;
-		}
-
-		signbit = byte4 & 0x80;
-		byte4 &= 0x7f;
-
-		temp = (byte4 << 24) | (byte3 << 16) | (byte2 << 8) | byte1;
-		if (signbit)
-			temp = -temp;
-		*data++ = temp;
-
+		*data++ = DecodeINT(bytes);
 		num--;
 	}
+}
+
+/* Like StateSav_ReadINT, but the values stay in the file for the next read.
+   At most four of them. */
+void StateSav_PeekINT(int *data, int num)
+{
+	UBYTE bytes[16];
+	int len = num * 4;
+	int i;
+
+	if (!StateFile || nFileError != Z_OK)
+		return;
+	if (len > (int) sizeof(bytes) - lookahead_len)
+		return;
+	if (!ReadBytes(bytes, len)) {
+		GetGZErrorText();
+		return;
+	}
+	for (i = 0; i < num; i++)
+		data[i] = DecodeINT(bytes + 4 * i);
+	memmove(lookahead + len, lookahead, lookahead_len);
+	memcpy(lookahead, bytes, len);
+	lookahead_len += len;
 }
 
 void StateSav_SaveFNAME(const char *filename)
@@ -433,6 +460,7 @@ int StateSav_ReadAtariState(const char *filename, const char *mode)
 		return FALSE;
 	}
 
+	lookahead_len = 0;
 	if (GZREAD(StateFile, header_string, 8) == 0) {
 		GetGZErrorText();
 		GZCLOSE(StateFile);

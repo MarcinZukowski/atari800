@@ -15,6 +15,7 @@ void StateSav_SaveFNAME(const char *filename);
 void StateSav_ReadUBYTE(UBYTE *data, int num);
 void StateSav_ReadUWORD(UWORD *data, int num);
 void StateSav_ReadINT(int *data, int num);
+void StateSav_PeekINT(int *data, int num);
 void StateSav_ReadFNAME(char *filename);
 
 #ifdef LIBATARI800
