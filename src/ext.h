@@ -48,6 +48,11 @@ int ext_fakecpu_until_after_op(int end_op);
 int ext_fakecpu_while_in(int lo, int hi, int max_insns);
 void ext_set_code_injections(const int *addresses, int count);
 
+/* (ext-cpu.c) TRUE when a script wants to be called at pc; TRUE while the
+   fake CPU runs, when no script is called */
+int ext_code_injection_wanted(int pc);
+extern int ext_cpu_faking;
+
 typedef unsigned char byte;
 
 #define EXT_ERROR(fmt, ...) do { printf("ERROR at %s:%d: " fmt "\n", __FILE__, __LINE__, __VA_ARGS__); exit(2); } while (0)

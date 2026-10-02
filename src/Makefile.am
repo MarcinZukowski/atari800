@@ -204,6 +204,7 @@ endif
 if WITH_EXT
 atari800_SOURCES += \
 	ext.c ext.h \
+	ext-cpu.c \
 	ext-js.c ext-js.h \
 	sdl/sfx.c sdl/sfx.h
 endif
