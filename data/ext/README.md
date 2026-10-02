@@ -7,7 +7,7 @@ The idea came from this [thread on AtariArea](http://www.atari.org.pl/forum/view
 
 This directory holds the framework's documentation and one extension, the
 [self-test](#the-self-test-extension). Extensions for actual games are kept apart, in
-[a8-ext](https://github.com/MarcinZukowski/a8-ext).
+[a8ext](https://github.com/MarcinZukowski/a8ext).
 
 ## How it works
 
@@ -104,7 +104,7 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
     or VCOUNT cannot end this way)
   * `a8.setCodeInjections([addresses])` - replaces, at run time, the addresses `onCodeInjection` is
     called for; with `a8.profile()` this lets a script find a program's hottest code and run
-    it in no emulated time without knowing the program (a8-ext's `createAccelerator()` does)
+    it in no emulated time without knowing the program (a8ext's `createAccelerator()` does)
 * `a8.printFps(value, fg, bg, x, y)` - counts frames (a change of `value` is a new frame)
   and prints the rate on the Atari screen at `x, y`. Typically called from `onPreGlFrame`
 * `a8.accelerationDisabled()` - true while CTRL is held
