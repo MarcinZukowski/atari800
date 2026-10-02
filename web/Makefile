@@ -42,7 +42,7 @@ page:
 	@mkdir -p $(OUT)
 	cp $(PAGE) $(OUT)/
 	rm -rf $(OUT)/ext && mkdir -p $(OUT)/ext
-	cd $(EXT_DIR) && for d in *; do [ -f "$$d/init.js" ] && cp -R "$$d" $(abspath $(OUT))/ext/; done; cp *.js $(abspath $(OUT))/ext/ 2>/dev/null; true
+	cd $(EXT_DIR) && for d in *; do [ -f "$$d/init.js" ] && cp -R "$$d" $(abspath $(OUT))/ext/; done; cp *.js extensions.json $(abspath $(OUT))/ext/ 2>/dev/null; true
 	# what a user keeps beside an extension but must not be published: disk images, documents, saved maps
 	find $(OUT)/ext \( -name '*.atr' -o -name '*.pdf' -o -name '*.map' -o -name '.DS_Store' \) -delete; find $(OUT)/ext -type d -empty -delete
 	cd $(OUT) && find ext -type f | sort > files.txt

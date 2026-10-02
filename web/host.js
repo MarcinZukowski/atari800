@@ -179,6 +179,11 @@ for (const path of listing.filter((p) => /^ext\/[^/]+\/init\.js$/.test(p))) {
 }
 log(`${extensions.length} extensions: ${extensions.map((e) => e.dir.split("/").pop()).join(", ")}`);
 
+// ext/extensions.json, if the site has it, says where the extensions' source is: { "source": "https://.../tree/main" };
+// an extension can say so itself with a `source` property
+let sourceBase = null;
+if (listing.includes("ext/extensions.json")) { try { sourceBase = (await (await fetch("ext/extensions.json")).json()).source || null; } catch (e) { /* none */ } }
+
 let active = null, loading = null, pending = null, failed = false;
 const extensionsOn = () => $("extensions").checked && !suspended();
 const matches = (ext) => { const f = ext.fingerprint, mem = a8.mem; return f && f.bytes.every((b, i) => mem[f.address + i] === b); };
@@ -198,20 +203,14 @@ function buildMenu(ext) {
 		label.textContent = item.label + " ";
 		label.dataset.key = key;
 		if (item.options.length === 2) {
+			// both values shown, the one in force lit; a click anywhere on the entry changes it
 			const pair = document.createElement("span");
 			pair.className = "toggle";
-			item.options.forEach((text, i) => {
-				const button = document.createElement("button");
-				button.type = "button"; button.textContent = text;
-				button.classList.toggle("on", i === item.current);
-				button.addEventListener("click", (e) => {
-					e.preventDefault();   // (a click inside a label would be passed on to its first button)
-					item.current = i;
-					for (const [j, other] of [...pair.children].entries()) other.classList.toggle("on", j === i);
-					button.blur();
-				});
-				pair.append(button);
-			});
+			const show = () => { for (const [i, half] of [...pair.children].entries()) half.classList.toggle("on", i === item.current); };
+			for (const text of item.options) { const half = document.createElement("span"); half.textContent = text; pair.append(half); }
+			label.addEventListener("click", (e) => { e.preventDefault(); item.current = 1 - item.current; show(); });
+			label.style.cursor = "pointer";
+			show();
 			label.append(pair);
 		}
 		else {
@@ -234,6 +233,9 @@ async function activate(ext) {
 	if (loading !== ext) return;   // something else was loaded meanwhile
 	loading = null; failed = false; active = ext;
 	$("extension").textContent = ext.name;
+	const source = ext.source || (sourceBase ? sourceBase.replace(/\/$/, "") + "/" + ext.dir.split("/").pop() : null);
+	$("source").hidden = source === null;
+	if (source !== null) { $("source").href = source; $("source").textContent = /github\.com/.test(source) ? "Source on GitHub" : "Source"; }
 	// the menu can be preset from the address: ?menu=KEY:2,OTHER:0
 	for (const part of (params.get("menu") || "").split(",").filter(Boolean)) { const [key, value] = part.split(":"); if (ext.menu && ext.menu[key]) ext.menu[key].current = +value; }
 	buildMenu(ext);
@@ -250,7 +252,7 @@ function deactivate() {
 	active = loading = null; failed = false;
 	a8.setCodeInjections([]);
 	a8.panel = null;
-	$("extension").textContent = "none"; $("menu").textContent = ""; $("panel").textContent = ""; $("fps").textContent = "";
+	$("extension").textContent = "none"; $("menu").textContent = ""; $("panel").textContent = ""; $("fps").textContent = ""; $("source").hidden = true;
 }
 
 M.onCodeInjection = (pc, op) => {
@@ -261,6 +263,56 @@ M.onCodeInjection = (pc, op) => {
 
 /* ------------------------------ loading programs ------------------------------ */
 
+// The programs loaded before are kept in the browser (IndexedDB: they are
+// too large for local storage) and listed under Recent
+const RECENT_MAX = 12;
+const recent = (() => {
+	const open = () => new Promise((resolve, reject) => {
+		const request = indexedDB.open("atari800", 1);
+		request.onupgradeneeded = () => request.result.createObjectStore("recent", { keyPath: "name" });
+		request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
+	});
+	const run = async (mode, action) => {
+		const db = await open();
+		return new Promise((resolve, reject) => {
+			const tx = db.transaction("recent", mode), request = action(tx.objectStore("recent"));
+			tx.oncomplete = () => { db.close(); resolve(request.result); }; tx.onerror = () => { db.close(); reject(tx.error); };
+		});
+	};
+	return {
+		list: async () => (await run("readonly", (store) => store.getAll())).sort((a, b) => b.time - a.time),
+		put: (name, bytes) => run("readwrite", (store) => store.put({ name, bytes, time: Date.now() })),
+		remove: (name) => run("readwrite", (store) => store.delete(name)),
+	};
+})();
+async function showRecent() {
+	let list = [];
+	try {
+		list = await recent.list();
+		for (const old of list.slice(RECENT_MAX)) await recent.remove(old.name);
+		list = list.slice(0, RECENT_MAX);
+	} catch (e) { if (params.has("report")) log(`recent: ${e && e.message || e}`); /* no storage here: no list */ }
+	const box = $("recent");
+	box.textContent = "";
+	for (const entry of list) {
+		const row = document.createElement("div"), again = document.createElement("button"), forget = document.createElement("button");
+		again.textContent = entry.name; again.title = `${entry.name} (${Math.ceil(entry.bytes.length / 1024)} KB)`;
+		again.addEventListener("click", () => { again.blur(); address(null); load(entry.name, entry.bytes); });
+		forget.textContent = "×"; forget.title = "Forget it";
+		forget.addEventListener("click", async () => { await recent.remove(entry.name).catch(() => { }); showRecent(); });
+		row.append(again, forget); box.append(row);
+	}
+}
+
+// The page's address names what it loaded, when that has an address: ?url=...
+function address(url) {
+	const query = new URLSearchParams(location.search);
+	for (const key of ["url", "state", "file"]) query.delete(key);
+	if (url !== null) query.set("url", url);
+	const text = query.toString();
+	history.replaceState(null, "", location.pathname + (text ? "?" + text : ""));
+}
+
 // A saved state (.a8s) or anything the emulator can boot (disk image, executable, cartridge)
 function load(name, bytes) {
 	deactivate();
@@ -270,28 +322,45 @@ function load(name, bytes) {
 	M._free(p);
 	log(ok ? `loaded ${name}` : `could not load ${name}`);
 	$("drop").classList.toggle("hidden", !!ok);
+	if (ok) recent.put(name, bytes).then(showRecent, (e) => log(`the program is not kept for Recent: ${e && e.message || e}`));
+	return ok;
+}
+// From an address: the page's own site, or another that lets other sites fetch from it
+async function loadUrl(url) {
+	let bytes;
+	try { bytes = await fileBytes(url); }
+	catch (e) { log(`could not fetch ${url}: ${e.message} (another site must allow this one to fetch from it)`); return false; }
+	const name = decodeURIComponent(new URL(url, location.href).pathname.split("/").pop()) || "program";
+	const ok = load(name, bytes);
+	if (ok) address(url);
 	return ok;
 }
 window.addEventListener("dragover", (e) => e.preventDefault());
-window.addEventListener("drop", async (e) => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) load(file.name, new Uint8Array(await file.arrayBuffer())); });
-$("file").addEventListener("change", async (e) => { const file = e.target.files[0]; if (file) load(file.name, new Uint8Array(await file.arrayBuffer())); e.target.blur(); });
-// ?state=numen.a8s or ?file=game.xex in the address: fetched from the server
-for (const key of ["state", "file"]) {
-	const url = params.get(key);
-	if (url) { try { load(key === "state" && !/\.a8s$/i.test(url) ? url + ".a8s" : url.split("/").pop(), await fileBytes(url)); } catch (e) { log(e.message); } }
+window.addEventListener("drop", async (e) => { e.preventDefault(); const file = e.dataTransfer.files[0]; if (file) { address(null); load(file.name, new Uint8Array(await file.arrayBuffer())); } });
+$("file").addEventListener("change", async (e) => { const file = e.target.files[0]; if (file) { address(null); load(file.name, new Uint8Array(await file.arrayBuffer())); } e.target.blur(); });
+const urlFromBox = () => { const url = $("url").value.trim(); $("url").blur(); $("url-load").blur(); if (url) loadUrl(url); };
+$("url-load").addEventListener("click", urlFromBox);
+$("url").addEventListener("keydown", (e) => { if (e.key === "Enter") urlFromBox(); });
+showRecent();
+// ?url=... in the address (state= and file= mean the same)
+{
+	const url = params.get("url") || params.get("state") || params.get("file");
+	if (url) await loadUrl(url);
 }
 // The framework's self-test, when the site has it: an extension with a small program of its own
 if (listing.includes("ext/selftest/selftest.xex")) {
 	const link = document.createElement("a");
-	link.href = "?file=ext/selftest/selftest.xex"; link.textContent = "Extension self-test";
+	link.href = "?url=ext/selftest/selftest.xex"; link.textContent = "Extension self-test";
 	$("demos").append(link);
 }
-// demos.json, if the site has one: [{ "title": ..., "state": ... or "file": ..., "ext": ..., "menu": ... }]
+// demos.json, if the site has one: [{ "title": ..., "url": ..., "ext": ..., "menu": ... }]
 try {
 	const demos = await (await fetch("demos.json")).json();
 	for (const demo of demos) {
 		const link = document.createElement("a"), query = new URLSearchParams();
-		for (const key of ["state", "file", "ext", "menu"]) if (demo[key]) query.set(key, demo[key]);
+		const url = demo.url || demo.state || demo.file;
+		if (url) query.set("url", url);
+		for (const key of ["ext", "menu"]) if (demo[key]) query.set(key, demo[key]);
 		link.href = "?" + query; link.textContent = demo.title;
 		$("demos").append(link);
 	}

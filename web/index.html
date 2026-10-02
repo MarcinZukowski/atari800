@@ -8,16 +8,19 @@
 <style>
 	:root { color-scheme: dark; --ink: #d8d8d0; --dim: #8a8a80; --edge: #33332e; --ground: #151513; --panel: #1d1d1a; --accent: #e8b84a; --general: 270px; --program: 310px; }
 	* { box-sizing: border-box; }
+	[hidden] { display: none !important; }   /* whatever else gives the element a display */
 	html, body { height: 100%; }
 	body { margin: 0; background: var(--ground); color: var(--ink); font: 14px/1.45 ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
 
-	/* The picture takes what the window has left of two bars: the general one, then the program's */
-	main { display: grid; grid-template-columns: minmax(0, 1fr) var(--general) var(--program); height: 100vh; }
+	/* The general bar, the picture with what the window has left, the program's bar */
+	main { display: grid; grid-template-columns: var(--general) minmax(0, 1fr) var(--program); height: 100vh; }
 	#stage { position: relative; display: grid; place-items: center; min-width: 0; min-height: 0; background: #000; overflow: hidden; }
 	canvas { display: block; background: #000; image-rendering: pixelated; }
 	#drop { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; background: rgba(0, 0, 0, 0.72); pointer-events: none; }
 	#drop.hidden { display: none; }
-	.bar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-content: start; padding: 12px; overflow-y: auto; border-left: 1px solid var(--edge); background: var(--ground); }
+	.bar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-content: start; padding: 12px; overflow-y: auto; background: var(--ground); }
+	#general { border-right: 1px solid var(--edge); }
+	#program { border-left: 1px solid var(--edge); }
 	section { min-width: 0; background: var(--panel); border: 1px solid var(--edge); padding: 10px 12px; }
 	h1 { font-size: 15px; margin: 0; color: var(--accent); letter-spacing: 0.04em; }
 	h2 { font-size: 11px; margin: 0 0 8px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.12em; font-weight: normal; }
@@ -26,15 +29,24 @@
 	#menu { display: grid; gap: 7px; margin-top: 10px; }
 	#menu label { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
 	#panel:not(:empty) { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--edge); display: grid; gap: 6px; }
-	select, input[type=file], button { font: inherit; color: var(--ink); background: var(--ground); border: 1px solid var(--edge); padding: 2px 6px; max-width: 100%; }
-	input[type=file] { width: 100%; }
-	button { cursor: pointer; }
-	button:hover { border-color: var(--dim); }
+	select, input[type=file], input[type=url], button, a.button { font: inherit; color: var(--ink); background: var(--ground); border: 1px solid var(--edge); padding: 2px 6px; max-width: 100%; }
+	input[type=file], input[type=url] { width: 100%; }
+	button, a.button { cursor: pointer; text-decoration: none; display: inline-block; }
+	button:hover, a.button:hover { border-color: var(--dim); }
+	#source { margin-top: 8px; }
+	.row { display: flex; gap: 6px; margin-top: 6px; }
+	.row input { flex: 1; min-width: 0; }
+	/* the programs loaded before: a name to load it again, a cross to forget it */
+	#recent { display: grid; gap: 3px; }
+	#recent div { display: flex; gap: 4px; }
+	#recent button:first-child { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	#recent-section:has(#recent:empty) { display: none; }
 	/* a choice of two: both shown, the one in force lit */
-	.toggle { display: inline-flex; flex: none; }
-	.toggle button { color: var(--dim); }
-	.toggle button + button { border-left: none; }
-	.toggle button.on { color: var(--ground); background: var(--accent); border-color: var(--accent); }
+	.toggle { display: inline-flex; flex: none; cursor: pointer; }
+	.toggle span { color: var(--dim); border: 1px solid var(--edge); padding: 2px 6px; background: var(--ground); }
+	.toggle span + span { border-left: none; }
+	.toggle span.on { color: var(--ground); background: var(--accent); border-color: var(--accent); }
+	.toggle:hover span:not(.on) { border-color: var(--dim); }
 	label.check { display: block; }
 	label.check.suspended { color: var(--dim); text-decoration: line-through; }
 	label.check small { color: var(--dim); }
@@ -47,8 +59,8 @@
 	/* A narrow window: the bars go under the picture */
 	@media (max-width: 900px) {
 		main { grid-template-columns: 1fr; height: auto; }
-		#stage { height: 62vh; }
-		.bar { border-left: none; border-top: 1px solid var(--edge); }
+		#stage { height: 62vh; order: -1; }
+		#general, #program { border: none; border-top: 1px solid var(--edge); }
 	}
 
 	/* Full screen: the picture is everything, the bars lie over it and fade when nothing moves */
@@ -56,17 +68,13 @@
 	body.fullscreen #stage { position: fixed; inset: 0; }
 	body.fullscreen .bar { position: fixed; top: 0; bottom: 0; z-index: 2; background: rgba(21, 21, 19, 0.84); transition: opacity 0.5s; }
 	body.fullscreen #program { right: 0; width: var(--program); }
-	body.fullscreen #general { right: var(--program); width: var(--general); }
+	body.fullscreen #general { left: 0; width: var(--general); }
 	body.fullscreen.idle .bar { opacity: 0; pointer-events: none; }
 	body.fullscreen.idle { cursor: none; }
 </style>
 </head>
 <body>
 <main>
-	<div id="stage">
-		<canvas id="screen" width="672" height="480"></canvas>
-		<div id="drop">Drop a saved state (.a8s), a disk image or a program here,<br>or choose one under Program.</div>
-	</div>
 	<aside id="general" class="bar">
 		<section>
 			<h1>atari800</h1>
@@ -74,7 +82,12 @@
 		<section>
 			<h2>Program</h2>
 			<input type="file" id="file">
+			<div class="row"><input type="url" id="url" placeholder="or its address (URL)"><button id="url-load">Load</button></div>
 			<div id="demos"></div>
+		</section>
+		<section id="recent-section">
+			<h2>Recent</h2>
+			<div id="recent"></div>
 		</section>
 		<section>
 			<h2>Switches</h2>
@@ -98,10 +111,15 @@
 			<pre id="log"></pre>
 		</section>
 	</aside>
+	<div id="stage">
+		<canvas id="screen" width="672" height="480"></canvas>
+		<div id="drop">Drop a saved state (.a8s), a disk image or a program here,<br>or choose one under Program.</div>
+	</div>
 	<aside id="program" class="bar">
 		<section>
 			<h2>Extension <span id="fps"></span></h2>
 			<div id="extension">none</div>
+			<a id="source" class="button" target="_blank" rel="noopener" hidden>Source on GitHub</a>
 			<div id="menu"></div>
 			<div id="panel"></div>
 		</section>

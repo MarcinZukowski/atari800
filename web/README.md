@@ -48,28 +48,37 @@ it or choose one: a saved state (`.a8s`), a disk image, an executable, or a
 cartridge image. The extension whose fingerprint matches the program in
 memory is activated by itself.
 
+A program can also come from an address, typed into the box under Program or
+given in the page's own address: on this site, or on another that allows
+other sites to fetch from it (most do not). The programs loaded are kept in
+the browser and listed under Recent, to load again with a click.
+
 Address parameters:
 
 | Parameter | Meaning |
 |---|---|
-| `state=URL` | load this saved state at the start |
-| `file=URL` | boot this disk, program or cartridge image |
+| `url=URL` | load this at the start: a saved state, or a disk, program or cartridge image to boot (`state=` and `file=` mean the same) |
 | `ext=NAME` | only activate the extension with this directory name or part of its name |
 | `menu=KEY:2,OTHER:0` | preset entries of the extension's menu |
 
 If `dist/demos.json` exists, its entries are listed as links:
 
-    [{ "title": "Numen: the forest", "state": "numen.a8s" },
-     { "title": "Mercenary, lines only", "state": "m1.a8s", "menu": "SCENERY:0" }]
+    [{ "title": "Numen: the forest", "url": "numen.a8s" },
+     { "title": "Mercenary, lines only", "url": "m1.a8s", "menu": "SCENERY:0" }]
+
+If the extensions' directory has an `extensions.json` with
+`{ "source": "https://.../tree/main" }`, the page shows a link to the active
+extension's source there (that address plus its directory name).
 
 Keys: arrows and right Ctrl are the joystick, F2/F3/F4 Option/Select/Start,
 F5 reset (with Shift a cold start), F6 Help, F7 Break. Holding left Ctrl
 turns the extensions off for as long as it is held, to compare with the
 program as it is.
 
-The page fills the window: the picture, then two bars, one for the page's own
-controls and one for the active extension (its name, its menu, with a choice
-of two shown as a pair of buttons, and its panel). "Full screen" gives the
+The page fills the window: a bar on the left for the page's own controls,
+the picture, and a bar on the right for the active extension (its name, a
+link to its source, its menu, and its panel). A menu entry with two values
+shows both, the one in force lit, and a click on it changes it. "Full screen" gives the
 picture the whole screen with the bars lying over it; they fade out after
 three seconds without the mouse moving or a key other than the Atari's, and
 come back when either happens.
