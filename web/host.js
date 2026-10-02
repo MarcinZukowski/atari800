@@ -41,8 +41,18 @@ const screen = new Uint8Array(heap, M._web_screen(), BUFFER_W * SCREEN_H);
 const colours = new Int32Array(heap, M._web_colours(), 256);
 
 const canvas = $("screen");
-const scale = Math.max(1, Math.round(window.devicePixelRatio || 1));
-canvas.width = SCREEN_W * 2 * scale; canvas.height = SCREEN_H * 2 * scale;
+// The canvas is as large as its place allows at the picture's proportions, with a
+// pixel of its own for every pixel of the display (up to twice the layout's)
+function fitCanvas() {
+	const stage = $("stage"), w = Math.floor(Math.min(stage.clientWidth, stage.clientHeight * SCREEN_W / SCREEN_H)), h = Math.floor(w * SCREEN_H / SCREEN_W);
+	if (w < 1 || h < 1) return;
+	const density = Math.min(2, window.devicePixelRatio || 1);
+	canvas.style.width = w + "px"; canvas.style.height = h + "px";
+	const bw = Math.round(w * density), bh = Math.round(h * density);
+	if (canvas.width !== bw || canvas.height !== bh) { canvas.width = bw; canvas.height = bh; }
+}
+fitCanvas();
+new ResizeObserver(fitCanvas).observe($("stage"));
 const g = canvas.getContext("webgl2", { antialias: true, alpha: false, depth: true, preserveDrawingBuffer: true });
 if (!g) { log("This page needs WebGL 2."); throw new Error("no WebGL 2"); }
 const shim = makeGl(g, { width: SCREEN_W, height: SCREEN_H });
@@ -73,19 +83,24 @@ function playFrame() {
 
 const held = new Set();
 let lastKey = null;
+const SUSPEND = "ControlLeft";   // held: the extensions are off, to see the program as it is
+const suspended = () => held.has(SUSPEND);
+const showSuspended = () => $("extensions-label").classList.toggle("suspended", suspended());
 window.addEventListener("keydown", (e) => {
 	startAudio();
 	if (e.target instanceof HTMLSelectElement || e.target instanceof HTMLInputElement && e.target.type !== "checkbox") return;
-	if (e.code in KEYS || e.code in JOYSTICK || e.code in CONSOLE || TRIGGER.includes(e.code) || ["F5", "F7", "Tab"].includes(e.code)) e.preventDefault();
+	const forAtari = e.code in KEYS || e.code in JOYSTICK || e.code in CONSOLE || TRIGGER.includes(e.code) || ["F5", "F7", "Tab"].includes(e.code);
+	if (forAtari) e.preventDefault(); else if (e.code !== SUSPEND) wake();   // a key the Atari takes does not bring the controls back in full screen
 	held.add(e.code);
 	if (e.code in KEYS) lastKey = e.code;
+	showSuspended();
 });
-window.addEventListener("keyup", (e) => { held.delete(e.code); if (e.code === lastKey) lastKey = null; });
-window.addEventListener("blur", () => { held.clear(); lastKey = null; });
+window.addEventListener("keyup", (e) => { held.delete(e.code); if (e.code === lastKey) lastKey = null; showSuspended(); });
+window.addEventListener("blur", () => { held.clear(); lastKey = null; showSuspended(); });
 window.addEventListener("pointerdown", startAudio);
 
 function sendInput() {
-	const shift = held.has("ShiftLeft") || held.has("ShiftRight"), control = held.has("ControlLeft");
+	const shift = held.has("ShiftLeft") || held.has("ShiftRight"), control = false;   // (left Ctrl is the page's own key)
 	let key = AKEY_NONE;
 	if (held.has("F5")) key = shift ? AKEY_COLDSTART : AKEY_WARMSTART;
 	else if (held.has("F7")) key = AKEY_BREAK;
@@ -96,12 +111,45 @@ function sendInput() {
 	M._web_input(key, shift ? 1 : 0, consol, stick, TRIGGER.some((code) => held.has(code)) ? 1 : 0, 0, 0);
 }
 
+/* ------------------------------ full screen ------------------------------ */
+
+// In full screen the two bars lie over the picture and fade out when the
+// mouse has been still, and no key but the Atari's pressed, for a while
+const IDLE_AFTER = 3000;
+let idleTimer = 0;
+function wake() {
+	document.body.classList.remove("idle");
+	clearTimeout(idleTimer);
+	if (document.body.classList.contains("fullscreen")) idleTimer = setTimeout(() => {
+		// not while the pointer is on a bar or a list is open
+		if (document.querySelector(".bar:hover") || document.activeElement instanceof HTMLSelectElement) wake();
+		else document.body.classList.add("idle");
+	}, IDLE_AFTER);
+}
+function setFullscreenLayout(on) {
+	document.body.classList.toggle("fullscreen", on);
+	$("fullscreen").textContent = on ? "Leave full screen" : "Full screen";
+	fitCanvas();
+	wake();
+}
+for (const type of ["mousemove", "mousedown", "wheel", "touchstart"]) window.addEventListener(type, wake, { passive: true });
+document.addEventListener("fullscreenchange", () => {
+	const on = document.fullscreenElement !== null;
+	// Esc is an Atari key: where the browser can leave it to the page, it does (a long press still leaves full screen)
+	if (on && navigator.keyboard && navigator.keyboard.lock) navigator.keyboard.lock(["Escape"]).catch(() => { });
+	setFullscreenLayout(on);
+});
+$("fullscreen").addEventListener("click", (e) => {
+	e.target.blur();
+	if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch((error) => log("full screen: " + error.message));
+});
+
 /* ------------------------------ the extensions ------------------------------ */
 
 const fileBytes = async (url) => { const r = await fetch(url); if (!r.ok) throw new Error(`${url}: ${r.status}`); return new Uint8Array(await r.arrayBuffer()); };
 
 globalThis.a8 = makeA8(M, {
-	accelerationDisabled: () => held.has("ControlLeft"),
+	accelerationDisabled: () => suspended(),
 	showFps: (text) => { $("fps").textContent = text; },
 	files,
 	audio: () => audio !== null && audio.state === "running" && soundOn() ? audio : null,
@@ -132,7 +180,7 @@ for (const path of listing.filter((p) => /^ext\/[^/]+\/init\.js$/.test(p))) {
 log(`${extensions.length} extensions: ${extensions.map((e) => e.dir.split("/").pop()).join(", ")}`);
 
 let active = null, loading = null, pending = null, failed = false;
-const extensionsOn = () => $("extensions") === null || $("extensions").checked;
+const extensionsOn = () => $("extensions").checked && !suspended();
 const matches = (ext) => { const f = ext.fingerprint, mem = a8.mem; return f && f.bytes.every((b, i) => mem[f.address + i] === b); };
 const wanted = params.get("ext");
 
@@ -146,13 +194,34 @@ function buildMenu(ext) {
 	const menu = $("menu");
 	menu.textContent = "";
 	for (const [key, item] of Object.entries(ext.menu || {})) {
-		const label = document.createElement("label"), select = document.createElement("select");
+		const label = document.createElement("label");
 		label.textContent = item.label + " ";
-		item.options.forEach((text, i) => { const option = document.createElement("option"); option.value = i; option.textContent = text; select.append(option); });
-		select.value = item.current;
-		select.dataset.key = key;
-		select.addEventListener("change", () => { item.current = +select.value; select.blur(); });
-		label.append(select); menu.append(label);
+		label.dataset.key = key;
+		if (item.options.length === 2) {
+			const pair = document.createElement("span");
+			pair.className = "toggle";
+			item.options.forEach((text, i) => {
+				const button = document.createElement("button");
+				button.type = "button"; button.textContent = text;
+				button.classList.toggle("on", i === item.current);
+				button.addEventListener("click", (e) => {
+					e.preventDefault();   // (a click inside a label would be passed on to its first button)
+					item.current = i;
+					for (const [j, other] of [...pair.children].entries()) other.classList.toggle("on", j === i);
+					button.blur();
+				});
+				pair.append(button);
+			});
+			label.append(pair);
+		}
+		else {
+			const select = document.createElement("select");
+			item.options.forEach((text, i) => { const option = document.createElement("option"); option.value = i; option.textContent = text; select.append(option); });
+			select.value = item.current;
+			select.addEventListener("change", () => { item.current = +select.value; select.blur(); });
+			label.append(select);
+		}
+		menu.append(label);
 	}
 }
 
@@ -283,4 +352,4 @@ if (params.has("frames")) {
 requestAnimationFrame(tick);
 
 // For tests and the curious
-globalThis.atari800 = { M, load, frames: () => frames, active: () => active, emulateFrame, showFrame, canvas };
+globalThis.atari800 = { M, load, frames: () => frames, active: () => active, emulateFrame, showFrame, canvas, setFullscreenLayout };

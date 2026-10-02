@@ -63,8 +63,16 @@ If `dist/demos.json` exists, its entries are listed as links:
      { "title": "Mercenary, lines only", "state": "m1.a8s", "menu": "SCENERY:0" }]
 
 Keys: arrows and right Ctrl are the joystick, F2/F3/F4 Option/Select/Start,
-F5 reset (with Shift a cold start), F6 Help, F7 Break; holding left Ctrl
-turns the extensions' acceleration off.
+F5 reset (with Shift a cold start), F6 Help, F7 Break. Holding left Ctrl
+turns the extensions off for as long as it is held, to compare with the
+program as it is.
+
+The page fills the window: the picture, then two bars, one for the page's own
+controls and one for the active extension (its name, its menu, with a choice
+of two shown as a pair of buttons, and its panel). "Full screen" gives the
+picture the whole screen with the bars lying over it; they fade out after
+three seconds without the mouse moving or a key other than the Atari's, and
+come back when either happens.
 
 ## Putting it online
 

@@ -6,45 +6,70 @@
 <title>atari800 with game extensions</title>
 <script type="importmap">{ "imports": { "std": "./std.js", "os": "./os.js" } }</script>
 <style>
-	:root { color-scheme: dark; --ink: #d8d8d0; --dim: #8a8a80; --edge: #33332e; --ground: #151513; --panel: #1d1d1a; --accent: #e8b84a; }
+	:root { color-scheme: dark; --ink: #d8d8d0; --dim: #8a8a80; --edge: #33332e; --ground: #151513; --panel: #1d1d1a; --accent: #e8b84a; --general: 270px; --program: 310px; }
 	* { box-sizing: border-box; }
+	html, body { height: 100%; }
 	body { margin: 0; background: var(--ground); color: var(--ink); font: 14px/1.45 ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
-	main { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; align-items: flex-start; padding: 20px 16px; }
-	#stage { position: relative; flex: 0 1 672px; min-width: 0; }
-	canvas { display: block; width: 100%; height: auto; aspect-ratio: 336 / 240; background: #000; border: 1px solid var(--edge); image-rendering: pixelated; }
+
+	/* The picture takes what the window has left of two bars: the general one, then the program's */
+	main { display: grid; grid-template-columns: minmax(0, 1fr) var(--general) var(--program); height: 100vh; }
+	#stage { position: relative; display: grid; place-items: center; min-width: 0; min-height: 0; background: #000; overflow: hidden; }
+	canvas { display: block; background: #000; image-rendering: pixelated; }
 	#drop { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; background: rgba(0, 0, 0, 0.72); pointer-events: none; }
 	#drop.hidden { display: none; }
-	aside { flex: 1 1 280px; max-width: 360px; display: grid; gap: 14px; }
-	section { background: var(--panel); border: 1px solid var(--edge); padding: 12px 14px; }
+	.bar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-content: start; padding: 12px; overflow-y: auto; border-left: 1px solid var(--edge); background: var(--ground); }
+	section { min-width: 0; background: var(--panel); border: 1px solid var(--edge); padding: 10px 12px; }
 	h1 { font-size: 15px; margin: 0; color: var(--accent); letter-spacing: 0.04em; }
 	h2 { font-size: 11px; margin: 0 0 8px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.12em; font-weight: normal; }
 	#extension { color: var(--accent); }
-	#menu { display: grid; gap: 6px; margin-top: 8px; }
+	#fps { color: var(--dim); float: right; }
+	#menu { display: grid; gap: 7px; margin-top: 10px; }
 	#menu label { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
 	#panel:not(:empty) { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--edge); display: grid; gap: 6px; }
-	button { font: inherit; color: var(--ink); background: var(--ground); border: 1px solid var(--edge); padding: 2px 8px; cursor: pointer; }
-	select, input[type=file] { font: inherit; color: var(--ink); background: var(--ground); border: 1px solid var(--edge); padding: 2px 4px; max-width: 100%; }
+	select, input[type=file], button { font: inherit; color: var(--ink); background: var(--ground); border: 1px solid var(--edge); padding: 2px 6px; max-width: 100%; }
+	input[type=file] { width: 100%; }
+	button { cursor: pointer; }
+	button:hover { border-color: var(--dim); }
+	/* a choice of two: both shown, the one in force lit */
+	.toggle { display: inline-flex; flex: none; }
+	.toggle button { color: var(--dim); }
+	.toggle button + button { border-left: none; }
+	.toggle button.on { color: var(--ground); background: var(--accent); border-color: var(--accent); }
 	label.check { display: block; }
-	#demos { display: grid; gap: 4px; }
+	label.check.suspended { color: var(--dim); text-decoration: line-through; }
+	label.check small { color: var(--dim); }
+	#demos { display: grid; gap: 4px; margin-top: 6px; }
 	a { color: var(--accent); }
-	dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0; }
+	dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; margin: 0; }
 	dt { color: var(--accent); white-space: nowrap; } dd { margin: 0; color: var(--dim); }
-	#log { margin: 0; max-height: 140px; overflow: auto; color: var(--dim); font-size: 12px; white-space: pre-wrap; }
-	#fps { color: var(--dim); float: right; }
+	#log { margin: 0; max-height: 160px; overflow: auto; color: var(--dim); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+	/* A narrow window: the bars go under the picture */
+	@media (max-width: 900px) {
+		main { grid-template-columns: 1fr; height: auto; }
+		#stage { height: 62vh; }
+		.bar { border-left: none; border-top: 1px solid var(--edge); }
+	}
+
+	/* Full screen: the picture is everything, the bars lie over it and fade when nothing moves */
+	body.fullscreen main { display: block; }
+	body.fullscreen #stage { position: fixed; inset: 0; }
+	body.fullscreen .bar { position: fixed; top: 0; bottom: 0; z-index: 2; background: rgba(21, 21, 19, 0.84); transition: opacity 0.5s; }
+	body.fullscreen #program { right: 0; width: var(--program); }
+	body.fullscreen #general { right: var(--program); width: var(--general); }
+	body.fullscreen.idle .bar { opacity: 0; pointer-events: none; }
+	body.fullscreen.idle { cursor: none; }
 </style>
 </head>
 <body>
 <main>
 	<div id="stage">
 		<canvas id="screen" width="672" height="480"></canvas>
-		<div id="drop">Drop a saved state (.a8s), a disk image or a program here,<br>or choose one on the right.</div>
+		<div id="drop">Drop a saved state (.a8s), a disk image or a program here,<br>or choose one under Program.</div>
 	</div>
-	<aside>
+	<aside id="general" class="bar">
 		<section>
-			<h1>atari800 <span id="fps"></span></h1>
-			<div>Extension: <span id="extension">none</span></div>
-			<div id="menu"></div>
-			<div id="panel"></div>
+			<h1>atari800</h1>
 		</section>
 		<section>
 			<h2>Program</h2>
@@ -53,22 +78,32 @@
 		</section>
 		<section>
 			<h2>Switches</h2>
-			<label class="check"><input type="checkbox" id="extensions" checked> Extensions</label>
+			<label class="check" id="extensions-label"><input type="checkbox" id="extensions" checked> Extensions <small>(left Ctrl to temporarily disable)</small></label>
 			<label class="check"><input type="checkbox" id="sound" checked> Sound</label>
+			<button id="fullscreen" style="margin-top: 8px">Full screen</button>
 		</section>
 		<section>
 			<h2>Keys</h2>
 			<dl>
-				<dt>arrows, right Ctrl</dt><dd>joystick and fire</dd>
+				<dt>arrows</dt><dd>joystick</dd>
+				<dt>right Ctrl</dt><dd>fire</dd>
 				<dt>F2 F3 F4</dt><dd>Option, Select, Start</dd>
-				<dt>F5</dt><dd>reset (with Shift: cold start)</dd>
+				<dt>F5</dt><dd>reset (Shift: cold start)</dd>
 				<dt>F6 F7</dt><dd>Help, Break</dd>
-				<dt>left Ctrl</dt><dd>held: no acceleration</dd>
+				<dt>left Ctrl</dt><dd>hold: disable extensions</dd>
 			</dl>
 		</section>
 		<section>
 			<h2>Log</h2>
 			<pre id="log"></pre>
+		</section>
+	</aside>
+	<aside id="program" class="bar">
+		<section>
+			<h2>Extension <span id="fps"></span></h2>
+			<div id="extension">none</div>
+			<div id="menu"></div>
+			<div id="panel"></div>
 		</section>
 	</aside>
 </main>
