@@ -23,12 +23,14 @@ const CONSOLE = { F4: 1, F3: 2, F2: 4 };   // Start, Select, Option
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 // (with ?report in the address every line is also sent to the server, where a test can read it in the access log)
+const consoleLog = console.log.bind(console);
 const log = (text) => {
 	const out = $("log");
 	if (out) { out.textContent += text + "\n"; out.scrollTop = out.scrollHeight; }
-	console.log(text);
+	consoleLog(text);
 	if (params.has("report")) fetch("__log?" + encodeURIComponent(String(text).slice(0, 600))).catch(() => { });
 };
+console.log = (...args) => log(args.join(" "));   // what the extensions print shows in the page's log too
 
 /* ------------------------------ the emulator ------------------------------ */
 
@@ -204,6 +206,12 @@ $("file").addEventListener("change", async (e) => { const file = e.target.files[
 for (const key of ["state", "file"]) {
 	const url = params.get(key);
 	if (url) { try { load(key === "state" && !/\.a8s$/i.test(url) ? url + ".a8s" : url.split("/").pop(), await fileBytes(url)); } catch (e) { log(e.message); } }
+}
+// The framework's self-test, when the site has it: an extension with a small program of its own
+if (listing.includes("ext/selftest/selftest.xex")) {
+	const link = document.createElement("a");
+	link.href = "?file=ext/selftest/selftest.xex"; link.textContent = "Extension self-test";
+	$("demos").append(link);
 }
 // demos.json, if the site has one: [{ "title": ..., "state": ... or "file": ..., "ext": ..., "menu": ... }]
 try {

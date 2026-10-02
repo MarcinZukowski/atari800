@@ -1,14 +1,17 @@
-# atari800 extensibility ideas
+# Game extensions
 
-A while ago I saw this [thread on AtariArea](http://www.atari.org.pl/forum/viewtopic.php?id=17319).
+A generic extension mechanism for atari800: scripts that hook into the emulated machine to
+change how a particular program looks and runs, for example by drawing a game's 3D scene again
+with OpenGL from the game's own data, or by doing a slow routine's work in no emulated time.
+The idea came from this [thread on AtariArea](http://www.atari.org.pl/forum/viewtopic.php?id=17319).
 
-It gave me an idea to add a generic extension mechanism to atari800.
-I started playing, and over a course of a few weeks, an hour here, an hour there, I wrote a bunch
-of code and extensions for some Atari games.
+This directory holds the framework's documentation and one extension, the
+[self-test](#the-self-test-extension). Extensions for actual games are kept apart, in
+[a8-ext](https://github.com/MarcinZukowski/a8-ext).
 
 ## How it works
 
-Extensions are JavaScript modules, one per game in `data/ext/<name>/init.js`, run by an
+Extensions are JavaScript modules, one per game in `<ext-dir>/<name>/init.js`, run by an
 embedded [QuickJS](https://bellard.org/quickjs/) engine. The emulator side (`src/ext.c`) is
 small: it keeps the list of extensions, activates the one whose memory fingerprint matches
 the running program (TAB opens the extensions menu, or see `A8_EXT_SELECT` under Testing),
@@ -31,13 +34,15 @@ Extensions are enabled with `--with-ext` when running `configure`. QuickJS needs
 installed (e.g. `brew install quickjs`) with `CPPFLAGS`/`LDFLAGS` pointing at it.
 Not all emulator functionality is exposed; more can easily be added.
 
-At startup atari800 looks for files matching `data/ext/*/init.js`
-(e.g. [data/ext/zybex/init.js](zybex/init.js)), evaluates each as an ES module and
-registers its default export as an extension. Shared helpers live in
-[common.js](common.js) and are imported the usual way:
+At startup atari800 looks for files matching `<ext-dir>/*/init.js`
+(e.g. [data/ext/selftest/init.js](selftest/init.js)), evaluates each as an ES module and
+registers its default export as an extension. The directory is `data/ext` unless the
+`-ext-dir <path>` option or `EXT_DIR=<path>` in the configuration file says otherwise; when it
+does not exist there are no extensions. A module imports others the usual way, relative to
+itself:
 
 ```js
-import { drawQuad, word, rgb } from "../common.js";
+import { drawQuad } from "../common.js";
 ```
 
 The QuickJS `std` and `os` modules and `console.log()` are available too.
@@ -48,6 +53,12 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
 
 ### `a8` - the emulator
 
+* `a8.extDir` - the directory of the extension being loaded or activated, for the files it
+  ships; a script reads it at the top of its modules:
+  ```js
+  const DIR = a8.extDir;
+  const picture = gl.loadTextureRGBA(`${DIR}/picture.rgba`, 512, 512);
+  ```
 * `a8.mem` - a `Uint8Array` over the 64 KB of Atari memory, read/write, no copy:
   ```js
   const lives = a8.mem[0x00C0];
@@ -83,8 +94,8 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
     number of instructions run, negative when the budget ran out (a loop waiting for an interrupt
     or VCOUNT cannot end this way)
   * `a8.setCodeInjections([addresses])` - replaces, at run time, the addresses `onCodeInjection` is
-    called for; with `a8.profile()` these make `createAccelerator()` in [common.js](common.js)
-    possible, which runs a program's hottest code in no emulated time
+    called for; with `a8.profile()` this lets a script find a program's hottest code and run
+    it in no emulated time without knowing the program (a8-ext's `createAccelerator()` does)
 * `a8.printFps(value, fg, bg, x, y)` - counts frames (a change of `value` is a new frame)
   and prints the rate on the Atari screen at `x, y`. Typically called from `onPreGlFrame`
 * `a8.accelerationDisabled()` - true while CTRL is held
@@ -120,19 +131,15 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
   * `width`, `height`, `id` (the OpenGL texture name)
   * `finalize()` - uploads `pixels` to OpenGL; call it before drawing and after every change.
     For mipmaps, bind the texture and set `gl.GENERATE_MIPMAP` to `gl.TRUE` before it, then
-    choose a `*_MIPMAP_*` minification filter ([altreal/view3d.js](altreal/view3d.js) does)
+    choose a `*_MIPMAP_*` minification filter
   * `draw(texL, texR, texT, texB, scrL, scrR, scrT, scrB, z = -2)` - draws the texture on a quad
 * `gl.drawTriangles(positions, normals)` - draws `GL_TRIANGLES` from flat `Float32Array`s (x, y, z
-  per vertex; `normals` may be omitted) in a single call. [yoomp/obj.js](yoomp/obj.js) loads
-  Wavefront `.obj`/`.mtl` models into that form
+  per vertex; `normals` may be omitted) in a single call, for models
 * `gl.readPixels(x, y, width, height)` - the framebuffer as a `Uint8Array` of RGBA bytes, rows
   bottom-up, in window pixels; for test scripts that want to look at what was drawn
-* [smooth2d.js](smooth2d.js): `createSmoother(pixelW, pixelH)` reads a screen region back at a game's
-  pixel grid, upscales it with Scale2x twice and draws it over its place (Alternate Reality, Numen)
 * `gl.drawScreen(x0, y0, x1, y1, left, right, top, bottom, z = -2)` - draws that region of the
   emulated screen (pixels of the displayed area, y down; `gl.screenSize()` gives its size) onto
-  a rectangle in GL coordinates, with linear filtering: for rearranging the game's screen, like
-  the wide layout of Alternate Reality
+  a rectangle in GL coordinates, with linear filtering: for rearranging the game's screen
 
 ### The extension object
 
@@ -159,14 +166,14 @@ doubles as the extension's state:
 `A8_EXT_SELECT=<part of the name>` in the environment activates the matching extension as
 soon as its fingerprint matches, without going through the TAB menu:
 
-    A8_EXT_SELECT=ZYBEX build/src/atari800 -state zyb.a8s
+    A8_EXT_SELECT=SELF-TEST build/src/atari800 -nobasic data/ext/selftest/selftest.xex
 
 Input can be scripted with atari800's `-playback file` (`-playbacknoexit` keeps running at
 the end). The file is plain text: the line `Atari800 event recording, version: 1`, one line
 with the POKEY random seed (`0`), then per frame eight lines: `key shift consol` (`-1 0 7`
 for nothing), the ports 0/1 and 2/3 joystick bytes (`255` centred; stick 0 forward is `254`,
 right `247`), four trigger lines (`1` = released) and a screen checksum (`00000000`, the
-mismatch is only logged). This is how the walks in the Alternate Reality notes were measured.
+mismatch is only logged). This is how walks through a game can be replayed exactly.
 
 Tests that do not need the OpenGL view can run without a window: SDL's dummy drivers
 (`SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy`) with `-no-video-accel` give a software video mode
@@ -199,87 +206,23 @@ and `gl` implemented on WebGL 2. An extension needs nothing special for it, as l
 to the API above: the files it reads must be in its own directory (they are fetched when it is
 activated), and what it draws must go through `gl`.
 
-# Games extended (in order of creation)
+## The self-test extension
 
-These games are also discussed in [this video on YouTube](https://www.youtube.com/watch?v=075qLp5kIlc).
+[selftest/](selftest/init.js) is an extension for a 22-byte Atari program of its own
+(`selftest.xex`: a loop that calls a routine filling a page of memory). It uses nearly every
+call of the API on that program, checks what comes back, prints a line per check on the
+console and shows the result on the screen:
 
-* Yoomp: [yoomp/init.js](yoomp/init.js) (originally in C, now JavaScript)
-  * various 3D balls
-  * one high-res background
-* Mercenary: [mercenary/init.js](mercenary/init.js), [mercenary.md](mercenary/mercenary.md) (originally in C, now JavaScript)
-  * accelerated Atari-like line drawing
-  * the 3D scene redrawn with OpenGL from the game's own geometry: exact vertex positions
-    and view angles are read as the game projects them, the transform is redone in floating
-    point, and edges are drawn between sub-pixel end points (3 line styles)
-  * faces found in each model's edge graph (coplanar chordless cycles) and drawn as translucent
-    "glass" or shaded polygons under the lines
-  * the 3D window as a scene ([mercenary/view3d.js](mercenary/view3d.js)), each part its own option:
-    sky and a ground plane with an exact horizon instead of the game's row-by-row fill, lines as
-    ribbons that thin out with distance, ground marks cut at the horizon as the game's pen trick
-    cuts them, rooms drawn solid, a light grain over ground and faces, fog and lighting
-* Zybex: [zybex/init.js](zybex/init.js), [zybex.md](zybex/zybex.md) (originally in C, now JavaScript)
-  * scrolling background (grayscale and color modes)
-* Behind Jaggi Lines: [bjl/init.js](bjl/init.js) (originally in C, now JavaScript)
-  * faster rendering
-* Alternate Reality: [altreal/init.js](altreal/init.js), [altreal.md](altreal/altreal.md) (originally in C, now JavaScript)
-  * faster rendering
-  * smooth walking: small steps instead of five big ones per cell, at the game's own speed or
-    1.5, 2 or 3 times it (needs the acceleration, see the notes for how the engine moves), and
-    one quarter turn per push of the stick
-  * the maze redrawn with OpenGL ([altreal/view3d.js](altreal/view3d.js)): the level map is read
-    from memory and drawn with the game's own projection (so both views agree), plus fog,
-    shading and interpolated steps and turns, with the game's monster sprites drawn over it;
-    the walls, doors
-    and arches carry the game's own art, decoded from its memory in the game's current colours
-    (so the picture flashes when the game flashes it), optionally upscaled 4x with Scale2x
-    (the monster sprites too), and
-    arches open onto what lies beyond. A wide layout puts the view over the whole width with the
-    game's texts and compass shrunk above and below it
-  * the game's own pictures, shop interiors and the Atari view, smoothed the same way
-    ([altreal/smooth2d.js](altreal/smooth2d.js)): read back from the framebuffer at the game's
-    pixel grid, upscaled and drawn over their place
-  * an automatic map ([altreal/automap.js](altreal/automap.js)): the cells visited and seen are
-    remembered, the M key shows the level's map with walls, doors, arches, the player, the kinds
-    of the cells named from the game's own location line, and marks set with the digit keys; the
-    record is a file per character in `altreal/maps/`, so it survives states and restarts
-  * no disk swapping: boot from side 1 as usual, then the game's sector reads are served from the
-    five disk images placed in `altreal/` ([altreal/disks.js](altreal/disks.js)), so "Please
-    insert Disk..." never comes up (the game only ever reads)
-    The notes document the engine: map, movement, picture buffer, art and renderer
-* Numen: [numen/init.js](numen/init.js), [numen/world3d.js](numen/world3d.js) (the demo's sector levels drawn with OpenGL), [numen.md](numen/numen.md)
-  * the 3D scenes drawn again with OpenGL ([numen/world3d.js](numen/world3d.js)): the demo's engine is a
-    sector renderer, and its level tables (sectors with floor and ceiling heights, walls, sprites, the
-    backdrop) are read from memory and drawn through the demo's own camera at the window's resolution,
-    with the camera gliding between the demo's positions; optional shading, shadows and a light fog,
-    the view over the whole picture, a ground texture (a grain, dithers as tiles) and smooth edges.
-    Works for the forest and the maze; the notes document the engine's tables and projection
-  * the demo's 3D scenes run about ten times faster: the hottest code, found with the emulator's profile,
-    runs in no emulated time (`createAccelerator` in [common.js](common.js), usable by any game)
-  * their picture smoothed with Scale2x over the scene's 4 x 4 pixel grid ([smooth2d.js](smooth2d.js),
-    the shared smoother that Alternate Reality's shops use too)
-* Robbo: [robbo/init.js](robbo/init.js), [robbo.md](robbo/robbo.md)
-  * the level drawn with OpenGL in a slight perspective ([robbo/view3d.js](robbo/view3d.js)): the
-    floor in the level's colour, walls as blocks, the other tiles as cards above the floor with
-    shadows, the art upscaled with Scale2x, the camera following the game's scrolling
-* River Raid: [river-raid/init.js](river-raid/init.js), [river-raid.md](river-raid/river-raid.md) (originally in C, now JavaScript)
-  * 3D rendering
-  * custom sounds example
+    A8_EXT_SELECT=SELF-TEST build/src/atari800 -nobasic data/ext/selftest/selftest.xex
 
-## Reverse-engineering games
+It checks the memory view, the hardware-aware peek and poke, the register getters, the palette,
+the extension's own files, code injections with every kind of answer (let the code run, skip
+it, run it on the fake CPU in each of its four ways), changing the injections at run time, and
+then the drawing: quads, textures from pixels and from a file, blending, the matrix stacks,
+fog, scissor and the attribute stack, `drawTriangles`, `drawScreen` and lines, each by reading
+the framebuffer back. Without an OpenGL display (the dummy drivers above) the drawing checks
+are skipped and said so. The same extension runs in the web build, where the page offers it,
+so it tests the browser's `a8` and `gl` as well.
 
-The best way to detect where the time is going is to use the
-`TRACE` functionality of Atari800:
-* start a game
-* enter the monitor (`F8`)
-* type: `trace file.trace` - this starts recording the trace to `file.trace`.
-* type: `cont` - this returns to the game
-* play for some time (not too long, a few seconds should be enough)
-* enter the monitor again (`F8`)
-* type: `trace` - this stops the recording
-* type: `quit`
-
-Now, you can use the provided helper tool to analyze the `file.trace`, by running:
-
-    tools/trace-postprocess.py < file.trace
-
-This will show the memory areas where we spend most time (based on how often code is execute there).
+It is also the example to start from: a fingerprint, a menu, all the hooks, files found
+through `a8.extDir`.
