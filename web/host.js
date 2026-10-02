@@ -60,7 +60,36 @@ const shim = makeGl(g, { width: SCREEN_W, height: SCREEN_H });
 /* ------------------------------ sound ------------------------------ */
 
 let audio = null, output = null, playhead = 0;
-const soundOn = () => $("sound").checked;
+// The switches are buttons, lit when on. A short press changes one for good;
+// a press held for half a second or more changes it only for as long as it is
+// held (Pause to look at one moment, Turbo to skip ahead, Extensions to compare)
+const switches = { extensions: true, sound: true, pause: false, turbo: false }, HOLD = 500;
+function setSwitch(id, on) {
+	switches[id] = on;
+	$(id).classList.toggle("on", on); $(id).setAttribute("aria-pressed", String(on));
+	if (id === "sound") showSoundHint();
+}
+for (const id of Object.keys(switches)) {
+	const button = $(id);
+	let pressedAt = 0;
+	button.addEventListener("pointerdown", (e) => {
+		if (e.button) return;
+		pressedAt = performance.now();
+		try { button.setPointerCapture(e.pointerId); } catch (error) { /* the release then has to happen on the button */ }
+		setSwitch(id, !switches[id]);
+	});
+	const release = () => {
+		if (pressedAt === 0) return;
+		const held = performance.now() - pressedAt;
+		pressedAt = 0;
+		if (held >= HOLD) setSwitch(id, !switches[id]);   // it was held: back to what it was
+		button.blur();   // the space bar is the Atari's
+	};
+	button.addEventListener("pointerup", release); button.addEventListener("pointercancel", release);
+	button.addEventListener("click", (e) => e.preventDefault());
+	button.classList.toggle("on", switches[id]); button.setAttribute("aria-pressed", String(switches[id]));
+}
+const soundOn = () => switches.sound;
 // A browser keeps a page silent until the visitor has clicked or pressed a key: the sound is there but
 // suspended. The page says so over the picture until it runs
 const showSoundHint = () => { $("sound-hint").hidden = !(audio !== null && audio.state !== "running" && soundOn()); };
@@ -70,8 +99,6 @@ try {
 	audio.addEventListener("statechange", () => { log(`sound: ${audio.state}`); showSoundHint(); });
 	log(`sound: ${audio.state}` + (audio.state === "running" ? "" : ", waiting for a click or a key"));
 } catch (e) { audio = null; log(`no sound: ${e.message}`); }
-$("sound").addEventListener("change", showSoundHint);
-for (const id of ["sound", "pause", "turbo", "extensions"]) $(id).addEventListener("change", (e) => e.target.blur());   // the space bar is the Atari's
 showSoundHint();
 function startAudio() {
 	if (audio !== null && audio.state === "suspended") audio.resume().then(showSoundHint, () => { });
@@ -96,7 +123,7 @@ const held = new Set();
 let lastKey = null;
 const SUSPEND = "ShiftLeft";   // held: the extensions are off, to see the program as it is (the Atari's Shift is the right one)
 const suspended = () => held.has(SUSPEND);
-const showSuspended = () => $("extensions-label").classList.toggle("suspended", suspended());
+const showSuspended = () => $("extensions").classList.toggle("suspended", suspended());
 window.addEventListener("keydown", (e) => {
 	startAudio();
 	if (e.target instanceof HTMLSelectElement || e.target instanceof HTMLInputElement && e.target.type !== "checkbox") return;
@@ -196,7 +223,7 @@ let sourceBase = null;
 if (listing.includes("ext/extensions.json")) { try { sourceBase = (await (await fetch("ext/extensions.json")).json()).source || null; } catch (e) { /* none */ } }
 
 let active = null, loading = null, pending = null, failed = false;
-const extensionsOn = () => $("extensions").checked && !suspended();
+const extensionsOn = () => switches.extensions && !suspended();
 const matches = (ext) => { const f = ext.fingerprint, mem = a8.mem; return f && f.bytes.every((b, i) => mem[f.address + i] === b); };
 const wanted = params.get("ext");
 
@@ -394,7 +421,7 @@ function emulateFrame() {
 	sendInput();
 	M._web_frame();
 	frames++;
-	if (!$("turbo").checked) playFrame();
+	if (!switches.turbo) playFrame();
 	if (!extensionsOn()) return;
 	if (active === null && loading === null) {
 		const ext = extensions.find((e) => (!wanted || e.name.includes(wanted) || e.dir.endsWith("/" + wanted)) && matches(e));
@@ -408,9 +435,9 @@ let last = performance.now(), owed = 0;
 function tick(now) {
 	const period = 1000 / (M._web_is_pal() ? 49.8607 : 59.9227);
 	let ran = 0;
-	$("pause-hint").hidden = !$("pause").checked;
-	if ($("pause").checked) owed = 0;   // the picture stays as it is
-	else if ($("turbo").checked) {
+	$("pause-hint").hidden = !switches.pause;
+	if (switches.pause) owed = 0;   // the picture stays as it is
+	else if (switches.turbo) {
 		// as many frames as fit in most of a display frame
 		const until = performance.now() + 12;
 		do { emulateFrame(); ran++; } while (performance.now() < until && ran < 500);

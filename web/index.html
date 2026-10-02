@@ -51,9 +51,12 @@
 	.toggle span + span { border-left: none; }
 	.toggle span.on { color: var(--ground); background: var(--accent); border-color: var(--accent); }
 	.toggle:hover span:not(.on) { border-color: var(--dim); }
-	label.check { display: block; }
-	label.check.suspended { color: var(--dim); text-decoration: line-through; }
-	label.check small { color: var(--dim); }
+	/* the switches: buttons, lit when on */
+	.switches { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+	.switch { padding: 6px 4px; color: var(--dim); user-select: none; -webkit-user-select: none; touch-action: none; }
+	.switch.on { color: var(--ground); background: var(--accent); border-color: var(--accent); font-weight: bold; }
+	.switch.suspended { opacity: 0.45; text-decoration: line-through; }
+	.note { display: block; margin-top: 6px; color: var(--dim); font-size: 11px; }
 	#demos { display: grid; gap: 4px; margin-top: 6px; }
 	a { color: var(--accent); }
 	dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; margin: 0; }
@@ -96,10 +99,13 @@
 		</section>
 		<section>
 			<h2>Switches</h2>
-			<label class="check" id="extensions-label"><input type="checkbox" id="extensions" checked> Extensions <small>(left Shift to temporarily disable)</small></label>
-			<label class="check"><input type="checkbox" id="sound" checked> Sound</label>
-			<label class="check"><input type="checkbox" id="pause"> Pause</label>
-			<label class="check"><input type="checkbox" id="turbo"> Turbo <small>(as fast as it goes, silent)</small></label>
+			<div class="switches">
+				<button class="switch" id="extensions" title="The game extensions. Left Shift held turns them off too">Extensions</button>
+				<button class="switch" id="sound">Sound</button>
+				<button class="switch" id="pause" title="Stops the emulation">Pause</button>
+				<button class="switch" id="turbo" title="As fast as it goes, without sound">Turbo</button>
+			</div>
+			<small class="note">A press switches. Held, it lasts while it is held. Left Shift held: no extensions.</small>
 			<button id="fullscreen" style="margin-top: 8px">Full screen</button>
 		</section>
 		<section>
