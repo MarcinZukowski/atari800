@@ -21,6 +21,8 @@ build, unchanged.
     binding (immediate mode, matrix stacks, one texture modulated by the
     colour, blending, fog, scissor, the attribute stack) on WebGL 2, with one
     shader. Each `Begin`/`End` pair is one draw call.
+* `a8.host` is `"web"` here, and `a8.panel` is an element beside the menu that the active
+  extension may fill with controls of its own.
 * `std` and `os`, which a few scripts import for files, are small modules
   ([std.js](std.js), [os.js](os.js)) reached through the page's import map.
   An extension's data files are fetched when its fingerprint is found, before

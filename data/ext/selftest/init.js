@@ -86,6 +86,16 @@ function testMachine() {
 		check("a8.loadSound", beep !== null && typeof beep.play === "function");
 	});
 	attempt("a8.accelerationDisabled", () => check("a8.accelerationDisabled", typeof a8.accelerationDisabled() === "boolean"));
+	attempt("a8.host, a8.panel", () => {
+		// In a browser the extension has an element of its own in the page; natively there is none
+		const web = a8.host === "web";
+		if (web && a8.panel !== null) {
+			const note = document.createElement("div");
+			note.textContent = "The self-test wrote this line into its panel.";
+			a8.panel.append(note);
+		}
+		check("a8.host, a8.panel", web ? a8.panel !== null && a8.panel.childElementCount === 1 : a8.host === "native" && a8.panel === null, a8.host);
+	});
 }
 
 /* ------------------------------ code injections and the fake CPU ------------------------------ */

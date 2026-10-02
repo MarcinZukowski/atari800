@@ -25,6 +25,8 @@ export function makeA8(M, host) {
 	let fpsValue = -1, fpsFrames = 0, fpsShown = 0;
 
 	return {
+		host: "web",
+		panel: null,   // the active extension's own element in the page; the host sets it
 		mem: new Uint8Array(heap, M._web_mem(), 0x10000),
 		palette,
 		cpu, antic, gtia,

@@ -53,6 +53,15 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
 
 ### `a8` - the emulator
 
+* `a8.host` - where the scripts run: `"native"` in the emulator, `"web"` in the
+  [web build](#in-the-browser), where an extension is an ordinary module of the page and may
+  use what a page has. `a8.panel` is then an element of the page that belongs to the active
+  extension, empty when it is activated, for controls of its own (a file picker, a slider, a
+  map); natively it is `null`. Anything that needs the page must be an addition: the
+  [menu](#the-extension-object) is the user interface that works everywhere.
+  ```js
+  if (a8.host === "web") { const button = document.createElement("button"); a8.panel.append(button); }
+  ```
 * `a8.extDir` - the directory of the extension being loaded or activated, for the files it
   ships; a script reads it at the top of its modules:
   ```js

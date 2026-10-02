@@ -25,8 +25,22 @@ class File {
 	close() {
 		if (!this.writing) return;
 		files.set(this.path, this.bytes);
-		try { localStorage.setItem(STORE + this.path, btoa(String.fromCharCode(...this.bytes))); } catch (e) { /* no storage: the file lives as long as the page */ }
+		try { localStorage.setItem(STORE + this.path, toBase64(this.bytes)); } catch (e) { /* no storage: the file lives as long as the page */ }
 	}
+}
+
+// (in pieces: a large array cannot be spread into one call)
+function toBase64(bytes) {
+	let text = "";
+	for (let i = 0; i < bytes.length; i += 0x8000) text += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+	return btoa(text);
+}
+
+// For os.remove: forgets a file and what was stored of it
+export function forget(path) {
+	const had = files.delete(path);
+	try { if (localStorage.getItem(STORE + path) !== null) { localStorage.removeItem(STORE + path); return true; } } catch (e) { /* no storage */ }
+	return had;
 }
 
 function stored(path) {

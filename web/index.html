@@ -21,6 +21,8 @@
 	#extension { color: var(--accent); }
 	#menu { display: grid; gap: 6px; margin-top: 8px; }
 	#menu label { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+	#panel:not(:empty) { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--edge); display: grid; gap: 6px; }
+	button { font: inherit; color: var(--ink); background: var(--ground); border: 1px solid var(--edge); padding: 2px 8px; cursor: pointer; }
 	select, input[type=file] { font: inherit; color: var(--ink); background: var(--ground); border: 1px solid var(--edge); padding: 2px 4px; max-width: 100%; }
 	label.check { display: block; }
 	#demos { display: grid; gap: 4px; }
@@ -42,6 +44,7 @@
 			<h1>atari800 <span id="fps"></span></h1>
 			<div>Extension: <span id="extension">none</span></div>
 			<div id="menu"></div>
+			<div id="panel"></div>
 		</section>
 		<section>
 			<h2>Program</h2>

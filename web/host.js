@@ -168,6 +168,9 @@ async function activate(ext) {
 	// the menu can be preset from the address: ?menu=KEY:2,OTHER:0
 	for (const part of (params.get("menu") || "").split(",").filter(Boolean)) { const [key, value] = part.split(":"); if (ext.menu && ext.menu[key]) ext.menu[key].current = +value; }
 	buildMenu(ext);
+	// its own corner of the page, empty: a8.panel, for whatever it wants to add there
+	$("panel").textContent = "";
+	a8.panel = $("panel");
 	a8.extDir = ext.dir;
 	a8.setCodeInjections(ext.codeInjections || []);
 	hook("onActivate");
@@ -177,7 +180,8 @@ async function activate(ext) {
 function deactivate() {
 	active = loading = null; failed = false;
 	a8.setCodeInjections([]);
-	$("extension").textContent = "none"; $("menu").textContent = ""; $("fps").textContent = "";
+	a8.panel = null;
+	$("extension").textContent = "none"; $("menu").textContent = ""; $("panel").textContent = ""; $("fps").textContent = "";
 }
 
 M.onCodeInjection = (pc, op) => {
