@@ -63,11 +63,13 @@ let audio = null, output = null, playhead = 0;
 // The switches are buttons, lit when on. A short press changes one for good;
 // a press held for half a second or more changes it only for as long as it is
 // held (Pause to look at one moment, Turbo to skip ahead, Extensions to compare)
-const switches = { extensions: true, sound: true, pause: false, turbo: false }, HOLD = 500;
+const switches = { extensions: true, sound: true, pause: false, turbo: false, fps: false }, HOLD = 500;
+const fpsCount = { frames: 0, since: performance.now() };
 function setSwitch(id, on) {
 	switches[id] = on;
 	$(id).classList.toggle("on", on); $(id).setAttribute("aria-pressed", String(on));
 	if (id === "sound") showSoundHint();
+	if (id === "fps") { $("fps-hint").hidden = !on; fpsCount.frames = 0; fpsCount.since = performance.now(); }
 }
 for (const id of Object.keys(switches)) {
 	const button = $(id);
@@ -188,7 +190,7 @@ const fileBytes = async (url) => { const r = await fetch(url); if (!r.ok) throw 
 
 globalThis.a8 = makeA8(M, {
 	accelerationDisabled: () => suspended(),
-	showFps: (text) => { $("fps").textContent = text; },
+	showFps: (text) => { $("ext-fps").textContent = text; },
 	files,
 	audio: () => audio !== null && audio.state === "running" && soundOn() ? audio : null,
 });
@@ -290,7 +292,7 @@ function deactivate() {
 	active = loading = null; failed = false;
 	a8.setCodeInjections([]);
 	a8.panel = null;
-	$("extension").textContent = "none"; $("menu").textContent = ""; $("panel").textContent = ""; $("fps").textContent = ""; $("source").hidden = true;
+	$("extension").textContent = "none"; $("menu").textContent = ""; $("panel").textContent = ""; $("ext-fps").textContent = ""; $("source").hidden = true;
 }
 
 M.onCodeInjection = (pc, op) => {
@@ -430,6 +432,15 @@ function emulateFrame() {
 	hook("onFrame");
 }
 
+// How many Atari frames a second the emulation runs (the Atari fps switch): counted over the last half second
+function showFps(now, period) {
+	const elapsed = now - fpsCount.since;
+	if (elapsed < 500) return;
+	const fps = fpsCount.frames * 1000 / elapsed, speed = fps * period / 1000;
+	$("fps-hint").textContent = `Atari ${fps.toFixed(fps >= 100 ? 0 : 1)} fps (${speed.toFixed(speed >= 10 ? 0 : 2)}\u00d7)`;
+	fpsCount.frames = 0; fpsCount.since = now;
+}
+
 // The emulator's frames are paced by the clock, not by the display's refresh: 49.86 a second in PAL, 59.92 in NTSC
 let last = performance.now(), owed = 0;
 function tick(now) {
@@ -448,6 +459,8 @@ function tick(now) {
 		while (owed >= period) { emulateFrame(); owed -= period; ran++; }
 	}
 	last = now;
+	fpsCount.frames += ran;
+	if (switches.fps) showFps(now, period);
 	if (ran) showFrame();
 	requestAnimationFrame(tick);
 }

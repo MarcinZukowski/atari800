@@ -21,6 +21,7 @@
 	.hint { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); padding: 5px 14px; border: 1px solid var(--accent); border-radius: 999px;
 		background: rgba(21, 21, 19, 0.85); color: var(--accent); white-space: nowrap; pointer-events: none; }
 	#pause-hint { bottom: auto; top: 18px; }
+	#fps-hint { bottom: auto; left: auto; top: 18px; right: 18px; transform: none; font-variant-numeric: tabular-nums; }
 	.bar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-content: start; padding: 12px; overflow-y: auto; background: var(--ground); }
 	#general { border-right: 1px solid var(--edge); }
 	#program { border-left: 1px solid var(--edge); }
@@ -29,7 +30,7 @@
 	#build { color: var(--dim); font-size: 11px; }
 	h2 { font-size: 11px; margin: 0 0 8px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.12em; font-weight: normal; }
 	#extension { color: var(--accent); }
-	#fps { color: var(--dim); float: right; }
+	#ext-fps { color: var(--dim); float: right; }
 	#menu { display: grid; gap: 7px; margin-top: 10px; }
 	#menu label { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
 	#panel:not(:empty) { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--edge); display: grid; gap: 6px; }
@@ -53,7 +54,8 @@
 	.toggle:hover span:not(.on) { border-color: var(--dim); }
 	/* the switches: buttons, lit when on */
 	.switches { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-	.switch { padding: 6px 4px; color: var(--dim); user-select: none; -webkit-user-select: none; touch-action: none; }
+	.switches button { padding: 6px 4px; white-space: nowrap; }
+	.switch { color: var(--dim); user-select: none; -webkit-user-select: none; touch-action: none; }
 	.switch.on { color: var(--ground); background: var(--accent); border-color: var(--accent); font-weight: bold; }
 	.switch.suspended { opacity: 0.45; text-decoration: line-through; }
 	.note { display: block; margin-top: 6px; color: var(--dim); font-size: 11px; }
@@ -104,9 +106,10 @@
 				<button class="switch" id="sound">Sound</button>
 				<button class="switch" id="pause" title="Stops the emulation">Pause</button>
 				<button class="switch" id="turbo" title="As fast as it goes, without sound">Turbo</button>
+				<button class="switch" id="fps" title="Shows how many Atari frames a second the emulation runs">Atari fps</button>
+				<button id="fullscreen">Full screen</button>
 			</div>
 			<small class="note">A press switches. Held, it lasts while it is held. Left Shift held: no extensions.</small>
-			<button id="fullscreen" style="margin-top: 8px">Full screen</button>
 		</section>
 		<section>
 			<h2>Keys</h2>
@@ -131,10 +134,11 @@
 		<div id="drop">Drop a saved state (.a8s), a disk image or a program here,<br>or choose one under Program.</div>
 		<div id="sound-hint" class="hint" hidden>Click or press a key for sound</div>
 		<div id="pause-hint" class="hint" hidden>Paused</div>
+		<div id="fps-hint" class="hint" hidden></div>
 	</div>
 	<aside id="program" class="bar">
 		<section>
-			<h2>Extension <span id="fps"></span></h2>
+			<h2>Extension <span id="ext-fps"></span></h2>
 			<div id="extension">none</div>
 			<a id="source" class="button" target="_blank" rel="noopener" hidden>Source on GitHub</a>
 			<div id="menu"></div>

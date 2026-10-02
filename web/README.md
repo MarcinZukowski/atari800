@@ -76,10 +76,13 @@ left Ctrl are the Atari's Shift and Control. Holding left Shift turns the
 extensions off for as long as it is held, to compare with the program as it
 is.
 
-The switches (Extensions, Sound, Pause, Turbo) are buttons, lit when on. A
-short press changes one; a press held for half a second or more changes it
-only for as long as it is held. Pause stops the emulation with the picture
-as it is; Turbo runs it as fast as the browser manages, without sound.
+The switches (Extensions, Sound, Pause, Turbo, Atari fps) are buttons, lit
+when on. A short press changes one; a press held for half a second or more
+changes it only for as long as it is held. Pause stops the emulation with
+the picture as it is; Turbo runs it as fast as the browser manages, without
+sound. Atari fps shows, over the picture, how many Atari frames a second
+the emulation runs and the speed that is, counted over the last half second:
+useful with Turbo.
 
 `make serve` serves with `serve.py`, which tells the browser to ask before
 reusing a file, so a rebuilt site shows on a plain reload; the page says
