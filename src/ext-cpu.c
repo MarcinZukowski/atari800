@@ -60,10 +60,12 @@ void ext_set_code_injections(const int *addresses, int count)
 
 /* ======================================== FAKE CPU ======================================== */
 
-/* Runs instructions with interrupts and ANTIC stopped, so that they take no
-   emulated time and leave everything but the CPU state untouched. */
+/* Runs instructions with ANTIC stopped and interrupts deferred (the CPU does
+   not service IRQs while ext_cpu_faking is set, and ANTIC raises no NMI
+   since no time passes), so that they take no emulated time and leave
+   everything but the CPU state untouched. The IRQ line itself is left to
+   the hardware: code run this way may acknowledge or enable an interrupt. */
 
-static int prev_CPU_IRQ;
 static int prev_ANTIC_wsync_halt;
 static int prev_ANTIC_cur_screen_pos;
 static int prev_ANTIC_xpos;
@@ -77,7 +79,6 @@ static void fakecpu_begin(void)
 {
 	assert(!ext_cpu_faking);
 	ext_cpu_faking = 1;
-	prev_CPU_IRQ = CPU_IRQ;
 	prev_ANTIC_wsync_halt = ANTIC_wsync_halt;
 	prev_ANTIC_cur_screen_pos = ANTIC_cur_screen_pos;
 	prev_ANTIC_xpos = ANTIC_xpos;
@@ -91,7 +92,6 @@ static void fakecpu_begin(void)
 static void fakecpu_step(void)
 {
 	assert(ext_cpu_faking);
-	CPU_IRQ = 0;
 	ANTIC_wsync_halt = 0;
 	ANTIC_cur_screen_pos = ANTIC_NOT_DRAWING;
 	ANTIC_xpos = 0;
@@ -105,7 +105,6 @@ static void fakecpu_step(void)
 static void fakecpu_end(void)
 {
 	ANTIC_wsync_halt = prev_ANTIC_wsync_halt;
-	CPU_IRQ = prev_CPU_IRQ;
 	ANTIC_cur_screen_pos = prev_ANTIC_cur_screen_pos;
 	ANTIC_xpos = prev_ANTIC_xpos;
 	ANTIC_xpos_limit = prev_ANTIC_xpos_limit;

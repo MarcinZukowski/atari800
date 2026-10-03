@@ -45,6 +45,15 @@ static int num_extensions = 0;
 /* The active extension, if any */
 static ext_extension *current = NULL;
 
+/* An extension stays active only while its fingerprint is in memory: when
+   the program moves on to something else (or is replaced), its hooks and
+   code injections must stop. A program may hide the fingerprint for a
+   moment (a bank switched out), hence the grace. The extension the user
+   chose comes back by itself when its program does. */
+#define GONE_FRAMES 50
+static ext_extension *chosen = NULL;
+static int gone = 0;
+
 static int inside_menu = 0;
 static int alt_held = 0;    /* extensions off while held */
 static int ctrl_held = 0;   /* acceleration off while held */
@@ -109,10 +118,15 @@ void ext_register(ext_extension *ext)
 	extensions[num_extensions++] = ext;
 }
 
+static int fingerprint_present(const ext_extension *ext)
+{
+	return memcmp(MEMORY_mem + ext->fp_address, ext->fp_bytes, ext->fp_size) == 0;
+}
+
 /* Does the program in memory match the extension? Runs onActivate() if so. */
 static int detect(ext_extension *ext)
 {
-	if (memcmp(MEMORY_mem + ext->fp_address, ext->fp_bytes, ext->fp_size) != 0)
+	if (!fingerprint_present(ext))
 		return 0;
 	if (ext_js_has_hook(ext, EXT_HOOK_ACTIVATE))
 		ext_js_call_hook(ext, EXT_HOOK_ACTIVATE);
@@ -123,7 +137,8 @@ static void activate(ext_extension *ext)
 {
 	int i = 0;
 
-	current = ext;
+	current = chosen = ext;
+	gone = 0;
 	printf("Active extension: %s\n", ext->name);
 
 	if (ext->injection_list != NULL)
@@ -131,6 +146,13 @@ static void activate(ext_extension *ext)
 			i++;
 	ext_set_code_injections(ext->injection_list, i);
 	printf("%d code injection address(es)\n", i);
+}
+
+static void deactivate(void)
+{
+	printf("%s: the program is gone\n", current->name);
+	ext_set_code_injections(NULL, 0);
+	current = NULL;
 }
 
 void ext_init(void)
@@ -205,7 +227,17 @@ void ext_frame(void)
 	if (inside_menu || alt_held)
 		return;
 
-	if (preselect_name != NULL && current == NULL) {
+	if (current != NULL) {
+		if (fingerprint_present(current))
+			gone = 0;
+		else if (++gone >= GONE_FRAMES)
+			deactivate();
+	}
+	else if (chosen != NULL) {
+		if (detect(chosen))
+			activate(chosen);
+	}
+	else if (preselect_name != NULL) {
 		int i;
 		for (i = 0; i < num_extensions; i++) {
 			if (strstr(extensions[i]->name, preselect_name) != NULL && detect(extensions[i])) {

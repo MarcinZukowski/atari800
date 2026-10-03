@@ -227,6 +227,11 @@ if (listing.includes("ext/extensions.json")) { try { sourceBase = (await (await 
 let active = null, loading = null, pending = null, failed = false;
 const extensionsOn = () => switches.extensions && !suspended();
 const matches = (ext) => { const f = ext.fingerprint, mem = a8.mem; return f && f.bytes.every((b, i) => mem[f.address + i] === b); };
+// An extension stays active only while its fingerprint is in memory: when the program
+// moves on to something else (or is replaced), its hooks and code injections must stop.
+// A program may hide the fingerprint for a moment (a bank switched out), hence the grace
+const GONE_FRAMES = 50;
+let gone = 0;
 const wanted = params.get("ext");
 
 function hook(name, ...args) {
@@ -271,7 +276,7 @@ async function activate(ext) {
 		if (!files.has(path)) { try { files.set(path, await fileBytes(path)); } catch (e) { log(e.message); } }
 	}
 	if (loading !== ext) return;   // something else was loaded meanwhile
-	loading = null; failed = false; active = ext;
+	loading = null; failed = false; active = ext; gone = 0;
 	$("extension").textContent = ext.name;
 	const source = ext.source || (sourceBase ? sourceBase.replace(/\/$/, "") + "/" + ext.dir.split("/").pop() : null);
 	$("source").hidden = source === null;
@@ -428,6 +433,10 @@ function emulateFrame() {
 	if (active === null && loading === null) {
 		const ext = extensions.find((e) => (!wanted || e.name.includes(wanted) || e.dir.endsWith("/" + wanted)) && matches(e));
 		if (ext) pending = activate(ext).finally(() => { pending = null; });
+	}
+	else if (active !== null) {
+		if (matches(active)) gone = 0;
+		else if (++gone >= GONE_FRAMES) { log(`${active.name}: the program is gone`); deactivate(); return; }
 	}
 	hook("onFrame");
 }

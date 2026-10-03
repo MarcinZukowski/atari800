@@ -404,9 +404,17 @@ void CPU_NMI(void)
 #define CPUCHECKIRQ_RESTORE_S	CPU_regS = S
 #endif
 
+/* An extension's fake CPU run (ext_fakecpu_*) defers interrupts: the IRQ
+   line keeps the state the hardware gives it, serviced once the run is over */
+#ifdef WITH_EXT
+#define CPU_IRQ_PENDING (CPU_IRQ && !ext_cpu_faking)
+#else
+#define CPU_IRQ_PENDING CPU_IRQ
+#endif
+
 /* Check pending IRQ, helps in (not only) Lucasfilm games */
 #define CPUCHECKIRQ \
-	if (CPU_IRQ && !(CPU_regP & CPU_I_FLAG) && ANTIC_xpos < ANTIC_xpos_limit) { \
+	if (CPU_IRQ_PENDING && !(CPU_regP & CPU_I_FLAG) && ANTIC_xpos < ANTIC_xpos_limit) { \
 		CPUCHECKIRQ_SAVE_S; \
 		PHPC; \
 		PHPB0; \

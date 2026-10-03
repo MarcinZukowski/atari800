@@ -158,7 +158,9 @@ doubles as the extension's state:
 
 * `name` - shown in the extensions menu
 * `fingerprint: { address, bytes }` - the extension is activated when the bytes at `address`
-  in Atari memory equal `bytes`
+  in Atari memory equal `bytes`. It stays active while they do: once they have been gone for
+  50 frames (a program may hide them for a moment, a bank switched out), the extension is
+  deactivated, and comes back by itself when its program does
 * `onActivate()` (optional) - called once the fingerprint matched, with the program in memory
 * `onFrame()` (optional) - called once per Atari frame, with or without OpenGL (headless runs too)
 * `onPreGlFrame()` (optional) - called before the Atari screen is converted for OpenGL
