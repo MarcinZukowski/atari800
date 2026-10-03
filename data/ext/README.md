@@ -57,8 +57,11 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
   [web build](#in-the-browser), where an extension is an ordinary module of the page and may
   use what a page has. `a8.panel` is then an element of the page that belongs to the active
   extension, empty when it is activated, for controls of its own (a file picker, a slider, a
-  map); natively it is `null`. Anything that needs the page must be an addition: the
-  [menu](#the-extension-object) is the user interface that works everywhere.
+  map), and `a8.overlay` an element over the picture for things to show on it: an element of
+  class `pill` in it is a small button like the page's own (class `on` lights it), one of class
+  `box` a panel, each placed with its own `top`/`left`/`right`/`bottom`. Natively both are `null`.
+  Anything that needs the page must be an addition: the [menu](#the-extension-object) is the
+  user interface that works everywhere.
   ```js
   if (a8.host === "web") { const button = document.createElement("button"); a8.panel.append(button); }
   ```

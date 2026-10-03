@@ -50,6 +50,9 @@ function fitCanvas() {
 	canvas.style.width = w + "px"; canvas.style.height = h + "px";
 	const bw = Math.round(w * density), bh = Math.round(h * density);
 	if (canvas.width !== bw || canvas.height !== bh) { canvas.width = bw; canvas.height = bh; }
+	// the extension's overlay covers the picture, not the black around it
+	const overlay = $("overlay"), left = Math.floor((stage.clientWidth - w) / 2), top = Math.floor((stage.clientHeight - h) / 2);
+	overlay.style.left = left + "px"; overlay.style.top = top + "px"; overlay.style.width = w + "px"; overlay.style.height = h + "px";
 }
 fitCanvas();
 new ResizeObserver(fitCanvas).observe($("stage"));
@@ -341,9 +344,10 @@ async function activate(ext) {
 	// the menu can be preset from the address: ?menu=KEY:2,OTHER:0
 	for (const part of (params.get("menu") || "").split(",").filter(Boolean)) { const [key, value] = part.split(":"); if (ext.menu && ext.menu[key]) ext.menu[key].current = +value; }
 	buildMenu(ext);
-	// its own corner of the page, empty: a8.panel, for whatever it wants to add there
-	$("panel").textContent = "";
-	a8.panel = $("panel");
+	// its own corner of the page, empty: a8.panel, for whatever it wants to add there,
+	// and a8.overlay, an element over the picture for pills and boxes of its own
+	$("panel").textContent = ""; $("overlay").textContent = "";
+	a8.panel = $("panel"); a8.overlay = $("overlay");
 	a8.extDir = ext.dir;
 	a8.setCodeInjections(ext.codeInjections || []);
 	hook("onActivate");
@@ -353,8 +357,8 @@ async function activate(ext) {
 function deactivate() {
 	active = loading = null; failed = false;
 	a8.setCodeInjections([]);
-	a8.panel = null;
-	$("extension").textContent = "none"; $("menu").textContent = ""; $("panel").textContent = ""; $("ext-fps").textContent = ""; $("source").hidden = true;
+	a8.panel = a8.overlay = null;
+	$("extension").textContent = "none"; $("menu").textContent = ""; $("panel").textContent = ""; $("overlay").textContent = ""; $("ext-fps").textContent = ""; $("source").hidden = true;
 }
 
 M.onCodeInjection = (pc, op) => {

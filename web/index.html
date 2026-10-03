@@ -23,6 +23,17 @@
 	#pause-hint { bottom: auto; top: 18px; }
 	#fps-hint { bottom: auto; left: auto; top: 18px; right: 18px; transform: none; font-variant-numeric: tabular-nums; }
 	#record-hint { bottom: auto; left: 18px; top: 18px; transform: none; color: #e9594c; border-color: #e9594c; }
+	/* the active extension's own things over the picture (a8.overlay): pills and boxes it places */
+	#overlay { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; }
+	#overlay .pill { position: absolute; padding: 4px 11px; border: 1px solid var(--dim); border-radius: 999px; background: rgba(21, 21, 19, 0.85); color: var(--ink); white-space: nowrap;
+		pointer-events: auto; cursor: pointer; user-select: none; -webkit-user-select: none; font: inherit; }
+	#overlay .pill:hover { border-color: var(--ink); }
+	#overlay .pill.on { color: var(--ground); background: var(--accent); border-color: var(--accent); }
+	#overlay .box { position: absolute; padding: 10px 14px; border: 1px solid var(--edge); background: rgba(21, 21, 19, 0.88); color: var(--ink); pointer-events: auto; font-size: 12px; line-height: 1.45; }
+	#overlay .box dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 12px; margin: 0; }
+	#overlay .box dt { color: var(--accent); white-space: nowrap; }
+	#overlay .box dd { margin: 0; }
+	#overlay canvas { position: absolute; pointer-events: auto; }
 	.bar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-content: start; padding: 12px; overflow-y: auto; background: var(--ground); }
 	#general { border-right: 1px solid var(--edge); }
 	#program { border-left: 1px solid var(--edge); }
@@ -139,6 +150,7 @@
 		<div id="pause-hint" class="hint" hidden>Paused</div>
 		<div id="fps-hint" class="hint" hidden></div>
 		<div id="record-hint" class="hint" hidden>&#9679; Recording</div>
+		<div id="overlay"></div>
 	</div>
 	<aside id="program" class="bar">
 		<section>

@@ -549,10 +549,12 @@ static void install_globals(void)
 	JS_SetPropertyFunctionList(ctx, a8, js_a8_funcs, sizeof(js_a8_funcs) / sizeof(js_a8_funcs[0]));
 
 	/* a8.host says where the scripts run: "native" here, "web" in the web
-	   build, whose page also gives the active extension an element of its own
-	   to fill, a8.panel; here there is none */
+	   build, whose page also gives the active extension elements of its own
+	   to fill, a8.panel beside the picture and a8.overlay over it; here
+	   there are none */
 	JS_SetPropertyStr(ctx, a8, "host", JS_NewString(ctx, "native"));
 	JS_SetPropertyStr(ctx, a8, "panel", JS_NULL);
+	JS_SetPropertyStr(ctx, a8, "overlay", JS_NULL);
 
 	/* a8.mem: the 64 KB of Atari memory, read/write, zero copy */
 	JS_SetPropertyStr(ctx, a8, "mem",
