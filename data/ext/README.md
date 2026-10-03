@@ -111,7 +111,8 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
 * `a8.recordVideo(path)` starts a video recording into that `.avi` file, as the emulator's "Record
   video" does, and returns whether it started; `a8.stopRecording()` ends it. With the OpenGL display
   and an extension active the video is the display's own picture in true colour, with everything the
-  extension draws (see "Recording" below)
+  extension draws (see "Recording" below). In the web page the recording is a WebM file through the
+  browser's MediaRecorder, saved as a download named after the path when it stops
 * `a8.loadSound(path)` - loads a WAV file; the result has a `play()` method.
   The sound is mixed on top of the POKEY output
 

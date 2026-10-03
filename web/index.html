@@ -22,6 +22,7 @@
 		background: rgba(21, 21, 19, 0.85); color: var(--accent); white-space: nowrap; pointer-events: none; }
 	#pause-hint { bottom: auto; top: 18px; }
 	#fps-hint { bottom: auto; left: auto; top: 18px; right: 18px; transform: none; font-variant-numeric: tabular-nums; }
+	#record-hint { bottom: auto; left: 18px; top: 18px; transform: none; color: #e9594c; border-color: #e9594c; }
 	.bar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-content: start; padding: 12px; overflow-y: auto; background: var(--ground); }
 	#general { border-right: 1px solid var(--edge); }
 	#program { border-left: 1px solid var(--edge); }
@@ -55,6 +56,7 @@
 	/* the switches: buttons, lit when on */
 	.switches { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 	.switches button { padding: 6px 4px; white-space: nowrap; }
+	#fullscreen { grid-column: 1 / -1; }
 	.switch { color: var(--dim); user-select: none; -webkit-user-select: none; touch-action: none; }
 	.switch.on { color: var(--ground); background: var(--accent); border-color: var(--accent); font-weight: bold; }
 	.switch.suspended { opacity: 0.45; text-decoration: line-through; }
@@ -107,6 +109,7 @@
 				<button class="switch" id="pause" title="Stops the emulation">Pause</button>
 				<button class="switch" id="turbo" title="As fast as it goes, without sound">Turbo</button>
 				<button class="switch" id="fps" title="Shows how many Atari frames a second the emulation runs">Atari fps</button>
+				<button class="switch" id="record" title="Records the picture and the sound into a WebM file, saved when it stops">Record</button>
 				<button id="fullscreen">Full screen</button>
 			</div>
 			<small class="note">A press switches. Held, it lasts while it is held. Left Shift held: no extensions.</small>
@@ -135,6 +138,7 @@
 		<div id="sound-hint" class="hint" hidden>Click or press a key for sound</div>
 		<div id="pause-hint" class="hint" hidden>Paused</div>
 		<div id="fps-hint" class="hint" hidden></div>
+		<div id="record-hint" class="hint" hidden>&#9679; Recording</div>
 	</div>
 	<aside id="program" class="bar">
 		<section>

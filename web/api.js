@@ -54,8 +54,9 @@ export function makeA8(M, host) {
 			if (value !== fpsValue) { fpsShown = fpsFrames; fpsFrames = 0; fpsValue = value; }
 			host.showFps(`${fpsShown} frames`);
 		},
-		recordVideo: () => false,
-		stopRecording: () => false,
+		// Natively into an AVI file at that path; here a download named after it
+		recordVideo: (path) => host.recordVideo(path),
+		stopRecording: () => host.stopRecording(),
 		// A sound file (WAV) the extension plays over the emulator's own sound
 		loadSound(path) {
 			let buffer = null, wanted = false;

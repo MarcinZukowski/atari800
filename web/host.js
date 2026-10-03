@@ -63,9 +63,14 @@ let audio = null, output = null, playhead = 0;
 // The switches are buttons, lit when on. A short press changes one for good;
 // a press held for half a second or more changes it only for as long as it is
 // held (Pause to look at one moment, Turbo to skip ahead, Extensions to compare)
-const switches = { extensions: true, sound: true, pause: false, turbo: false, fps: false }, HOLD = 500;
+const switches = { extensions: true, sound: true, pause: false, turbo: false, fps: false, record: false }, HOLD = 500;
 const fpsCount = { frames: 0, since: performance.now() };
 function setSwitch(id, on) {
+	if (id === "record") {
+		if (on && recorder === null && !startRecording(recordingName())) on = false;
+		else if (!on && recorder !== null) stopRecording();
+		$("record-hint").hidden = !on;
+	}
 	switches[id] = on;
 	$(id).classList.toggle("on", on); $(id).setAttribute("aria-pressed", String(on));
 	if (id === "sound") showSoundHint();
@@ -104,6 +109,56 @@ try {
 showSoundHint();
 function startAudio() {
 	if (audio !== null && audio.state === "suspended") audio.resume().then(showSoundHint, () => { });
+}
+
+/* ------------------------------ recording ------------------------------ */
+
+// The Record switch (and a8.recordVideo for an extension): the picture as the
+// page shows it, with the sound, goes through MediaRecorder into a WebM
+// file, saved as a download when the recording stops
+let recorder = null, recordedTrack = null, loadedName = "";
+const recordingName = () => `${(loadedName || "atari800").replace(/\.[^.]*$/, "")}-${new Date().toISOString().slice(0, 19).replace(/[-:]/g, "").replace("T", "-")}`;
+function startRecording(name) {
+	if (recorder !== null) return false;
+	if (typeof MediaRecorder === "undefined" || !canvas.captureStream) { log("recording: this browser cannot record a canvas"); return false; }
+	// a frame for each one shown, asked for in showFrame(); a browser without requestFrame takes
+	// them as the canvas is drawn
+	const stream = canvas.captureStream(0), track = stream.getVideoTracks()[0];
+	if (track && typeof track.requestFrame === "function") recordedTrack = track;
+	else { stream.getTracks().forEach((t) => t.stop()); stream.getVideoTracks().forEach((t) => stream.removeTrack(t)); for (const t of canvas.captureStream().getVideoTracks()) stream.addTrack(t); }
+	// the sound, when it runs: a track from a context the browser keeps suspended delivers
+	// nothing, and the recorder, waiting for it, would record nothing at all
+	let tap = null;
+	if (audio !== null && output !== null && audio.state === "running" && soundOn()) {
+		tap = audio.createMediaStreamDestination(); output.connect(tap);
+		for (const track of tap.stream.getAudioTracks()) stream.addTrack(track);
+	}
+	const type = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"].find((t) => MediaRecorder.isTypeSupported(t));
+	const chunks = [];
+	try { recorder = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 12000000, audioBitsPerSecond: 192000 }); }
+	catch (e) { log(`recording: ${e.message}`); if (tap !== null) output.disconnect(tap); for (const track of stream.getTracks()) track.stop(); recordedTrack = null; return false; }
+	recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+	recorder.onstop = () => {
+		if (tap !== null) output.disconnect(tap);
+		for (const track of stream.getTracks()) track.stop();
+		recordedTrack = null;
+		const blob = new Blob(chunks, { type: recorder.mimeType || type || "video/webm" });
+		const file = `${String(name).replace(/^.*\//, "").replace(/\.[^.]*$/, "") || "atari800"}.${/mp4/.test(blob.type) ? "mp4" : "webm"}`;
+		const url = URL.createObjectURL(blob), a = document.createElement("a");
+		a.href = url; a.download = file; document.body.append(a); a.click(); a.remove();
+		setTimeout(() => URL.revokeObjectURL(url), 60000);
+		log(`recording saved: ${file}, ${(blob.size / 1048576).toFixed(1)} MB`);
+		recorder = null;
+		if (switches.record) setSwitch("record", false);
+	};
+	recorder.start(1000);
+	log(`recording ${canvas.width} x ${canvas.height}${tap !== null ? " with sound" : " without sound" + (soundOn() ? " (it was not running yet: click or press a key first)" : "")}${type ? `, ${type}` : ""}`);
+	return true;
+}
+function stopRecording() {
+	if (recorder === null) return false;
+	recorder.stop();
+	return true;
 }
 // The frame's samples (16 bits, as the emulator made them) queued right after the last frame's
 function playFrame() {
@@ -191,6 +246,8 @@ const fileBytes = async (url) => { const r = await fetch(url); if (!r.ok) throw 
 globalThis.a8 = makeA8(M, {
 	accelerationDisabled: () => suspended(),
 	showFps: (text) => { $("ext-fps").textContent = text; },
+	recordVideo: (path) => { const ok = startRecording(path); if (ok) setSwitch("record", true); return ok; },
+	stopRecording,
 	files,
 	audio: () => audio !== null && audio.state === "running" && soundOn() ? audio : null,
 });
@@ -361,6 +418,7 @@ function address(url) {
 // A saved state (.a8s) or anything the emulator can boot (disk image, executable, cartridge)
 function load(name, bytes) {
 	deactivate();
+	loadedName = name;
 	const path = "/" + name.replace(/[^A-Za-z0-9._-]/g, "_"), p = M.stringToNewUTF8(path);
 	M.FS.writeFile(path, bytes);
 	const ok = /\.a8s$/i.test(name) ? M._web_load_state(p) : M._web_open_file(p);
@@ -421,6 +479,7 @@ function showFrame() {
 	for (let y = 0, o = 0; y < SCREEN_H; y++) { const row = y * BUFFER_W + SCREEN_LEFT; for (let x = 0; x < SCREEN_W; x++) rgba32[o++] = abgr[screen[row + x]]; }
 	shim.host.drawScreen(rgba);
 	if (extensionsOn()) hook("onPostGlFrame");
+	if (recordedTrack !== null) recordedTrack.requestFrame();
 }
 
 let frames = 0;
