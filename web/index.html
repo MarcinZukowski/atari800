@@ -39,6 +39,11 @@
 	#program { border-left: 1px solid var(--edge); }
 	section { min-width: 0; background: var(--panel); border: 1px solid var(--edge); padding: 10px 12px; }
 	h1 { font-size: 15px; margin: 0; color: var(--accent); letter-spacing: 0.04em; }
+	h1 a { color: inherit; text-decoration: none; }
+	h1 a:hover { text-decoration: underline; }
+	#links { font-size: 12px; margin-top: 2px; }
+	#links a + a { margin-left: 10px; }
+	#links:empty { display: none; }
 	#build { color: var(--dim); font-size: 11px; }
 	h2 { font-size: 11px; margin: 0 0 8px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.12em; font-weight: normal; }
 	#extension { color: var(--accent); }
@@ -54,6 +59,8 @@
 	.row { display: flex; gap: 6px; margin-top: 6px; }
 	.row input { flex: 1; min-width: 0; }
 	/* the programs loaded before: a name to load it again, a cross to forget it */
+	/* Recent and Demos: rows of 26px, five of them before the list scrolls */
+	#recent, #demos { display: grid; gap: 3px; align-content: start; max-height: calc(5 * 26px + 4 * 3px); overflow-y: auto; scrollbar-width: thin; }
 	#recent { display: grid; gap: 3px; }
 	#recent div { display: flex; gap: 4px; }
 	#recent button:first-child { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -72,7 +79,8 @@
 	.switch.on { color: var(--ground); background: var(--accent); border-color: var(--accent); font-weight: bold; }
 	.switch.suspended { opacity: 0.45; text-decoration: line-through; }
 	.note { display: block; margin-top: 6px; color: var(--dim); font-size: 11px; }
-	#demos { display: grid; gap: 4px; margin-top: 6px; }
+	#demos a { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	#demos-section:has(#demos:empty) { display: none; }
 	a { color: var(--accent); }
 	dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; margin: 0; }
 	dt { color: var(--accent); white-space: nowrap; } dd { margin: 0; color: var(--dim); }
@@ -99,18 +107,22 @@
 <main>
 	<aside id="general" class="bar">
 		<section>
-			<h1>atari800</h1>
+			<h1 id="title">atari800</h1>
+			<div id="links"></div>
 			<small id="build">built @BUILD@</small>
 		</section>
 		<section>
 			<h2>Program</h2>
 			<input type="file" id="file">
 			<div class="row"><input type="url" id="url" placeholder="or its address (URL)"><button id="url-load">Load</button></div>
-			<div id="demos"></div>
 		</section>
 		<section id="recent-section">
 			<h2>Recent</h2>
 			<div id="recent"></div>
+		</section>
+		<section id="demos-section">
+			<h2>Demos</h2>
+			<div id="demos"></div>
 		</section>
 		<section>
 			<h2>Switches</h2>

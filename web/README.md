@@ -62,14 +62,25 @@ Address parameters:
 | `ext=NAME` | only activate the extension with this directory name or part of its name |
 | `menu=KEY:2,OTHER:0` | preset entries of the extension's menu |
 
-If `dist/demos.json` exists, its entries are listed as links:
+If `dist/demos.json` exists, its entries are listed under Demos (Recent and
+Demos show five rows and scroll beyond that):
 
     [{ "title": "Numen: the forest", "url": "numen.a8s" },
-     { "title": "Mercenary, lines only", "url": "m1.a8s", "menu": "SCENERY:0" }]
+     { "title": "Mercenary, lines only", "url": "m1.a8s", "menu": "SCENERY:0",
+       "hover": "The game's own lines, drawn with OpenGL" }]
+
+`hover` is shown when the pointer rests on the link. Demos that come with the
+extensions themselves are listed the same way from `"demos"` in the
+extensions' `extensions.json` (below), before the site's; their files live
+beside the extensions (`"url": "ext/yoomp/yoomp.atr"`), and the build keeps
+such a file where it would otherwise leave out a disk image.
 
 If the extensions' directory has an `extensions.json` with
 `{ "source": "https://.../tree/main" }`, the page shows a link to the active
-extension's source there (that address plus its directory name).
+extension's source there (that address plus its directory name). The same
+file may name the site: `"title"` and `"titleLink"` replace the heading and
+link it, and `"links": [{ "text": "...", "url": "..." }]` adds a line of
+links under it.
 
 Keys: arrows and right Ctrl are the joystick, F2/F3/F4 Option/Select/Start,
 F5 reset (with right Shift a cold start), F6 Help, F7 Break. Right Shift and

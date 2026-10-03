@@ -279,10 +279,22 @@ for (const path of listing.filter((p) => /^ext\/[^/]+\/init\.js$/.test(p))) {
 }
 log(`${extensions.length} extensions: ${extensions.map((e) => e.dir.split("/").pop()).join(", ")}`);
 
-// ext/extensions.json, if the site has it, says where the extensions' source is: { "source": "https://.../tree/main" };
-// an extension can say so itself with a `source` property
-let sourceBase = null;
-if (listing.includes("ext/extensions.json")) { try { sourceBase = (await (await fetch("ext/extensions.json")).json()).source || null; } catch (e) { /* none */ } }
+// ext/extensions.json, if the site has it, says where the extensions' source is: { "source": "https://.../tree/main" }
+// (an extension can say so itself with a `source` property); may name the site: "title" and "titleLink" for the
+// heading, "links" ([{ "text", "url" }]) for a line of links under it; and may list "demos" that come with the
+// extensions ([{ "title", "url", "hover", "ext", "menu" }]), listed under Demos before the site's own
+let sourceBase = null, builtInDemos = [];
+if (listing.includes("ext/extensions.json")) {
+	try {
+		const site = await (await fetch("ext/extensions.json")).json();
+		sourceBase = site.source || null;
+		builtInDemos = site.demos || [];
+		if (site.title) $("title").textContent = site.title;
+		if (site.titleLink) { const a = document.createElement("a"); a.href = site.titleLink; a.textContent = $("title").textContent; $("title").textContent = ""; $("title").append(a); }
+		for (const link of site.links || []) { const a = document.createElement("a"); a.href = link.url; a.textContent = link.text; $("links").append(a); }
+	}
+	catch (e) { /* none */ }
+}
 
 let active = null, loading = null, pending = null, failed = false;
 const extensionsOn = () => switches.extensions && !suspended();
@@ -332,7 +344,7 @@ function buildMenu(ext) {
 // The extension whose fingerprint is in memory: its data files are fetched first, since the scripts read them without waiting
 async function activate(ext) {
 	loading = ext;
-	for (const path of listing.filter((p) => p.startsWith(ext.dir + "/") && !/\.(js|md)$/.test(p))) {
+	for (const path of listing.filter((p) => p.startsWith(ext.dir + "/") && !/\.(js|md|atr|xex|a8s)$/i.test(p))) {   // (programs beside it are demos, not data)
 		if (!files.has(path)) { try { files.set(path, await fileBytes(path)); } catch (e) { log(e.message); } }
 	}
 	if (loading !== ext) return;   // something else was loaded meanwhile
@@ -454,24 +466,21 @@ showRecent();
 	const url = params.get("url") || params.get("state") || params.get("file");
 	if (url) await loadUrl(url);
 }
-// The framework's self-test, when the site has it: an extension with a small program of its own
-if (listing.includes("ext/selftest/selftest.xex")) {
-	const link = document.createElement("a");
-	link.href = "?url=ext/selftest/selftest.xex"; link.textContent = "Extension self-test";
+// A demo under Demos: { "title", "url", "hover" (shown when the pointer rests on it), "ext", "menu" }
+function listDemo(demo) {
+	const link = document.createElement("a"), query = new URLSearchParams();
+	const url = demo.url || demo.state || demo.file;
+	if (url) query.set("url", url);
+	for (const key of ["ext", "menu"]) if (demo[key]) query.set(key, demo[key]);
+	link.href = "?" + query; link.textContent = demo.title; link.className = "button";
+	if (demo.hover) link.title = demo.hover;
 	$("demos").append(link);
 }
-// demos.json, if the site has one: [{ "title": ..., "url": ..., "ext": ..., "menu": ... }]
-try {
-	const demos = await (await fetch("demos.json")).json();
-	for (const demo of demos) {
-		const link = document.createElement("a"), query = new URLSearchParams();
-		const url = demo.url || demo.state || demo.file;
-		if (url) query.set("url", url);
-		for (const key of ["ext", "menu"]) if (demo[key]) query.set(key, demo[key]);
-		link.href = "?" + query; link.textContent = demo.title;
-		$("demos").append(link);
-	}
-} catch (e) { /* no demos listed */ }
+// the demos that come with the extensions (ext/extensions.json), the framework's self-test when the site
+// has it (an extension with a small program of its own), then the site's own demos.json
+for (const demo of builtInDemos) listDemo(demo);
+if (listing.includes("ext/selftest/selftest.xex")) listDemo({ title: "Extension self-test", url: "ext/selftest/selftest.xex", hover: "Checks the extension API in this browser" });
+try { for (const demo of await (await fetch("demos.json")).json()) listDemo(demo); } catch (e) { /* no demos listed */ }
 
 /* ------------------------------ the frame loop ------------------------------ */
 
