@@ -79,7 +79,9 @@
 	.switch.on { color: var(--ground); background: var(--accent); border-color: var(--accent); font-weight: bold; }
 	.switch.suspended { opacity: 0.45; text-decoration: line-through; }
 	.note { display: block; margin-top: 6px; color: var(--dim); font-size: 11px; }
+	#demos div { display: flex; gap: 4px; }
 	#demos a { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	#demos a:first-child { flex: 1; }
 	#demos-section:has(#demos:empty) { display: none; }
 	a { color: var(--accent); }
 	dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; margin: 0; }

@@ -69,7 +69,10 @@ Demos show five rows and scroll beyond that):
      { "title": "Mercenary, lines only", "url": "m1.a8s", "menu": "SCENERY:0",
        "hover": "The game's own lines, drawn with OpenGL" }]
 
-`hover` is shown when the pointer rests on the link. Demos that come with the
+`hover` is shown when the pointer rests on the link. A demo may have
+`"variants": [{ "title": "gameplay", "url": "...", "hover": "..." }]`, say a
+saved game of the same program: each is a second link in the row, its title
+in parentheses. Demos that come with the
 extensions themselves are listed the same way from `"demos"` in the
 extensions' `extensions.json` (below), before the site's; their files live
 beside the extensions (`"url": "ext/yoomp/yoomp.atr"`), and the build keeps
@@ -92,7 +95,8 @@ The switches (Extensions, Sound, Pause, Turbo, Atari fps, Record) are
 buttons, lit when on. A short press changes one; a press held for half a
 second or more changes it only for as long as it is held. Pause stops the
 emulation with the picture as it is; Turbo runs it as fast as the browser
-manages, without sound. Atari fps shows, over the picture, how many Atari
+manages, without sound (a changed menu option shows at once even while
+paused: the extension draws the frame again). Atari fps shows, over the picture, how many Atari
 frames a second the emulation runs and the speed that is, counted over the
 last half second: useful with Turbo. Record records the picture as the page
 shows it (the extension's drawing included, at the canvas's size) and the

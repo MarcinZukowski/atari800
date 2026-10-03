@@ -312,6 +312,10 @@ function hook(name, ...args) {
 	catch (e) { failed = true; log(`${active.name}: ${name} failed: ${e.stack || e}`); return undefined; }
 }
 
+// A changed option shows at once even while paused: the extension's drawing hooks run
+// again over the frame as it stands (what they read from memory has not moved)
+function redrawIfPaused() { if (switches.pause) showFrame(); }
+
 function buildMenu(ext) {
 	const menu = $("menu");
 	menu.textContent = "";
@@ -325,7 +329,7 @@ function buildMenu(ext) {
 			pair.className = "toggle";
 			const show = () => { for (const [i, half] of [...pair.children].entries()) half.classList.toggle("on", i === item.current); };
 			for (const text of item.options) { const half = document.createElement("span"); half.textContent = text; pair.append(half); }
-			label.addEventListener("click", (e) => { e.preventDefault(); item.current = 1 - item.current; show(); });
+			label.addEventListener("click", (e) => { e.preventDefault(); item.current = 1 - item.current; show(); redrawIfPaused(); });
 			label.style.cursor = "pointer";
 			show();
 			label.append(pair);
@@ -334,7 +338,7 @@ function buildMenu(ext) {
 			const select = document.createElement("select");
 			item.options.forEach((text, i) => { const option = document.createElement("option"); option.value = i; option.textContent = text; select.append(option); });
 			select.value = item.current;
-			select.addEventListener("change", () => { item.current = +select.value; select.blur(); });
+			select.addEventListener("change", () => { item.current = +select.value; select.blur(); redrawIfPaused(); });
 			label.append(select);
 		}
 		menu.append(label);
@@ -466,15 +470,23 @@ showRecent();
 	const url = params.get("url") || params.get("state") || params.get("file");
 	if (url) await loadUrl(url);
 }
-// A demo under Demos: { "title", "url", "hover" (shown when the pointer rests on it), "ext", "menu" }
-function listDemo(demo) {
+// A demo under Demos: { "title", "url", "hover" (shown when the pointer rests on it), "ext", "menu",
+// "variants" }: a variant ({ "title", "url", "hover" }, say a saved game of the same program) is a
+// second link in the same row, its title in parentheses
+function demoLink(demo, parent) {
 	const link = document.createElement("a"), query = new URLSearchParams();
 	const url = demo.url || demo.state || demo.file;
 	if (url) query.set("url", url);
-	for (const key of ["ext", "menu"]) if (demo[key]) query.set(key, demo[key]);
-	link.href = "?" + query; link.textContent = demo.title; link.className = "button";
+	for (const key of ["ext", "menu"]) if (demo[key] || (parent && parent[key])) query.set(key, demo[key] || parent[key]);
+	link.href = "?" + query; link.textContent = parent ? `(${demo.title})` : demo.title; link.className = "button";
 	if (demo.hover) link.title = demo.hover;
-	$("demos").append(link);
+	return link;
+}
+function listDemo(demo) {
+	const row = document.createElement("div");
+	row.append(demoLink(demo));
+	for (const variant of demo.variants || []) row.append(demoLink(variant, demo));
+	$("demos").append(row);
 }
 // the demos that come with the extensions (ext/extensions.json), the framework's self-test when the site
 // has it (an extension with a small program of its own), then the site's own demos.json
