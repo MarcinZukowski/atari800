@@ -1099,8 +1099,10 @@ int Atari800_Initialise(int *argc, char *argv[])
 #endif /* SOUND */
 
 #ifdef HAVE_DOWNLOAD
-	/* never in the Acid800 check: it must boot the built-in OS everywhere */
+	/* never in the Acid800 check: it must boot the built-in OS everywhere,
+	   and not when the built-in OS is the one the user chose */
 	if (!ACIDTEST_enabled
+	 && SYSROM_os_versions[Atari800_machine_type] == SYSROM_AUTO
 	 && (Atari800_os_version < 0 || Atari800_os_version >= SYSROM_LOADABLE_SIZE)) {
 		static const char *rom_exts[] = {".rom", NULL};
 		char rom_dir[FILENAME_MAX];
