@@ -548,6 +548,8 @@ static int InitGlFunctions(void)
 	    (gl.Fogf = (void(APIENTRY*)(GLenum, GLfloat))GetGlFunc("glFogf")) == NULL ||
 	    (gl.Fogfv = (void(APIENTRY*)(GLenum, const GLfloat*))GetGlFunc("glFogfv")) == NULL ||
 	    (gl.PolygonMode = (void(APIENTRY*)(GLenum, GLenum))GetGlFunc("glPolygonMode")) == NULL ||
+	    (gl.CullFace = (void(APIENTRY*)(GLenum))GetGlFunc("glCullFace")) == NULL ||
+	    (gl.FrontFace = (void(APIENTRY*)(GLenum))GetGlFunc("glFrontFace")) == NULL ||
 	    (gl.LineWidth = (void(APIENTRY*)(GLfloat))GetGlFunc("glLineWidth")) == NULL ||
 	    (gl.GetIntegerv = (void(APIENTRY*)(GLenum, GLint*))GetGlFunc("glGetIntegerv")) == NULL ||
 	    (gl.GetString = (const GLubyte*(APIENTRY*)(GLenum))GetGlFunc("glGetString")) == NULL ||

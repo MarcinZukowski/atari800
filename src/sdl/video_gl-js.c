@@ -235,6 +235,14 @@ static JSValue js_gl_PolygonMode(JSContext *ctx, JSValueConst this_val, int argc
 {
 	NEED(2); ARG_I(0, face); ARG_I(1, mode); gl.PolygonMode(face, mode); return JS_UNDEFINED;
 }
+static JSValue js_gl_CullFace(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+	NEED(1); ARG_I(0, face); gl.CullFace(face); return JS_UNDEFINED;
+}
+static JSValue js_gl_FrontFace(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+	NEED(1); ARG_I(0, dir); gl.FrontFace(dir); return JS_UNDEFINED;
+}
 static JSValue js_gl_LineWidth(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
 {
 	NEED(1); ARG_F(0, w); gl.LineWidth(w); return JS_UNDEFINED;
@@ -568,6 +576,8 @@ static const JSCFunctionListEntry js_gl_funcs[] = {
 	JS_CFUNC_DEF("BindTexture", 2, js_gl_BindTexture),
 	JS_CFUNC_DEF("TexParameteri", 3, js_gl_TexParameteri),
 	JS_CFUNC_DEF("PolygonMode", 2, js_gl_PolygonMode),
+	JS_CFUNC_DEF("CullFace", 1, js_gl_CullFace),
+	JS_CFUNC_DEF("FrontFace", 1, js_gl_FrontFace),
 	JS_CFUNC_DEF("LineWidth", 1, js_gl_LineWidth),
 	JS_CFUNC_DEF("Viewport", 4, js_gl_Viewport),
 	JS_CFUNC_DEF("Scissor", 4, js_gl_Scissor),
@@ -608,7 +618,7 @@ static const JSCFunctionListEntry js_gl_funcs[] = {
 	/* fog */
 	C(FOG_MODE), C(FOG_START), C(FOG_END), C(FOG_DENSITY), C(FOG_COLOR), C(EXP), C(EXP2),
 	/* polygon mode, lights */
-	C(FRONT), C(BACK), C(FRONT_AND_BACK), C(POINT), C(LINE), C(FILL),
+	C(FRONT), C(BACK), C(FRONT_AND_BACK), C(POINT), C(LINE), C(FILL), C(CW), C(CCW),
 	C(POSITION), C(AMBIENT), C(DIFFUSE), C(SPECULAR),
 };
 

@@ -22,7 +22,7 @@ const C = {
 	NEAREST_MIPMAP_NEAREST: 0x2700, LINEAR_MIPMAP_NEAREST: 0x2701, NEAREST_MIPMAP_LINEAR: 0x2702, LINEAR_MIPMAP_LINEAR: 0x2703,
 	GENERATE_MIPMAP: 0x8191, TRUE: 1, FALSE: 0,
 	FOG_MODE: 0x0B65, FOG_START: 0x0B63, FOG_END: 0x0B64, FOG_DENSITY: 0x0B62, FOG_COLOR: 0x0B66, EXP: 0x0800, EXP2: 0x0801,
-	FRONT: 0x0404, BACK: 0x0405, FRONT_AND_BACK: 0x0408, POINT: 0x1B00, LINE: 0x1B01, FILL: 0x1B02,
+	FRONT: 0x0404, BACK: 0x0405, FRONT_AND_BACK: 0x0408, POINT: 0x1B00, LINE: 0x1B01, FILL: 0x1B02, CW: 0x0900, CCW: 0x0901,
 	POSITION: 0x1203, AMBIENT: 0x1200, DIFFUSE: 0x1201, SPECULAR: 0x1202,
 };
 
@@ -301,6 +301,8 @@ export function makeGl(g, screen) {
 			g.texParameteri(g.TEXTURE_2D, name, value);
 		},
 		PolygonMode(face, m) { state.polygonMode = m; },
+		CullFace(face) { g.cullFace(face); },
+		FrontFace(dir) { g.frontFace(dir); },
 		LineWidth(w) { state.lineWidth = w; },
 		Viewport(x, y, w, h) { state.viewport = [x, y, w, h]; g.viewport(x, y, w, h); },
 		Scissor(x, y, w, h) { state.scissor = [x, y, w, h]; g.scissor(x, y, w, h); },

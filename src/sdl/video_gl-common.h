@@ -41,6 +41,8 @@ struct glapi
 	void(APIENTRY*Fogf)(GLenum, GLfloat);
 	void(APIENTRY*Fogfv)(GLenum, const GLfloat*);
 	void(APIENTRY*PolygonMode)(GLenum, GLenum);
+	void(APIENTRY*CullFace)(GLenum);
+	void(APIENTRY*FrontFace)(GLenum);
 	void(APIENTRY*LineWidth)(GLfloat);
 	void(APIENTRY*GetIntegerv)(GLenum, GLint*);
 	const GLubyte*(APIENTRY*GetString)(GLenum);
