@@ -248,7 +248,7 @@ const fileBytes = async (url) => { const r = await fetch(url); if (!r.ok) throw 
 
 globalThis.a8 = makeA8(M, {
 	accelerationDisabled: () => suspended(),
-	showFps: (text) => { $("ext-fps").textContent = text; },
+	showFps: (text) => { $("ext-fps").textContent = text; fpsPrinted = true; },
 	recordVideo: (path) => { const ok = startRecording(path); if (ok) setSwitch("record", true); return ok; },
 	stopRecording,
 	files,
@@ -497,13 +497,16 @@ try { for (const demo of await (await fetch("demos.json")).json()) listDemo(demo
 /* ------------------------------ the frame loop ------------------------------ */
 
 const rgba = new Uint8Array(SCREEN_W * SCREEN_H * 4), rgba32 = new Uint32Array(rgba.buffer), abgr = new Uint32Array(256);
+let fpsPrinted = false;   // a8.printFps was called this frame; otherwise its readout goes
 function showFrame() {
 	shim.host.beginFrame();
+	fpsPrinted = false;
 	if (extensionsOn()) hook("onPreGlFrame");
 	for (let i = 0; i < 256; i++) { const c = colours[i]; abgr[i] = 0xFF000000 | (c & 0xFF) << 16 | (c & 0xFF00) | (c >> 16) & 0xFF; }
 	for (let y = 0, o = 0; y < SCREEN_H; y++) { const row = y * BUFFER_W + SCREEN_LEFT; for (let x = 0; x < SCREEN_W; x++) rgba32[o++] = abgr[screen[row + x]]; }
 	shim.host.drawScreen(rgba);
 	if (extensionsOn()) hook("onPostGlFrame");
+	if (!fpsPrinted && $("ext-fps").textContent !== "") $("ext-fps").textContent = "";
 	if (recordedTrack !== null) recordedTrack.requestFrame();
 }
 

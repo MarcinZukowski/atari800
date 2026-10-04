@@ -140,8 +140,9 @@ commercial games are not.
 * The `gl` shim covers what the binding offers and the extensions use.
   Lighting is not implemented (no extension turns it on), and a line's width
   is emulated with quads because WebGL draws lines one pixel wide.
-* The scripts' `a8.printFps` shows its count beside the title instead of
-  inside the Atari's picture, and `a8.recordVideo` does nothing.
+* The scripts' `a8.printFps` shows its count beside the extension's name
+  instead of inside the Atari's picture, for as long as the script keeps
+  calling it; `a8.recordVideo` records the page's own picture.
 
 ## Testing
 
