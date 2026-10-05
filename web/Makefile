@@ -6,7 +6,8 @@
 #   make serve      serve dist/ on http://localhost:8800
 #   make clean
 
-# EXT_DIR: the extensions to put on the site (any directory of <name>/init.js)
+# EXT_DIR: the extensions to put on the site (any directory of <name>/init.js);
+# the fork's self-test (data/ext/selftest) is added whatever EXT_DIR is
 SRC = ../src
 OUT = dist
 OBJ = obj
@@ -47,6 +48,8 @@ page:
 	sed 's/@BUILD@/$(BUILD)/' index.html > $(OUT)/index.html
 	rm -rf $(OUT)/ext && mkdir -p $(OUT)/ext
 	cd $(EXT_DIR) && for d in *; do [ -f "$$d/init.js" ] && cp -R "$$d" $(abspath $(OUT))/ext/; done; cp *.js extensions.json $(abspath $(OUT))/ext/ 2>/dev/null; true
+	# the fork's own self-test goes on every site, whatever EXT_DIR is: it tests the emulator built here
+	[ -d $(OUT)/ext/selftest ] || cp -R ../data/ext/selftest $(OUT)/ext/
 	# what a user keeps beside an extension but must not be published (disk images, documents, saved
 	# maps), unless extensions.json lists it as a demo that comes with the extensions
 	cd $(OUT)/ext && find . \( -name '*.atr' -o -name '*.pdf' -o -name '*.map' -o -name '.DS_Store' \) | python3 -c 'import json, os, sys; site = json.load(open("extensions.json")) if os.path.exists("extensions.json") else {}; keep = {str(d.get("url", "")).removeprefix("ext/") for demo in site.get("demos", []) for d in [demo, *demo.get("variants", [])]}; [os.remove(f) for f in (l.rstrip("\n")[2:] for l in sys.stdin) if f not in keep]'

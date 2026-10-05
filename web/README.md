@@ -62,6 +62,11 @@ Address parameters:
 | `ext=NAME` | only activate the extension with this directory name or part of its name |
 | `menu=KEY:2,OTHER:0` | preset entries of the extension's menu |
 
+The build takes the extensions from `EXT_DIR` (the fork's `data/ext` unless
+told otherwise, as the a8ext site tells it) and always adds the fork's own
+self-test extension, which checks the emulator built into the page: it is
+listed under Demos as "Extension self-test", and its checks go to the log.
+
 If `dist/demos.json` exists, its entries are listed under Demos (Recent and
 Demos show five rows and scroll beyond that):
 
