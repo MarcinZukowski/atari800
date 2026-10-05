@@ -98,13 +98,27 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
   player registers (as last written; a game's interrupts may change them within a frame)
 * "Fake CPU" functions and constants for use inside `onCodeInjection`:
   * `a8.OP_RTS`, `a8.OP_NOP` - 6502 opcodes
-  * `a8.fakeCpuUntilPc(pc)` - run the CPU (without side effects on the machine) until reaching address `pc`
-  * `a8.fakeCpuUntilOp(op)` - run the CPU until reaching opcode `op` (e.g. `a8.OP_RTS`)
-  * `a8.fakeCpuUntilAfterOp(op)` - the same, but also execute that opcode (e.g. return from the routine)
+  * `a8.fakeCpuUntilPc(pc, maxInstructions = 1000000)` - run the CPU (without side effects on the
+    machine) until reaching address `pc`
+  * `a8.fakeCpuUntilOp(op, maxInstructions = 1000000)` - run the CPU until reaching opcode `op` (e.g. `a8.OP_RTS`)
+  * `a8.fakeCpuUntilAfterOp(op, maxInstructions = 1000000)` - the same, but also execute that opcode
+    (e.g. return from the routine)
   * `a8.fakeCpuWhileIn(lo, hi, maxInstructions = 1000000)` - runs the current instruction and the
     following ones in no emulated time while the PC stays in `lo..hi`, up to the budget; returns the
     number of instructions run, negative when the budget ran out (a loop waiting for an interrupt
     or VCOUNT cannot end this way)
+  * A run that has not arrived within its budget (a million instructions is about a second of 6502
+    time; the loops worth skipping take thousands) is given up: a warning names the hook, the target
+    and where the run got to, once per hook, and the game goes on in real time from there. This
+    happens when a game loads other code over a hooked address (a shop or an encounter overlay) and
+    runs it through the hook. Check the bytes at the address first (`codeAt(pc, bytes)` in the
+    extensions' common.js) and return `op` when they are not the ones the hook was written for.
+* `a8.setTimeLimit(seconds)` - natively no call into the script (a hook, a code injection) may run
+  longer than this, 1 second unless changed: QuickJS interrupts it and the emulator stops with the
+  error and its stack, since a script that runs for seconds is one that hangs. A script that has
+  to work longer (a big file in `onActivate`) raises the limit first. Time spent in the emulator's
+  own functions (the fake CPU runs) does not count; they have the budget above. In a browser nothing
+  can interrupt a script: the page logs a frame that took longer than the limit, after the fact.
   * `a8.setCodeInjections([addresses])` - replaces, at run time, the addresses `onCodeInjection` is
     called for; with `a8.profile()` this lets a script find a program's hottest code and run
     it in no emulated time without knowing the program (a8ext's `createAccelerator()` does)
@@ -232,8 +246,8 @@ console and shows the result on the screen:
 
 It checks the memory view, the hardware-aware peek and poke, the register getters, the palette,
 the extension's own files, code injections with every kind of answer (let the code run, skip
-it, run it on the fake CPU in each of its four ways), changing the injections at run time, and
-then the drawing: quads, textures from pixels and from a file, blending, the matrix stacks,
+it, run it on the fake CPU in each of its four ways, a run that runs out of its budget), changing
+the injections at run time, and then the drawing: quads, textures from pixels and from a file, blending, the matrix stacks,
 fog, scissor and the attribute stack, `drawTriangles`, `drawScreen` and lines, each by reading
 the framebuffer back. Without an OpenGL display (the dummy drivers above) the drawing checks
 are skipped and said so. The same extension runs in the web build, where the page offers it,

@@ -143,6 +143,11 @@ commercial games are not.
 * The scripts' `a8.printFps` shows its count beside the extension's name
   instead of inside the Atari's picture, for as long as the script keeps
   calling it; `a8.recordVideo` records the page's own picture.
+* The native build interrupts a hook that runs longer than its time limit;
+  a browser cannot, so an endless loop in a script ends in the browser's
+  slow-script dialog, and a frame that took longer than the limit is only
+  reported in the log afterwards. The fake CPU's instruction budget is the
+  emulator's own and works the same.
 
 ## Testing
 

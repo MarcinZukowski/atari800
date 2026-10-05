@@ -46,6 +46,7 @@
 #include "gtia.h"
 #include "memory.h"
 #include "ui_basic.h"
+#include "util.h"
 #ifdef VIDEO_RECORDING
 #include "file_export.h"
 #endif
@@ -56,11 +57,45 @@
 static JSRuntime *rt = NULL;
 static JSContext *ctx = NULL;
 
+/* No call into a script may run longer than this (wall clock, seconds): a
+   hook that loops for ever would hang the emulator. QuickJS calls the
+   interrupt handler every so many bytecode instructions, and a call past
+   its deadline ends in an exception. a8.setTimeLimit(seconds) changes the
+   limit for a script that has to work longer (a big file in onActivate). It
+   does not cover time spent in the emulator's own functions the script
+   calls; the fake CPU runs have an instruction budget of their own. */
+static double js_time_limit = 1.0;
+static double js_deadline = 0;   /* 0: no call under way */
+static int js_timed_out = 0;
+
+static int interrupt_handler(JSRuntime *runtime, void *opaque)
+{
+	if (js_deadline != 0 && Util_time() > js_deadline) {
+		js_timed_out = 1;
+		return 1;
+	}
+	return 0;
+}
+
+static void begin_call(void)
+{
+	js_deadline = Util_time() + js_time_limit;
+	js_timed_out = 0;
+}
+
+static void end_call(void)
+{
+	js_deadline = 0;
+}
+
 /* Prints the pending exception with its stack trace and exits. Script errors
    are programming errors in a hack, so we do not try to carry on. */
 static void js_fatal(const char *where)
 {
-	printf("JavaScript error in %s:\n", where);
+	if (js_timed_out)
+		printf("JavaScript error in %s: the script ran for more than %g s (a8.setTimeLimit(seconds) raises the limit):\n", where, js_time_limit);
+	else
+		printf("JavaScript error in %s:\n", where);
 	fflush(stdout);
 	js_std_dump_error(ctx);
 	exit(2);
@@ -112,20 +147,33 @@ static int get_array_length(JSValueConst arr)
 
 /* ============================== the a8 global ============================== */
 
+/* a8.fakeCpuUntilPc(pc, maxInstructions = 1000000), a8.fakeCpuUntilOp(op,
+   maxInstructions), a8.fakeCpuUntilAfterOp(op, maxInstructions): a run that
+   has not arrived within the budget is given up (ext-cpu.c) */
+static int fakecpu_args(JSContext *c, int argc, JSValueConst *argv, int32_t *target, int32_t *max)
+{
+	*max = 0;
+	if (argc < 1 || JS_ToInt32(c, target, argv[0]))
+		return -1;
+	if (argc > 1 && JS_ToInt32(c, max, argv[1]))
+		return -1;
+	return 0;
+}
+
 static JSValue js_a8_fakeCpuUntilPc(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv)
 {
-	int32_t pc;
-	if (JS_ToInt32(c, &pc, argv[0]))
+	int32_t pc, max;
+	if (fakecpu_args(c, argc, argv, &pc, &max))
 		return JS_EXCEPTION;
-	return JS_NewInt32(c, ext_fakecpu_until_pc(pc));
+	return JS_NewInt32(c, ext_fakecpu_until_pc(pc, max));
 }
 
 static JSValue js_a8_fakeCpuUntilOp(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv)
 {
-	int32_t op;
-	if (JS_ToInt32(c, &op, argv[0]))
+	int32_t op, max;
+	if (fakecpu_args(c, argc, argv, &op, &max))
 		return JS_EXCEPTION;
-	return JS_NewInt32(c, ext_fakecpu_until_op(op));
+	return JS_NewInt32(c, ext_fakecpu_until_op(op, max));
 }
 
 /* a8.fakeCpuWhileIn(lo, hi, maxInstructions = 1000000) -> instructions run,
@@ -174,10 +222,23 @@ static JSValue js_a8_setCodeInjections(JSContext *c, JSValueConst this_val, int 
 
 static JSValue js_a8_fakeCpuUntilAfterOp(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv)
 {
-	int32_t op;
-	if (JS_ToInt32(c, &op, argv[0]))
+	int32_t op, max;
+	if (fakecpu_args(c, argc, argv, &op, &max))
 		return JS_EXCEPTION;
-	return JS_NewInt32(c, ext_fakecpu_until_after_op(op));
+	return JS_NewInt32(c, ext_fakecpu_until_after_op(op, max));
+}
+
+/* a8.setTimeLimit(seconds): how long a call into the script may run */
+static JSValue js_a8_setTimeLimit(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+	double seconds;
+	if (argc < 1 || JS_ToFloat64(c, &seconds, argv[0]))
+		return JS_EXCEPTION;
+	if (!(seconds > 0))
+		return JS_ThrowRangeError(c, "setTimeLimit(seconds) needs a positive number");
+	js_time_limit = seconds;
+	js_deadline = Util_time() + seconds;   /* the call under way gets the new limit too */
+	return JS_UNDEFINED;
 }
 
 /* a8.peek(addr) / a8.poke(addr, value): memory access that honours bank
@@ -431,15 +492,16 @@ static JSValue js_a8_profile(JSContext *c, JSValueConst this_val, int argc, JSVa
 static JSValue js_a8_profileReset(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv);
 
 static const JSCFunctionListEntry js_a8_funcs[] = {
-	JS_CFUNC_DEF("fakeCpuUntilPc", 1, js_a8_fakeCpuUntilPc),
-	JS_CFUNC_DEF("fakeCpuUntilOp", 1, js_a8_fakeCpuUntilOp),
-	JS_CFUNC_DEF("fakeCpuUntilAfterOp", 1, js_a8_fakeCpuUntilAfterOp),
+	JS_CFUNC_DEF("fakeCpuUntilPc", 2, js_a8_fakeCpuUntilPc),
+	JS_CFUNC_DEF("fakeCpuUntilOp", 2, js_a8_fakeCpuUntilOp),
+	JS_CFUNC_DEF("fakeCpuUntilAfterOp", 2, js_a8_fakeCpuUntilAfterOp),
 	JS_CFUNC_DEF("fakeCpuWhileIn", 3, js_a8_fakeCpuWhileIn),
 	JS_CFUNC_DEF("setCodeInjections", 1, js_a8_setCodeInjections),
 	JS_CFUNC_DEF("peek", 1, js_a8_peek),
 	JS_CFUNC_DEF("poke", 2, js_a8_poke),
 	JS_CFUNC_DEF("printFps", 5, js_a8_printFps),
 	JS_CFUNC_DEF("accelerationDisabled", 0, js_a8_accelerationDisabled),
+	JS_CFUNC_DEF("setTimeLimit", 1, js_a8_setTimeLimit),
 	JS_CFUNC_DEF("recordVideo", 1, js_a8_recordVideo),
 	JS_CFUNC_DEF("stopRecording", 0, js_a8_stopRecording),
 	JS_CFUNC_DEF("rgb", 1, js_a8_rgb),
@@ -596,11 +658,13 @@ void ext_js_call_hook(ext_extension *ext, enum ext_hook hook)
 	JSValue ret;
 	if (hook == EXT_HOOK_ACTIVATE)
 		set_ext_dir(ext->dir);
+	begin_call();
 	ret = JS_Call(ctx, ext->hooks[hook], ext->self, 0, NULL);
 	if (JS_IsException(ret))
 		js_fatal(hook_names[hook]);
 	JS_FreeValue(ctx, ret);
 	run_jobs();
+	end_call();
 }
 
 int ext_js_call_code_injection(ext_extension *ext, int pc, int op)
@@ -611,12 +675,14 @@ int ext_js_call_code_injection(ext_extension *ext, int pc, int op)
 
 	argv[0] = JS_NewInt32(ctx, pc);
 	argv[1] = JS_NewInt32(ctx, op);
+	begin_call();
 	ret = JS_Call(ctx, ext->hooks[EXT_HOOK_CODE_INJECTION], ext->self, 2, argv);
 	if (JS_IsException(ret))
 		js_fatal("onCodeInjection");
 	if (JS_ToInt32(ctx, &result, ret))
 		js_fatal("onCodeInjection (the return value must be an opcode)");
 	JS_FreeValue(ctx, ret);
+	end_call();
 	return result & 0xff;
 }
 
@@ -899,6 +965,7 @@ void ext_js_init(void)
 	rt = JS_NewRuntime();
 	EXT_ASSERT_NOT_NULL(rt);
 	js_std_init_handlers(rt);
+	JS_SetInterruptHandler(rt, interrupt_handler, NULL);
 	/* file-based ES module loader from quickjs-libc; it resolves relative
 	   imports against the importing module's path */
 	JS_SetModuleLoaderFunc2(rt, NULL, js_module_loader, js_module_check_attributes, NULL);

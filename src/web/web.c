@@ -337,9 +337,9 @@ EMSCRIPTEN_KEEPALIVE int web_reg(int reg)
 	}
 }
 
-EMSCRIPTEN_KEEPALIVE int web_fakecpu_until_pc(int pc) { return ext_fakecpu_until_pc(pc); }
-EMSCRIPTEN_KEEPALIVE int web_fakecpu_until_op(int op) { return ext_fakecpu_until_op(op); }
-EMSCRIPTEN_KEEPALIVE int web_fakecpu_until_after_op(int op) { return ext_fakecpu_until_after_op(op); }
+EMSCRIPTEN_KEEPALIVE int web_fakecpu_until_pc(int pc, int max_insns) { return ext_fakecpu_until_pc(pc, max_insns); }
+EMSCRIPTEN_KEEPALIVE int web_fakecpu_until_op(int op, int max_insns) { return ext_fakecpu_until_op(op, max_insns); }
+EMSCRIPTEN_KEEPALIVE int web_fakecpu_until_after_op(int op, int max_insns) { return ext_fakecpu_until_after_op(op, max_insns); }
 EMSCRIPTEN_KEEPALIVE int web_fakecpu_while_in(int lo, int hi, int max_insns) { return ext_fakecpu_while_in(lo, hi, max_insns); }
 EMSCRIPTEN_KEEPALIVE void web_set_code_injections(const int *addresses, int count) { ext_set_code_injections(addresses, count); }
 

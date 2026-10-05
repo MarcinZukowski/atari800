@@ -145,11 +145,19 @@ function atWork(pc, op) {
 		check("a8.fakeCpuWhileIn, out of budget", n === -10, `returned ${n}`);
 		return a8.OP_NOP;
 	}
-	case 8:
+	case 8: {
+		// a run to an address the routine never reaches is given up after its
+		// budget (with a warning in the log), the CPU left where it got to
+		clearPage();
+		const r = a8.fakeCpuUntilPc(0xFFFF, 10);
+		check("a8.fakeCpuUntilPc, out of budget", r === a8.OP_NOP && a8.cpu.pc > WORK && a8.cpu.pc < DONE && !pageFilled(), `pc $${a8.cpu.pc.toString(16)}`);
+		return r;
+	}
+	case 9:
 		a8.setCodeInjections([WORK]);   // AFTER is no longer asked for
 		afterHitsBefore = afterHits;
 		return op;
-	case 9:
+	case 10:
 		check("a8.setCodeInjections", afterHits === afterHitsBefore, `${afterHits - afterHitsBefore} calls at the dropped address`);
 		a8.setCodeInjections([]);       // done: the program runs untouched from here
 		cpuDone = true;

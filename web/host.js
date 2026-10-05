@@ -248,6 +248,7 @@ const fileBytes = async (url) => { const r = await fetch(url); if (!r.ok) throw 
 
 globalThis.a8 = makeA8(M, {
 	accelerationDisabled: () => suspended(),
+	setTimeLimit: (seconds) => { timeLimit = seconds; },
 	showFps: (text) => { $("ext-fps").textContent = text; fpsPrinted = true; },
 	recordVideo: (path) => { const ok = startRecording(path); if (ok) setSwitch("record", true); return ok; },
 	stopRecording,
@@ -511,7 +512,20 @@ function showFrame() {
 }
 
 let frames = 0;
+// A browser cannot interrupt a script, as the native build's time limit
+// does, so a frame that took far too long is reported after the fact: the
+// extension's hooks ran inside it (an endless loop would show as the browser's
+// slow-script dialog instead)
+let timeLimit = 1, slowFrameReported = false;
 function emulateFrame() {
+	const started = performance.now(), ext = active;
+	runFrame();
+	if (ext !== null && !slowFrameReported && performance.now() - started > 1000 * timeLimit) {
+		slowFrameReported = true;
+		log(`${ext.name}: a frame took ${((performance.now() - started) / 1000).toFixed(1)} s; a hook of the extension is slow`);
+	}
+}
+function runFrame() {
 	sendInput();
 	M._web_frame();
 	frames++;

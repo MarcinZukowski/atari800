@@ -50,11 +50,13 @@ char *ext_fps_str(int current_value);
 #define OP_NOP 0xEA
 
 /* Run the CPU without side effects on the machine state, from the current
-   instruction until reaching an address or an opcode (or just past it).
-   Return the opcode the hook should then execute (a NOP). */
-int ext_fakecpu_until_pc(int end_pc);
-int ext_fakecpu_until_op(int end_op);
-int ext_fakecpu_until_after_op(int end_op);
+   instruction until reaching an address or an opcode (or just past it), but
+   at most max_insns instructions (0: the default, a million), after which
+   the run is given up with a warning. Return the opcode the hook should then
+   execute (a NOP). */
+int ext_fakecpu_until_pc(int end_pc, int max_insns);
+int ext_fakecpu_until_op(int end_op, int max_insns);
+int ext_fakecpu_until_after_op(int end_op, int max_insns);
 int ext_fakecpu_while_in(int lo, int hi, int max_insns);
 void ext_set_code_injections(const int *addresses, int count);
 

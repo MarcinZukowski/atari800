@@ -116,16 +116,55 @@ static void fakecpu_end(void)
 	ext_cpu_faking = 0;
 }
 
-static int fakecpu_until(int end_pc, int end_op, int after)
+/* A run to an address or opcode the code never reaches would go on for ever:
+   a game that loaded other code over a hooked routine (a shop in Alternate
+   Reality) runs that code through the hook one day. After this many
+   instructions the run is given up with a warning, and the CPU goes on from
+   where it got to, in real time. 1,000,000 is about a second of 6502 time;
+   the loops the extensions skip take thousands. */
+#define FAKECPU_DEFAULT_MAX_INSNS 1000000
+
+/* The warning once per hooked address, so that a hook met every frame does
+   not flood the output */
+static int gave_up_at[16];
+static int gave_up_count = 0;
+
+static void fakecpu_gave_up(int start_pc, int end_pc, int end_op, int n)
 {
+	int i;
+	for (i = 0; i < gave_up_count; i++)
+		if (gave_up_at[i] == start_pc)
+			return;
+	if (gave_up_count < (int) (sizeof(gave_up_at) / sizeof(gave_up_at[0])))
+		gave_up_at[gave_up_count++] = start_pc;
+	if (end_pc)
+		printf("ext: the fake CPU run from $%04X to $%04X gave up at $%04X after %d instructions: "
+		       "the code there is not what the hook expects. The game goes on in real time.\n", start_pc, end_pc, CPU_regPC, n);
+	else
+		printf("ext: the fake CPU run from $%04X to opcode $%02X gave up at $%04X after %d instructions: "
+		       "the code there is not what the hook expects. The game goes on in real time.\n", start_pc, end_op, CPU_regPC, n);
+	fflush(stdout);
+}
+
+static int fakecpu_until(int end_pc, int end_op, int after, int max_insns)
+{
+	int n = 0, start_pc = CPU_regPC - 1;
+	if (max_insns <= 0)
+		max_insns = FAKECPU_DEFAULT_MAX_INSNS;
 	fakecpu_begin();
 	CPU_regPC--;   /* re-execute the current instruction */
 	for (;;) {
 		fakecpu_step();
+		n++;
 		if (end_pc && CPU_regPC == end_pc)
 			break;
 		if (end_op && MEMORY_mem[CPU_regPC] == end_op)
 			break;
+		if (n >= max_insns) {
+			fakecpu_end();
+			fakecpu_gave_up(start_pc, end_pc, end_op, n);
+			return OP_NOP;
+		}
 	}
 	if (after)
 		fakecpu_step();
@@ -157,17 +196,17 @@ int ext_fakecpu_while_in(int lo, int hi, int max_insns)
 	return n;
 }
 
-int ext_fakecpu_until_pc(int end_pc)
+int ext_fakecpu_until_pc(int end_pc, int max_insns)
 {
-	return fakecpu_until(end_pc, 0, 0);
+	return fakecpu_until(end_pc, 0, 0, max_insns);
 }
 
-int ext_fakecpu_until_op(int end_op)
+int ext_fakecpu_until_op(int end_op, int max_insns)
 {
-	return fakecpu_until(0, end_op, 0);
+	return fakecpu_until(0, end_op, 0, max_insns);
 }
 
-int ext_fakecpu_until_after_op(int end_op)
+int ext_fakecpu_until_after_op(int end_op, int max_insns)
 {
-	return fakecpu_until(0, end_op, 1);
+	return fakecpu_until(0, end_op, 1, max_insns);
 }
