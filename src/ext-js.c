@@ -314,7 +314,7 @@ static const JSCFunctionListEntry js_a8_cpu_funcs[] = {
 enum { REG_DLIST, REG_HSCROL, REG_VSCROL, REG_CHBASE, REG_PMBASE, REG_DMACTL, REG_COLBK, REG_COLPF0, REG_COLPF1, REG_COLPF2, REG_COLPF3,
        REG_COLPM0, REG_COLPM1, REG_COLPM2, REG_COLPM3, REG_HPOSP0, REG_HPOSP1, REG_HPOSP2, REG_HPOSP3,
        REG_SIZEP0, REG_SIZEP1, REG_SIZEP2, REG_SIZEP3, REG_GRAFP0, REG_GRAFP1, REG_GRAFP2, REG_GRAFP3,
-       REG_PRIOR, REG_GRACTL };
+       REG_PRIOR, REG_GRACTL, REG_HPOSM0, REG_HPOSM1, REG_HPOSM2, REG_HPOSM3, REG_SIZEM, REG_GRAFM };
 
 static JSValue js_a8_get_reg(JSContext *c, JSValueConst this_val, int magic)
 {
@@ -348,6 +348,12 @@ static JSValue js_a8_get_reg(JSContext *c, JSValueConst this_val, int magic)
 	case REG_GRAFP3: return JS_NewInt32(c, GTIA_GRAFP3);
 	case REG_PRIOR: return JS_NewInt32(c, GTIA_PRIOR);
 	case REG_GRACTL: return JS_NewInt32(c, GTIA_GRACTL);
+	case REG_HPOSM0: return JS_NewInt32(c, GTIA_HPOSM0);
+	case REG_HPOSM1: return JS_NewInt32(c, GTIA_HPOSM1);
+	case REG_HPOSM2: return JS_NewInt32(c, GTIA_HPOSM2);
+	case REG_HPOSM3: return JS_NewInt32(c, GTIA_HPOSM3);
+	case REG_SIZEM: return JS_NewInt32(c, GTIA_SIZEM);
+	case REG_GRAFM: return JS_NewInt32(c, GTIA_GRAFM);
 	}
 	return JS_UNDEFINED;
 }
@@ -385,6 +391,12 @@ static const JSCFunctionListEntry js_a8_gtia_funcs[] = {
 	JS_CGETSET_MAGIC_DEF("grafp3", js_a8_get_reg, NULL, REG_GRAFP3),
 	JS_CGETSET_MAGIC_DEF("prior", js_a8_get_reg, NULL, REG_PRIOR),
 	JS_CGETSET_MAGIC_DEF("gractl", js_a8_get_reg, NULL, REG_GRACTL),
+	JS_CGETSET_MAGIC_DEF("hposm0", js_a8_get_reg, NULL, REG_HPOSM0),
+	JS_CGETSET_MAGIC_DEF("hposm1", js_a8_get_reg, NULL, REG_HPOSM1),
+	JS_CGETSET_MAGIC_DEF("hposm2", js_a8_get_reg, NULL, REG_HPOSM2),
+	JS_CGETSET_MAGIC_DEF("hposm3", js_a8_get_reg, NULL, REG_HPOSM3),
+	JS_CGETSET_MAGIC_DEF("sizem", js_a8_get_reg, NULL, REG_SIZEM),
+	JS_CGETSET_MAGIC_DEF("grafm", js_a8_get_reg, NULL, REG_GRAFM),
 };
 
 static JSValue js_a8_printFps(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv)

@@ -9,7 +9,8 @@ const CPU = { a: 0, x: 1, y: 2, s: 3, p: 4, pc: 5 };
 const ANTIC = ["dlist", "hscrol", "vscrol", "chbase", "pmbase", "dmactl"];   // registers 0-5 of web_reg()
 const GTIA = ["colbk", "colpf0", "colpf1", "colpf2", "colpf3", "colpm0", "colpm1", "colpm2", "colpm3",
 	"hposp0", "hposp1", "hposp2", "hposp3", "sizep0", "sizep1", "sizep2", "sizep3",
-	"grafp0", "grafp1", "grafp2", "grafp3", "prior", "gractl"];              // registers 6-28
+	"grafp0", "grafp1", "grafp2", "grafp3", "prior", "gractl",
+	"hposm0", "hposm1", "hposm2", "hposm3", "sizem", "grafm"];                // registers 6-34
 
 // M: the module; host: { accelerationDisabled(), setTimeLimit(seconds), showFps(text), files: Map, audio() -> AudioContext or null }
 export function makeA8(M, host) {

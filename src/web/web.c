@@ -333,6 +333,12 @@ EMSCRIPTEN_KEEPALIVE int web_reg(int reg)
 	case 26: return GTIA_GRAFP3;
 	case 27: return GTIA_PRIOR;
 	case 28: return GTIA_GRACTL;
+	case 29: return GTIA_HPOSM0;
+	case 30: return GTIA_HPOSM1;
+	case 31: return GTIA_HPOSM2;
+	case 32: return GTIA_HPOSM3;
+	case 33: return GTIA_SIZEM;
+	case 34: return GTIA_GRAFM;
 	default: return 0;
 	}
 }
