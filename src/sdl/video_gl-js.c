@@ -203,6 +203,10 @@ static JSValue js_gl_Vertex3f(JSContext *ctx, JSValueConst this_val, int argc, J
 {
 	NEED(3); ARG_F(0, x); ARG_F(1, y); ARG_F(2, z); gl.Vertex3f(x, y, z); return JS_UNDEFINED;
 }
+static JSValue js_gl_Vertex4f(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+	NEED(4); ARG_F(0, x); ARG_F(1, y); ARG_F(2, z); ARG_F(3, w); gl.Vertex4f(x, y, z, w); return JS_UNDEFINED;
+}
 static JSValue js_gl_Normal3f(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
 {
 	NEED(3); ARG_F(0, x); ARG_F(1, y); ARG_F(2, z); gl.Normal3f(x, y, z); return JS_UNDEFINED;
@@ -568,6 +572,7 @@ static const JSCFunctionListEntry js_gl_funcs[] = {
 	JS_CFUNC_DEF("Color4f", 4, js_gl_Color4f),
 	JS_CFUNC_DEF("TexCoord2f", 2, js_gl_TexCoord2f),
 	JS_CFUNC_DEF("Vertex3f", 3, js_gl_Vertex3f),
+	JS_CFUNC_DEF("Vertex4f", 4, js_gl_Vertex4f),
 	JS_CFUNC_DEF("Normal3f", 3, js_gl_Normal3f),
 	JS_CFUNC_DEF("Translatef", 3, js_gl_Translatef),
 	JS_CFUNC_DEF("Scalef", 3, js_gl_Scalef),

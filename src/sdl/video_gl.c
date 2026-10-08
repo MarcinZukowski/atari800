@@ -528,6 +528,7 @@ static int InitGlFunctions(void)
 	    (gl.TexSubImage2D = (void(APIENTRY*)(GLenum, GLint, GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, const GLvoid*))GetGlFunc("glTexSubImage2D")) == NULL ||
 	    (gl.TexCoord2f = (void(APIENTRY*)(GLfloat, GLfloat))GetGlFunc("glTexCoord2f")) == NULL ||
 	    (gl.Vertex3f = (void(APIENTRY*)(GLfloat, GLfloat, GLfloat))GetGlFunc("glVertex3f")) == NULL ||
+	    (gl.Vertex4f = (void(APIENTRY*)(GLfloat, GLfloat, GLfloat, GLfloat))GetGlFunc("glVertex4f")) == NULL ||
 	    (gl.Normal3f = (void(APIENTRY*)(GLfloat, GLfloat, GLfloat))GetGlFunc("glNormal3f")) == NULL ||
 	    (gl.Color4f = (void(APIENTRY*)(GLfloat, GLfloat, GLfloat, GLfloat))GetGlFunc("glColor4f")) == NULL ||
 	    (gl.BlendFunc = (void(APIENTRY*)(GLenum,GLenum))GetGlFunc("glBlendFunc")) == NULL ||

@@ -21,6 +21,7 @@ struct glapi
 	void(APIENTRY*TexSubImage2D)(GLenum, GLint, GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, const GLvoid*);
 	void(APIENTRY*TexCoord2f)(GLfloat, GLfloat);
 	void(APIENTRY*Vertex3f)(GLfloat, GLfloat, GLfloat);
+	void(APIENTRY*Vertex4f)(GLfloat, GLfloat, GLfloat, GLfloat);
 	void(APIENTRY*Normal3f)(GLfloat, GLfloat, GLfloat);
 	void(APIENTRY*Color4f)(GLfloat, GLfloat, GLfloat, GLfloat);
 	void(APIENTRY*BlendFunc)(GLenum,GLenum);

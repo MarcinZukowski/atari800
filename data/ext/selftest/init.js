@@ -199,6 +199,16 @@ function testDrawing() {
 		gl.Color4f(1, 0, 0, 1); quad(at(0), Y, S);
 		check("gl.Begin/Vertex3f/Color4f, readPixels", near(middle(0), 255, 0, 0), middle(0).slice(0, 3));
 	});
+	attempt("Vertex4f", () => {
+		// a homogeneous vertex: (2x, 2y, 2z, 2) lands where (x, y, z) does
+		const x = at(13), w = 2;
+		gl.Color4f(0, 0, 1, 1);
+		gl.Begin(gl.QUADS);
+		gl.Vertex4f(x * w, Y * w, 0, w); gl.Vertex4f((x + S) * w, Y * w, 0, w);
+		gl.Vertex4f((x + S) * w, (Y + S) * w, 0, w); gl.Vertex4f(x * w, (Y + S) * w, 0, w);
+		gl.End();
+		check("gl.Vertex4f", near(middle(13), 0, 0, 255), middle(13).slice(0, 3));
+	});
 	attempt("textures", () => {
 		const t = gl.createTexture(2, 2);
 		for (let i = 0; i < 4; i++) t.pixels.set([0, 255, 0, 255], 4 * i);

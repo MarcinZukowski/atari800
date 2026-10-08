@@ -94,8 +94,9 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
   free, and they are saved in state files, so data kept there follows the game's save and load
 * `a8.antic.pmbase`, `a8.antic.dmactl` - player/missile base and DMA control
 * `a8.gtia.colbk`, `a8.gtia.colpf0`..`colpf3`, `a8.gtia.colpm0`..`colpm3` - GTIA colour registers
-* `a8.gtia.hposp0`..`hposp3`, `sizep0`..`sizep3`, `grafp0`..`grafp3`, `prior`, `gractl` - GTIA
-  player registers (as last written; a game's interrupts may change them within a frame)
+* `a8.gtia.hposp0`..`hposp3`, `sizep0`..`sizep3`, `grafp0`..`grafp3`, `hposm0`..`hposm3`, `sizem`,
+  `grafm`, `prior`, `gractl` - GTIA player and missile registers (as last written; a game's
+  interrupts may change them within a frame)
 * "Fake CPU" functions and constants for use inside `onCodeInjection`:
   * `a8.OP_RTS`, `a8.OP_NOP` - 6502 opcodes
   * `a8.fakeCpuUntilPc(pc, maxInstructions = 1000000)` - run the CPU (without side effects on the
@@ -136,7 +137,7 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
 ### `gl` - OpenGL
 
 * Legacy OpenGL calls without the `gl` prefix: `gl.Enable`, `gl.Disable`, `gl.Begin`, `gl.End`,
-  `gl.Color4f`, `gl.TexCoord2f`, `gl.Vertex3f`, `gl.Normal3f`, `gl.BlendFunc`, `gl.BindTexture`,
+  `gl.Color4f`, `gl.TexCoord2f`, `gl.Vertex3f`, `gl.Vertex4f` (a homogeneous vertex: with w from the depth, textures interpolate in perspective even when the script projects its own points), `gl.Normal3f`, `gl.BlendFunc`, `gl.BindTexture`,
   `gl.TexParameteri`, `gl.MatrixMode`, `gl.PushMatrix`, `gl.PopMatrix`, `gl.LoadIdentity`,
   `gl.Translatef`, `gl.Scalef`, `gl.Rotatef`, `gl.Ortho`, `gl.Frustum`, `gl.Viewport`, `gl.Scissor`,
   `gl.Clear`, `gl.ClearColor`, `gl.Fogf`, `gl.Fogfv(pname, [values])`, `gl.Lightfv(light, pname, [values])`,

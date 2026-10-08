@@ -67,7 +67,7 @@ function multiply(a, b) {
 	return out;
 }
 
-const FLOATS = 9;   // per vertex: position 3, colour 4, texture coordinate 2
+const FLOATS = 10;   // per vertex: position 4 (x, y, z, w), colour 4, texture coordinate 2
 
 // g: the WebGL2 context; screen: { width, height } of the Atari picture shown
 export function makeGl(g, screen) {
@@ -87,9 +87,9 @@ export function makeGl(g, screen) {
 	g.uniform1i(uniform.uTexture, 0);
 	const vao = g.createVertexArray(), buffer = g.createBuffer();
 	g.bindVertexArray(vao); g.bindBuffer(g.ARRAY_BUFFER, buffer);
-	g.enableVertexAttribArray(0); g.vertexAttribPointer(0, 3, g.FLOAT, false, FLOATS * 4, 0);
-	g.enableVertexAttribArray(1); g.vertexAttribPointer(1, 4, g.FLOAT, false, FLOATS * 4, 12);
-	g.enableVertexAttribArray(2); g.vertexAttribPointer(2, 2, g.FLOAT, false, FLOATS * 4, 28);
+	g.enableVertexAttribArray(0); g.vertexAttribPointer(0, 4, g.FLOAT, false, FLOATS * 4, 0);
+	g.enableVertexAttribArray(1); g.vertexAttribPointer(1, 4, g.FLOAT, false, FLOATS * 4, 16);
+	g.enableVertexAttribArray(2); g.vertexAttribPointer(2, 2, g.FLOAT, false, FLOATS * 4, 32);
 
 	/* ------------------------------ state ------------------------------ */
 
@@ -130,12 +130,14 @@ export function makeGl(g, screen) {
 	/* ------------------------------ drawing ------------------------------ */
 
 	let data = new Float32Array(FLOATS * 4096), count = 0, mode = -1;
-	const push = (x, y, z, colour, s, t) => {
+	// w: the homogeneous coordinate (1 but for Vertex4f), by which GL divides the
+	// position and interpolates the texture coordinates in perspective
+	const push = (x, y, z, colour, s, t, w = 1) => {
 		if ((count + 1) * FLOATS > data.length) { const bigger = new Float32Array(data.length * 2); bigger.set(data); data = bigger; }
 		const o = count++ * FLOATS;
-		data[o] = x; data[o + 1] = y; data[o + 2] = z;
-		data[o + 3] = colour[0]; data[o + 4] = colour[1]; data[o + 5] = colour[2]; data[o + 6] = colour[3];
-		data[o + 7] = s; data[o + 8] = t;
+		data[o] = x; data[o + 1] = y; data[o + 2] = z; data[o + 3] = w;
+		data[o + 4] = colour[0]; data[o + 5] = colour[1]; data[o + 6] = colour[2]; data[o + 7] = colour[3];
+		data[o + 8] = s; data[o + 9] = t;
 	};
 	// Vertex `from` copied to the end (for turning quads and fans into triangles)
 	const repeat = (list, from) => { for (let i = 0; i < FLOATS; i++) list.push(data[from * FLOATS + i]); };
@@ -144,7 +146,7 @@ export function makeGl(g, screen) {
 	function drawTriangleData(vertices, flat) {
 		const texture = textures.get(state.bound);
 		const textured = state.enabled.has(C.TEXTURE_2D) && texture !== undefined && texture.uploaded;
-		if (host.trace) host.trace.push({ vertices: vertices.length / FLOATS, textured, bound: state.bound, blend: state.enabled.has(C.BLEND) ? state.blend.map((v) => v.toString(16)).join("/") : "off", colour: Array.from(vertices.subarray(3, 7)).map((v) => +v.toFixed(2)), first: Array.from(vertices.subarray(0, 3)).map((v) => +v.toFixed(2)), tex: Array.from(vertices.subarray(7, 9)).map((v) => +v.toFixed(3)), error: g.getError() });
+		if (host.trace) host.trace.push({ vertices: vertices.length / FLOATS, textured, bound: state.bound, blend: state.enabled.has(C.BLEND) ? state.blend.map((v) => v.toString(16)).join("/") : "off", colour: Array.from(vertices.subarray(4, 8)).map((v) => +v.toFixed(2)), first: Array.from(vertices.subarray(0, 3)).map((v) => +v.toFixed(2)), tex: Array.from(vertices.subarray(8, 10)).map((v) => +v.toFixed(3)), error: g.getError() });
 		g.uniformMatrix4fv(uniform.uProjection, false, flat ? identity() : top(C.PROJECTION));
 		g.uniformMatrix4fv(uniform.uModelView, false, flat ? identity() : top(C.MODELVIEW));
 		g.uniform1i(uniform.uTextured, textured ? 1 : 0);
@@ -169,8 +171,8 @@ export function makeGl(g, screen) {
 			if (p === null || q === null) continue;
 			const dx = (q[0] - p[0]) * vw, dy = (q[1] - p[1]) * vh, length = Math.hypot(dx, dy) || 1;
 			const ox = -dy / length * state.lineWidth / vw, oy = dx / length * state.lineWidth / vh;   // across, in clip units
-			const corner = (point, source, sign) => out.push(point[0] + sign * ox, point[1] + sign * oy, point[2],
-				data[source * FLOATS + 3], data[source * FLOATS + 4], data[source * FLOATS + 5], data[source * FLOATS + 6], 0, 0);
+			const corner = (point, source, sign) => out.push(point[0] + sign * ox, point[1] + sign * oy, point[2], 1,
+				data[source * FLOATS + 4], data[source * FLOATS + 5], data[source * FLOATS + 6], data[source * FLOATS + 7], 0, 0);
 			corner(p, a, -1); corner(p, a, 1); corner(q, b, 1);
 			corner(p, a, -1); corner(q, b, 1); corner(q, b, -1);
 		}
@@ -249,6 +251,7 @@ export function makeGl(g, screen) {
 		Begin(m) { mode = m; count = 0; },
 		End() { end(); },
 		Vertex3f(x, y, z) { push(x, y, z, state.colour, state.texCoord[0], state.texCoord[1]); },
+		Vertex4f(x, y, z, w) { push(x, y, z, state.colour, state.texCoord[0], state.texCoord[1], w); },
 		TexCoord2f(s, t) { state.texCoord = [s, t]; },
 		Color4f(r, gg, b, a) { state.colour = [r, gg, b, a]; },
 		Normal3f() { },
@@ -325,8 +328,8 @@ export function makeGl(g, screen) {
 		drawTriangles(positions) {
 			const out = new Float32Array(positions.length / 3 * FLOATS), c = state.colour;
 			for (let i = 0, o = 0; i < positions.length; i += 3, o += FLOATS) {
-				out[o] = positions[i]; out[o + 1] = positions[i + 1]; out[o + 2] = positions[i + 2];
-				out[o + 3] = c[0]; out[o + 4] = c[1]; out[o + 5] = c[2]; out[o + 6] = c[3];
+				out[o] = positions[i]; out[o + 1] = positions[i + 1]; out[o + 2] = positions[i + 2]; out[o + 3] = 1;
+				out[o + 4] = c[0]; out[o + 5] = c[1]; out[o + 6] = c[2]; out[o + 7] = c[3];
 			}
 			drawTriangleData(out, false);
 		},
