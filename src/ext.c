@@ -186,6 +186,9 @@ static void menu(void)
 
 	UI_driver->fInit();
 	inside_menu = 1;
+	/* As the emulator's own menu does: the keyboard joystick (cursor keys
+	   as a stick) swallows the cursor keys unless the UI is active */
+	UI_is_active = TRUE;
 	for (;;) {
 		int idx = 0;
 		UI_tMenuItem *ext_items = (current != NULL && current->menu_count > 0) ? ext_js_menu_items(current) : NULL;
@@ -205,6 +208,7 @@ static void menu(void)
 		if (current != NULL)
 			ext_js_menu_cycle(current, option);
 	}
+	UI_is_active = FALSE;
 	inside_menu = 0;
 
 	/* Wait until no key is pressed, so that leaving the menu does not reach the Atari */
