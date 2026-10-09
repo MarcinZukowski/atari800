@@ -22,6 +22,7 @@
  */
 
 #include "ext.h"
+#include "atari.h"
 #include "ext-js.h"
 
 #include <SDL.h>
@@ -153,6 +154,9 @@ static void deactivate(void)
 	printf("%s: the program is gone\n", current->name);
 	ext_set_code_injections(NULL, 0);
 	current = NULL;
+	/* whatever pace the extension set (a8.setSpeed) goes with it */
+	Atari800_turbo = FALSE;
+	Atari800_turbo_speed = 0;
 }
 
 void ext_init(void)

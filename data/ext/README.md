@@ -135,6 +135,10 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
 * `a8.printFps(value, fg, bg, x, y)` - counts frames (a change of `value` is a new frame)
   and prints the rate on the Atari screen at `x, y`. Typically called from `onPreGlFrame`
 * `a8.accelerationDisabled()` - true while CTRL is held
+* `a8.setSpeed(percent)` - runs the emulation at that percentage of real time (100 is real time,
+  0 as fast as the machine can: natively the emulator's turbo with a speed limit, on the web the
+  frame period). For a game that paces itself by the frame and can take a faster one; sound
+  follows the pace
 * `a8.recordVideo(path)` starts a video recording into that `.avi` file, as the emulator's "Record
   video" does, and returns whether it started; `a8.stopRecording()` ends it. With the OpenGL display
   and an extension active the video is the display's own picture in true colour, with everything the

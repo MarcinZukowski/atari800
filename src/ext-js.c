@@ -40,6 +40,7 @@
 #include <quickjs/quickjs-libc.h>
 
 #include "antic.h"
+#include "atari.h"
 #include "colours.h"
 #include "cpu.h"
 #include "monitor.h"
@@ -542,6 +543,7 @@ static JSValue js_a8_xeBank(JSContext *c, JSValueConst this_val, int argc, JSVal
 static JSValue js_a8_profile(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv);
 static JSValue js_a8_profileReset(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv);
 static JSValue js_a8_screenLayout(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv);
+static JSValue js_a8_setSpeed(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv);
 
 static const JSCFunctionListEntry js_a8_funcs[] = {
 	JS_CFUNC_DEF("fakeCpuUntilPc", 2, js_a8_fakeCpuUntilPc),
@@ -564,6 +566,7 @@ static const JSCFunctionListEntry js_a8_funcs[] = {
 	JS_CFUNC_DEF("profile", 1, js_a8_profile),
 	JS_CFUNC_DEF("profileReset", 0, js_a8_profileReset),
 	JS_CFUNC_DEF("screenLayout", 0, js_a8_screenLayout),
+	JS_CFUNC_DEF("setSpeed", 1, js_a8_setSpeed),
 	JS_PROP_INT32_DEF("OP_RTS", OP_RTS, JS_PROP_ENUMERABLE),
 	JS_PROP_INT32_DEF("OP_NOP", OP_NOP, JS_PROP_ENUMERABLE),
 	JS_OBJECT_DEF("antic", js_a8_antic_funcs, 6, JS_PROP_ENUMERABLE),
@@ -600,6 +603,19 @@ static JSValue js_a8_screenLayout(JSContext *c, JSValueConst this_val, int argc,
 	JS_SetPropertyStr(c, o, "width", JS_NewInt32(c, VIDEOMODE_src_width));
 	JS_SetPropertyStr(c, o, "height", JS_NewInt32(c, VIDEOMODE_src_height));
 	return o;
+}
+
+/* a8.setSpeed(percent): runs the emulation at that percentage of the real
+   speed (the emulator's turbo with a speed limit); 100 is real time, 0 as
+   fast as it can. For a game that paces itself by the frame. */
+static JSValue js_a8_setSpeed(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+	int percent;
+	if (argc < 1 || JS_ToInt32(c, &percent, argv[0]) || percent < 0 || percent > 10000)
+		return JS_ThrowRangeError(c, "setSpeed(percent): 0 (unlimited) or 1..10000");
+	Atari800_turbo = percent != 100;
+	Atari800_turbo_speed = percent;
+	return JS_UNDEFINED;
 }
 
 /* a8.profile(what): the monitor's profile, a Float64Array of 65536 entries:

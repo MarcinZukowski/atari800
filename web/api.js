@@ -69,6 +69,8 @@ export function makeA8(M, host) {
 		profile(what) { M._web_profile(what === "cycles" ? 1 : 0, profileBuffer); return new Float64Array(heap, profileBuffer, 0x10000).slice(); },
 		profileReset: () => M._web_profile_reset(),
 		accelerationDisabled: () => host.accelerationDisabled(),
+		// The emulation at a percentage of the real speed (100 real time, 0 as fast as the browser can)
+		setSpeed(percent) { if (!(percent >= 0 && percent <= 10000)) throw new RangeError("setSpeed(percent): 0 (unlimited) or 1..10000"); host.setSpeed(percent); },
 		// Natively the limit on a call into the script; here only the slow-frame report's threshold
 		setTimeLimit(seconds) { if (!(seconds > 0)) throw new RangeError("setTimeLimit(seconds) needs a positive number"); host.setTimeLimit(seconds); },
 		// Natively this prints into the Atari's screen; here the page shows it

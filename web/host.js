@@ -68,6 +68,7 @@ let audio = null, output = null, playhead = 0;
 // a press held for half a second or more changes it only for as long as it is
 // held (Pause to look at one moment, Turbo to skip ahead, Extensions to compare)
 const switches = { extensions: true, sound: true, pause: false, turbo: false, fps: false, record: false }, HOLD = 500;
+let speedPercent = 100;   // an extension's a8.setSpeed(): the emulation's pace as a percentage of real time (0 unlimited)
 const fpsCount = { frames: 0, since: performance.now() };
 function setSwitch(id, on) {
 	if (id === "record") {
@@ -257,6 +258,7 @@ globalThis.a8 = makeA8(M, {
 	accelerationDisabled: () => suspended(),
 	setTimeLimit: (seconds) => { timeLimit = seconds; },
 	showFps: (text) => { $("ext-fps").textContent = text; fpsPrinted = true; },
+	setSpeed: (percent) => { speedPercent = percent; },
 	recordVideo: (path) => { const ok = startRecording(path); if (ok) setSwitch("record", true); return ok; },
 	stopRecording,
 	files,
@@ -393,7 +395,7 @@ async function activate(ext) {
 }
 
 function deactivate() {
-	active = loading = null; failed = false;
+	active = loading = null; failed = false; speedPercent = 100;
 	a8.setCodeInjections([]);
 	a8.panel = a8.overlay = null;
 	$("extension").textContent = "none"; $("menu").textContent = ""; $("panel").textContent = ""; $("overlay").textContent = ""; $("ext-fps").textContent = ""; $("source").hidden = true;
@@ -579,15 +581,16 @@ function tick(now) {
 	let ran = 0;
 	$("pause-hint").hidden = !switches.pause;
 	if (switches.pause) owed = 0;   // the picture stays as it is
-	else if (switches.turbo) {
+	else if (switches.turbo || speedPercent === 0) {
 		// as many frames as fit in most of a display frame
 		const until = performance.now() + 12;
 		do { emulateFrame(); ran++; } while (performance.now() < until && ran < 500);
 		owed = 0;
 	}
 	else {
-		owed = Math.min(owed + now - last, 4 * period);
-		while (owed >= period) { emulateFrame(); owed -= period; ran++; }
+		const pace = period * 100 / speedPercent;   // the frame period at the extension's speed
+		owed = Math.min(owed + now - last, 4 * pace);
+		while (owed >= pace) { emulateFrame(); owed -= pace; ran++; }
 	}
 	last = now;
 	fpsCount.frames += ran;
