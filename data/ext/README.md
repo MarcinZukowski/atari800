@@ -34,7 +34,8 @@ Extensions are enabled with `--with-ext` when running `configure`. QuickJS needs
 installed (e.g. `brew install quickjs`) with `CPPFLAGS`/`LDFLAGS` pointing at it.
 Not all emulator functionality is exposed; more can easily be added.
 
-At startup atari800 looks for files matching `<ext-dir>/*/init.js`
+At startup atari800 looks for files matching `<ext-dir>/*/init.js` (and, for a directory
+without one, `<ext-dir>/<group>/*/init.js`: a group of extensions, say a collection's)
 (e.g. [data/ext/selftest/init.js](selftest/init.js)), evaluates each as an ES module and
 registers its default export as an extension. The directory is `data/ext` unless the
 `-ext-dir <path>` option or `EXT_DIR=<path>` in the configuration file says otherwise; when it

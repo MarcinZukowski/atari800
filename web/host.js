@@ -266,10 +266,11 @@ globalThis.gl.loadTextureRGBA = (path, width, height) => {
 	return texture;
 };
 
-// dist/files.txt lists what ships under ext/: every directory with an init.js is an extension
+// dist/files.txt lists what ships under ext/: every directory with an init.js is an extension,
+// directly under ext/ or one level down (a group of extensions, say a collection's)
 const listing = (await (await fetch("files.txt")).text()).split("\n").filter(Boolean);
 const extensions = [];
-for (const path of listing.filter((p) => /^ext\/[^/]+\/init\.js$/.test(p))) {
+for (const path of listing.filter((p) => /^ext\/(?:[^/]+\/){1,2}init\.js$/.test(p))) {
 	try {
 		a8.extDir = path.replace(/\/init\.js$/, "");   // the extension's directory, as the native host sets it while loading
 		const ext = (await import("./" + path)).default;

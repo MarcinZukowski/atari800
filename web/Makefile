@@ -6,7 +6,8 @@
 #   make serve      serve dist/ on http://localhost:8800
 #   make clean
 
-# EXT_DIR: the extensions to put on the site (any directory of <name>/init.js);
+# EXT_DIR: the extensions to put on the site (any directory of <name>/init.js, or a group of them,
+# <group>/<name>/init.js);
 # the fork's self-test (data/ext/selftest) is added whatever EXT_DIR is
 SRC = ../src
 OUT = dist
@@ -47,7 +48,7 @@ page:
 	cp $(PAGE) $(OUT)/
 	sed 's/@BUILD@/$(BUILD)/' index.html > $(OUT)/index.html
 	rm -rf $(OUT)/ext && mkdir -p $(OUT)/ext
-	cd $(EXT_DIR) && for d in *; do [ -f "$$d/init.js" ] && cp -R "$$d" $(abspath $(OUT))/ext/; done; cp *.js extensions.json $(abspath $(OUT))/ext/ 2>/dev/null; true
+	cd $(EXT_DIR) && for d in *; do if [ -f "$$d/init.js" ] || ls "$$d"/*/init.js >/dev/null 2>&1; then cp -R "$$d" $(abspath $(OUT))/ext/; fi; done; cp *.js extensions.json $(abspath $(OUT))/ext/ 2>/dev/null; true
 	# the fork's own self-test goes on every site, whatever EXT_DIR is: it tests the emulator built here
 	[ -d $(OUT)/ext/selftest ] || cp -R ../data/ext/selftest $(OUT)/ext/
 	# what a user keeps beside an extension but must not be published (disk images, documents, saved

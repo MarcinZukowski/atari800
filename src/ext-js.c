@@ -966,13 +966,45 @@ static void load_module(const char *path)
 	register_extension(def, path);
 }
 
-void ext_js_init(void)
+/* Loads every <dirname>/<name>/init.js; a directory without one is looked
+   into one level further (a group of extensions, say a collection's) */
+static void load_dir(const char *dirname, int depth)
 {
-	const char *dirname = ext_dir;
 	DIR *dir;
 	struct dirent *dp;
 	char buf[1024];
 
+	dir = opendir(dirname);
+	if (dir == NULL) {
+		if (depth == 0)
+			printf("No extensions: there is no directory %s\n", dirname);
+		return;
+	}
+	while ((dp = readdir(dir)) != NULL) {
+		struct stat stbuf;
+		snprintf(buf, sizeof(buf), "%s/%s", dirname, dp->d_name);
+		if (stat(buf, &stbuf) == -1 || (stbuf.st_mode & S_IFDIR) == 0)
+			continue;
+		snprintf(buf, sizeof(buf), "%s/%s/init.js", dirname, dp->d_name);
+		if (stat(buf, &stbuf) == -1) {
+			if (depth == 0) {
+				snprintf(buf, sizeof(buf), "%s/%s", dirname, dp->d_name);
+				load_dir(buf, 1);
+			}
+			continue;
+		snprintf(buf, sizeof(buf), "%s/%s", dirname, dp->d_name);
+		set_ext_dir(buf);
+		snprintf(buf, sizeof(buf), "%s/%s/init.js", dirname, dp->d_name);
+		load_module(buf);
+	}
+	closedir(dir);
+}
+		if (dp->d_name[0] == '.')
+			continue;
+		}
+
+void ext_js_init(void)
+{
 	printf("Initializing JavaScript (QuickJS)\n");
 	rt = JS_NewRuntime();
 	EXT_ASSERT_NOT_NULL(rt);
@@ -989,24 +1021,6 @@ void ext_js_init(void)
 
 	install_globals();
 
-	/* Load every <ext_dir>/<name>/init.js */
-	dir = opendir(dirname);
-	if (dir == NULL) {
-		printf("No extensions: there is no directory %s\n", dirname);
-		return;
-	}
-	while ((dp = readdir(dir)) != NULL) {
-		struct stat stbuf;
-		snprintf(buf, sizeof(buf), "%s/%s", dirname, dp->d_name);
-		if (stat(buf, &stbuf) == -1 || (stbuf.st_mode & S_IFDIR) == 0)
-			continue;
-		snprintf(buf, sizeof(buf), "%s/%s/init.js", dirname, dp->d_name);
-		if (stat(buf, &stbuf) == -1)
-			continue;
-		snprintf(buf, sizeof(buf), "%s/%s", dirname, dp->d_name);
-		set_ext_dir(buf);
-		snprintf(buf, sizeof(buf), "%s/%s/init.js", dirname, dp->d_name);
-		load_module(buf);
-	}
-	closedir(dir);
+	/* Load every <ext_dir>/<name>/init.js, and <ext_dir>/<group>/<name>/init.js */
+	load_dir(ext_dir, 0);
 }
