@@ -36,6 +36,7 @@
 #include <string.h>
 
 #include "afile.h"
+#include "sio.h"
 #include "akey.h"
 #include "antic.h"
 #include "atari.h"
@@ -239,6 +240,12 @@ EMSCRIPTEN_KEEPALIVE int web_load_state(const char *path)
 	return StateSav_ReadAtariState(path, "rb");
 }
 
+/* Writes the machine's state to a file of the module's file system */
+EMSCRIPTEN_KEEPALIVE int web_save_state(const char *path)
+{
+	return StateSav_SaveAtariState(path, "wb", TRUE);
+}
+
 EMSCRIPTEN_KEEPALIVE int web_open_file(const char *path)
 {
 	int r = AFILE_OpenFile(path, TRUE, 1, FALSE);
@@ -252,6 +259,13 @@ EMSCRIPTEN_KEEPALIVE int web_open_file(const char *path)
 		CARTRIDGE_SetTypeAutoReboot(&CARTRIDGE_main, type);
 	}
 	return TRUE;
+}
+
+/* Puts a disk image into a drive (1-8) without a reboot: a game that asks
+   for its next disk. Returns whether the image was mounted. */
+EMSCRIPTEN_KEEPALIVE int web_mount_disk(const char *path, int drive)
+{
+	return SIO_Mount(drive, path, FALSE);
 }
 
 /* ------------------------------ for the extensions ------------------------------ */

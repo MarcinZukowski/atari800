@@ -49,6 +49,8 @@
 #include "util.h"
 #ifdef VIDEO_RECORDING
 #include "file_export.h"
+#include "sio.h"
+#include "statesav.h"
 #endif
 
 #include "sdl/sfx.h"
@@ -399,6 +401,41 @@ static const JSCFunctionListEntry js_a8_gtia_funcs[] = {
 	JS_CGETSET_MAGIC_DEF("grafm", js_a8_get_reg, NULL, REG_GRAFM),
 };
 
+/* a8.mountDisk(path, drive = 1): puts a disk image into a drive without a
+   reboot (a game that asks for its next disk); returns whether it mounted */
+static JSValue js_a8_mountDisk(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+	int32_t drive = 1;
+	const char *path;
+	int ok;
+	if (argc < 1)
+		return JS_ThrowTypeError(c, "mountDisk(path, drive = 1) needs the path");
+	if (argc > 1 && JS_ToInt32(c, &drive, argv[1]))
+		return JS_EXCEPTION;
+	path = JS_ToCString(c, argv[0]);
+	if (path == NULL)
+		return JS_EXCEPTION;
+	ok = drive >= 1 && drive <= 8 && SIO_Mount(drive, path, FALSE);
+	JS_FreeCString(c, path);
+	return JS_NewBool(c, ok);
+}
+
+/* a8.saveState(path): writes the machine's state to that file, as the
+   emulator's own save does; returns whether it was written */
+static JSValue js_a8_saveState(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+	const char *path;
+	int ok;
+	if (argc < 1)
+		return JS_ThrowTypeError(c, "saveState(path) needs the path");
+	path = JS_ToCString(c, argv[0]);
+	if (path == NULL)
+		return JS_EXCEPTION;
+	ok = StateSav_SaveAtariState(path, "wb", TRUE);
+	JS_FreeCString(c, path);
+	return JS_NewBool(c, ok);
+}
+
 static JSValue js_a8_printFps(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv)
 {
 	int32_t value, fg, bg, x, y;
@@ -512,6 +549,8 @@ static const JSCFunctionListEntry js_a8_funcs[] = {
 	JS_CFUNC_DEF("peek", 1, js_a8_peek),
 	JS_CFUNC_DEF("poke", 2, js_a8_poke),
 	JS_CFUNC_DEF("printFps", 5, js_a8_printFps),
+	JS_CFUNC_DEF("mountDisk", 2, js_a8_mountDisk),
+	JS_CFUNC_DEF("saveState", 1, js_a8_saveState),
 	JS_CFUNC_DEF("accelerationDisabled", 0, js_a8_accelerationDisabled),
 	JS_CFUNC_DEF("setTimeLimit", 1, js_a8_setTimeLimit),
 	JS_CFUNC_DEF("recordVideo", 1, js_a8_recordVideo),
@@ -982,6 +1021,8 @@ static void load_dir(const char *dirname, int depth)
 	}
 	while ((dp = readdir(dir)) != NULL) {
 		struct stat stbuf;
+		if (dp->d_name[0] == '.')
+			continue;
 		snprintf(buf, sizeof(buf), "%s/%s", dirname, dp->d_name);
 		if (stat(buf, &stbuf) == -1 || (stbuf.st_mode & S_IFDIR) == 0)
 			continue;
@@ -992,6 +1033,7 @@ static void load_dir(const char *dirname, int depth)
 				load_dir(buf, 1);
 			}
 			continue;
+		}
 		snprintf(buf, sizeof(buf), "%s/%s", dirname, dp->d_name);
 		set_ext_dir(buf);
 		snprintf(buf, sizeof(buf), "%s/%s/init.js", dirname, dp->d_name);
@@ -999,9 +1041,6 @@ static void load_dir(const char *dirname, int depth)
 	}
 	closedir(dir);
 }
-		if (dp->d_name[0] == '.')
-			continue;
-		}
 
 void ext_js_init(void)
 {

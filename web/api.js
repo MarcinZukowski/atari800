@@ -35,6 +35,22 @@ export function makeA8(M, host) {
 		peek: (addr) => M._web_peek(addr),
 		poke: (addr, value) => M._web_poke(addr, value),
 		rgb: (colour) => { const c = palette[colour & 255]; return [(c >> 16) & 255, (c >> 8) & 255, c & 255]; },
+		// The machine's state, as the emulator's own save writes it: the bytes of an .a8s file
+		saveState(path) {
+			const name = "/" + path.replace(/[^A-Za-z0-9._-]/g, "_"), p = M.stringToNewUTF8(name);
+			const ok = M._web_save_state(p); M._free(p);
+			return ok ? M.FS.readFile(name) : null;
+		},
+		// A disk image of the extension's files into a drive, without a reboot
+		mountDisk(path, drive = 1) {
+			const bytes = host.files.get(path);
+			if (!bytes) { host.fetchFile(path); return false; }   // disk images are fetched on demand: false until it is here, true on a later call
+			if (drive < 1 || drive > 8) return false;
+			const name = "/disk" + drive + ".atr", p = M.stringToNewUTF8(name);
+			M.FS.writeFile(name, bytes);
+			const ok = !!M._web_mount_disk(p, drive); M._free(p);
+			return ok;
+		},
 		fakeCpuUntilPc: (pc, maxInstructions = 0) => M._web_fakecpu_until_pc(pc, maxInstructions),
 		fakeCpuUntilOp: (op, maxInstructions = 0) => M._web_fakecpu_until_op(op, maxInstructions),
 		fakeCpuUntilAfterOp: (op, maxInstructions = 0) => M._web_fakecpu_until_after_op(op, maxInstructions),

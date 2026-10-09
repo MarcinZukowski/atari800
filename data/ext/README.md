@@ -132,6 +132,13 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
   and an extension active the video is the display's own picture in true colour, with everything the
   extension draws (see "Recording" below). In the web page the recording is a WebM file through the
   browser's MediaRecorder, saved as a download named after the path when it stops
+* `a8.saveState(path)` - writes the machine's state to that file as the emulator's own save does;
+  natively returns whether it was written, on the web the bytes of the file (there is no disk to
+  write to) or null
+* `a8.mountDisk(path, drive = 1)` - puts a disk image into a drive without a reboot, as a user
+  would when a game asks for its next disk; returns whether it mounted. On the web the image must
+  be one of the extension's own files, and is fetched on the first call, which returns false: call
+  again until it returns true
 * `a8.loadSound(path)` - loads a WAV file; the result has a `play()` method.
   The sound is mixed on top of the POKEY output
 
@@ -169,6 +176,11 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
 * `gl.drawScreen(x0, y0, x1, y1, left, right, top, bottom, z = -2)` - draws that region of the
   emulated screen (pixels of the displayed area, y down; `gl.screenSize()` gives its size) onto
   a rectangle in GL coordinates, with linear filtering: for rearranging the game's screen
+* `gl.drawScreenSmooth(x0, y0, x1, y1, pixelW, pixelH, left, right, top, bottom, z = -2)` - draws
+  that region of the screen upscaled four times with Scale2x, sampled at a grid of pixelW hi-res
+  pixels by pixelH lines (a game's own pixels: 2 by 1 for a 160-pixel mode), onto the rectangle:
+  a game's picture drawn smooth, with no knowledge of its modes. The upscaled picture is kept
+  and rebuilt only when the region changes
 
 ### The extension object
 
@@ -176,11 +188,6 @@ Each `init.js` exports the extension object as its default export (`export defau
 with these properties. Hook methods are called with `this` bound to that object, so it
 doubles as the extension's state:
 
-* `gl.drawScreenSmooth(x0, y0, x1, y1, pixelW, pixelH, left, right, top, bottom, z = -2)` - draws
-  that region of the screen upscaled four times with Scale2x, sampled at a grid of pixelW hi-res
-  pixels by pixelH lines (a game's own pixels: 2 by 1 for a 160-pixel mode), onto the rectangle:
-  a game's picture drawn smooth, with no knowledge of its modes. The upscaled picture is kept
-  and rebuilt only when the region changes
 * `name` - shown in the extensions menu
 * `fingerprint: { address, bytes }` - the extension is activated when the bytes at `address`
   in Atari memory equal `bytes`. It stays active while they do: once they have been gone for

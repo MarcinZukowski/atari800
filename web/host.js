@@ -254,6 +254,8 @@ globalThis.a8 = makeA8(M, {
 	recordVideo: (path) => { const ok = startRecording(path); if (ok) setSwitch("record", true); return ok; },
 	stopRecording,
 	files,
+	// a file of the extension's that was not fetched with its data (a disk image): fetched now, for a later call
+	fetchFile: (path) => { if (!files.has(path) && listing.includes(path)) fileBytes(path).then((b) => files.set(path, b), (e) => log(e.message)); },
 	audio: () => audio !== null && audio.state === "running" && soundOn() ? audio : null,
 });
 globalThis.gl = shim.gl;

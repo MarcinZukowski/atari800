@@ -25,7 +25,7 @@ OBJS = $(CORE:%=$(OBJ)/%.o)
 CFLAGS = -O2 -I$(SRC)/web -I$(SRC) -DHAVE_CONFIG_H -DWITH_EXT=1 -Wno-deprecated-non-prototype -sUSE_ZLIB=1
 LDFLAGS = -O2 -sUSE_ZLIB=1 -sMODULARIZE=1 -sEXPORT_ES6=1 -sENVIRONMENT=web,node -sEXPORT_NAME=createAtari800 \
           -sALLOW_MEMORY_GROWTH=0 -sINITIAL_MEMORY=67108864 -sEXIT_RUNTIME=0 -sINVOKE_RUN=0 \
-          -sEXPORTED_RUNTIME_METHODS=callMain,FS,HEAPU8,HEAP32,HEAPF64,stringToNewUTF8 -sEXPORTED_FUNCTIONS=_main,_malloc,_free
+          -sEXPORTED_RUNTIME_METHODS=callMain,FS,HEAPU8,HEAP32,HEAPF64,stringToNewUTF8 -sEXPORTED_FUNCTIONS=_main,_malloc,_free,_web_mount_disk,_web_save_state
 
 PAGE = index.html host.js api.js glshim.js std.js os.js
 
