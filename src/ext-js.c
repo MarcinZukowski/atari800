@@ -49,8 +49,10 @@
 #include "util.h"
 #ifdef VIDEO_RECORDING
 #include "file_export.h"
+#include "screen.h"
 #include "sio.h"
 #include "statesav.h"
+#include "videomode.h"
 #endif
 
 #include "sdl/sfx.h"
@@ -539,6 +541,7 @@ static JSValue js_a8_loadSound(JSContext *c, JSValueConst this_val, int argc, JS
 static JSValue js_a8_xeBank(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv);
 static JSValue js_a8_profile(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv);
 static JSValue js_a8_profileReset(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv);
+static JSValue js_a8_screenLayout(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv);
 
 static const JSCFunctionListEntry js_a8_funcs[] = {
 	JS_CFUNC_DEF("fakeCpuUntilPc", 2, js_a8_fakeCpuUntilPc),
@@ -560,6 +563,7 @@ static const JSCFunctionListEntry js_a8_funcs[] = {
 	JS_CFUNC_DEF("xeBank", 1, js_a8_xeBank),
 	JS_CFUNC_DEF("profile", 1, js_a8_profile),
 	JS_CFUNC_DEF("profileReset", 0, js_a8_profileReset),
+	JS_CFUNC_DEF("screenLayout", 0, js_a8_screenLayout),
 	JS_PROP_INT32_DEF("OP_RTS", OP_RTS, JS_PROP_ENUMERABLE),
 	JS_PROP_INT32_DEF("OP_NOP", OP_NOP, JS_PROP_ENUMERABLE),
 	JS_OBJECT_DEF("antic", js_a8_antic_funcs, 6, JS_PROP_ENUMERABLE),
@@ -582,6 +586,20 @@ static JSValue new_external_typed_array(void *ptr, size_t bytes, size_t count, J
 	if (JS_IsException(arr))
 		js_fatal("creating typed array");
 	return arr;
+}
+
+/* a8.screenLayout(): where the displayed area lies in a8.screen: { stride,
+   left, top, width, height }, the width and height being what
+   gl.screenSize() gives and what gl.drawScreen's coordinates count from */
+static JSValue js_a8_screenLayout(JSContext *c, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+	JSValue o = JS_NewObject(c);
+	JS_SetPropertyStr(c, o, "stride", JS_NewInt32(c, Screen_WIDTH));
+	JS_SetPropertyStr(c, o, "left", JS_NewInt32(c, VIDEOMODE_src_offset_left));
+	JS_SetPropertyStr(c, o, "top", JS_NewInt32(c, VIDEOMODE_src_offset_top));
+	JS_SetPropertyStr(c, o, "width", JS_NewInt32(c, VIDEOMODE_src_width));
+	JS_SetPropertyStr(c, o, "height", JS_NewInt32(c, VIDEOMODE_src_height));
+	return o;
 }
 
 /* a8.profile(what): the monitor's profile, a Float64Array of 65536 entries:
@@ -672,6 +690,11 @@ static void install_globals(void)
 	/* a8.mem: the 64 KB of Atari memory, read/write, zero copy */
 	JS_SetPropertyStr(ctx, a8, "mem",
 		new_external_typed_array(MEMORY_mem, 0x10000, 0x10000, JS_TYPED_ARRAY_UINT8));
+	/* a8.screen: the emulator's picture as it was last drawn, an Atari colour
+	   (palette index) per pixel in rows of Screen_WIDTH, zero copy; where
+	   the displayed part lies in it is a8.screenLayout()'s business */
+	JS_SetPropertyStr(ctx, a8, "screen",
+		new_external_typed_array(Screen_atari, Screen_WIDTH * Screen_HEIGHT, Screen_WIDTH * Screen_HEIGHT, JS_TYPED_ARRAY_UINT8));
 	/* a8.palette: Colours_table, 0x00RRGGBB per Atari colour, zero copy */
 	JS_SetPropertyStr(ctx, a8, "palette",
 		new_external_typed_array(Colours_table, sizeof(Colours_table), 256, JS_TYPED_ARRAY_INT32));

@@ -12,7 +12,8 @@ const GTIA = ["colbk", "colpf0", "colpf1", "colpf2", "colpf3", "colpm0", "colpm1
 	"grafp0", "grafp1", "grafp2", "grafp3", "prior", "gractl",
 	"hposm0", "hposm1", "hposm2", "hposm3", "sizem", "grafm"];                // registers 6-34
 
-// M: the module; host: { accelerationDisabled(), setTimeLimit(seconds), showFps(text), files: Map, audio() -> AudioContext or null }
+// M: the module; host: { accelerationDisabled(), setTimeLimit(seconds), showFps(text), files: Map, audio() -> AudioContext or null,
+//   screen: { indices: Uint8Array over the emulator's picture, stride, left, top, width, height } }
 export function makeA8(M, host) {
 	const heap = M.HEAPU8.buffer;
 	const cpu = {}, antic = {}, gtia = {};
@@ -29,6 +30,9 @@ export function makeA8(M, host) {
 		host: "web",
 		panel: null,   // the active extension's own element in the page; the host sets it
 		mem: new Uint8Array(heap, M._web_mem(), 0x10000),
+		// The picture as last drawn, an Atari colour a pixel, and where the displayed part lies in it
+		screen: host.screen.indices,
+		screenLayout: () => ({ stride: host.screen.stride, left: host.screen.left, top: host.screen.top, width: host.screen.width, height: host.screen.height }),
 		palette,
 		cpu, antic, gtia,
 		OP_RTS: 0x60, OP_NOP: 0xEA,

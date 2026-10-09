@@ -247,6 +247,12 @@ $("fullscreen").addEventListener("click", (e) => {
 
 const fileBytes = async (url) => { const r = await fetch(url); if (!r.ok) throw new Error(`${url}: ${r.status}`); return new Uint8Array(await r.arrayBuffer()); };
 
+const fetching = new Set();
+function fetchFile(path) {
+	if (files.has(path) || fetching.has(path) || !listing.includes(path)) return;
+	fetching.add(path);
+	fileBytes(path).then((b) => files.set(path, b), (e) => log(e.message)).finally(() => fetching.delete(path));
+}
 globalThis.a8 = makeA8(M, {
 	accelerationDisabled: () => suspended(),
 	setTimeLimit: (seconds) => { timeLimit = seconds; },
@@ -254,15 +260,26 @@ globalThis.a8 = makeA8(M, {
 	recordVideo: (path) => { const ok = startRecording(path); if (ok) setSwitch("record", true); return ok; },
 	stopRecording,
 	files,
+	screen: { indices: screen, stride: BUFFER_W, left: SCREEN_LEFT, top: 0, width: SCREEN_W, height: SCREEN_H },
 	// a file of the extension's that was not fetched with its data (a disk image): fetched now, for a later call
-	fetchFile: (path) => { if (!files.has(path) && listing.includes(path)) fileBytes(path).then((b) => files.set(path, b), (e) => log(e.message)); },
+	fetchFile,
 	audio: () => audio !== null && audio.state === "running" && soundOn() ? audio : null,
 });
 globalThis.gl = shim.gl;
-// A raw RGBA picture, read from the files fetched for the extension
+// A raw RGBA picture, read from the files fetched for the extension. A file outside the
+// extension's directory (a group's shared data, `${a8.extDir}/../fonts/x.rgba`) is not fetched
+// with it: the first call starts the fetch and throws an error with `pending` set, and a
+// later call gets the texture
 globalThis.gl.loadTextureRGBA = (path, width, height) => {
+	const parts = [];
+	for (const p of path.split("/")) { if (p === "..") parts.pop(); else if (p !== "." && p !== "") parts.push(p); }
+	path = parts.join("/");
 	const bytes = files.get(path);
-	if (!bytes) throw new ReferenceError(`loadTextureRGBA: cannot open ${path}`);
+	if (!bytes) {
+		if (!listing.includes(path)) throw new ReferenceError(`loadTextureRGBA: cannot open ${path}`);
+		fetchFile(path);
+		throw Object.assign(new Error(`loadTextureRGBA: ${path} is being fetched`), { pending: true });
+	}
 	const texture = new shim.host.Texture(width, height);
 	texture.pixels.set(bytes.subarray(0, texture.pixels.length));
 	texture.finalize();

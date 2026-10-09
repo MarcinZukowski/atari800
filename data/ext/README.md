@@ -79,6 +79,14 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
   a8.mem.fill(0xEA, 0xB3B0, 0xB3B6);  // NOP out six bytes
   ```
   Intermediate values are plain numbers, so mask them yourself: `(a + b) & 0xFF`.
+* `a8.screen` - a `Uint8Array` over the emulator's picture as it was last drawn, an Atari
+  colour (a palette index) per pixel, zero copy; `a8.screenLayout()` says where the displayed
+  part lies in it: `{ stride, left, top, width, height }`, the width and height being what
+  `gl.screenSize()` gives and what `gl.drawScreen`'s coordinates count from. For reading what
+  the game put on the screen (the colours of a text cell under a DLI, say) in `onPostGlFrame`:
+  ```js
+  const l = a8.screenLayout(), colour = a8.screen[(l.top + y) * l.stride + l.left + x];
+  ```
 * `a8.palette` - an `Int32Array` over the current palette, `0x00RRGGBB` per Atari colour;
   `a8.rgb(colour)` returns `[r, g, b]` in 0..255
 * `a8.peek(addr)`, `a8.poke(addr, value)` - memory access that honours bank switching, ROM and
@@ -162,7 +170,10 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
   an extension is active at that moment and records the Atari screen otherwise. True colour is
   encoded as Motion-PNG whatever codec is set (the others are 8-bit), with fast compression: about
   8 MB a second at 672 x 480, in real time. The picture lags the sound by one frame
-* `gl.createTexture(width, height)` and `gl.loadTextureRGBA(path, width, height)` return a `Texture`:
+* `gl.createTexture(width, height)` and `gl.loadTextureRGBA(path, width, height)` return a `Texture`
+  (on the web a file outside the extension's directory, such as a group's shared
+  `${a8.extDir}/../fonts/x.rgba`, is fetched on the first call, which throws an error with
+  `pending` set; a later call returns the texture):
   * `pixels` - a `Uint8Array` that *is* the RGBA texture memory (4 bytes per pixel)
   * `width`, `height`, `id` (the OpenGL texture name)
   * `finalize()` - uploads `pixels` to OpenGL; call it before drawing and after every change.
