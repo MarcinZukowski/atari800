@@ -176,6 +176,11 @@ Each `init.js` exports the extension object as its default export (`export defau
 with these properties. Hook methods are called with `this` bound to that object, so it
 doubles as the extension's state:
 
+* `gl.drawScreenSmooth(x0, y0, x1, y1, pixelW, pixelH, left, right, top, bottom, z = -2)` - draws
+  that region of the screen upscaled four times with Scale2x, sampled at a grid of pixelW hi-res
+  pixels by pixelH lines (a game's own pixels: 2 by 1 for a 160-pixel mode), onto the rectangle:
+  a game's picture drawn smooth, with no knowledge of its modes. The upscaled picture is kept
+  and rebuilt only when the region changes
 * `name` - shown in the extensions menu
 * `fingerprint: { address, bytes }` - the extension is activated when the bytes at `address`
   in Atari memory equal `bytes`. It stays active while they do: once they have been gone for

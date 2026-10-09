@@ -67,6 +67,24 @@ function multiply(a, b) {
 	return out;
 }
 
+// Scale2x (EPX): doubles a picture of pixel values, rounding the stairs of diagonal edges from
+// the four neighbours without inventing colours; the edges are clamped
+function scale2x(src, w, h) {
+	const out = new Uint8Array(w * h * 4), w2 = 2 * w;
+	for (let y = 0; y < h; y++) {
+		const up = (y > 0 ? y - 1 : 0) * w, row = y * w, down = (y < h - 1 ? y + 1 : y) * w;
+		for (let x = 0; x < w; x++) {
+			const P = src[row + x], A = src[up + x], D = src[down + x], C = src[row + (x > 0 ? x - 1 : 0)], B = src[row + (x < w - 1 ? x + 1 : x)];
+			const o = 2 * y * w2 + 2 * x;
+			out[o] = (C === A && C !== D && A !== B) ? A : P;
+			out[o + 1] = (A === B && A !== C && B !== D) ? B : P;
+			out[o + w2] = (D === C && D !== B && C !== A) ? C : P;
+			out[o + w2 + 1] = (B === D && B !== A && D !== C) ? D : P;
+		}
+	}
+	return out;
+}
+
 const FLOATS = 10;   // per vertex: position 4 (x, y, z, w), colour 4, texture coordinate 2
 
 // g: the WebGL2 context; screen: { width, height } of the Atari picture shown
@@ -241,6 +259,7 @@ export function makeGl(g, screen) {
 
 	// The Atari's picture as a texture, kept by the host (see setScreen)
 	const screenTexture = new Texture(screen.width, screen.height);
+	const smooth = { texture: null, hash: 0 };   // drawScreenSmooth's picture
 
 	/* ------------------------------ the API ------------------------------ */
 
@@ -336,6 +355,35 @@ export function makeGl(g, screen) {
 		readPixels(x, y, w, h) { const out = new Uint8Array(w * h * 4); g.readPixels(x, y, w, h, g.RGBA, g.UNSIGNED_BYTE, out); return out; },
 		screenSize() { return [screen.width, screen.height]; },
 		// A region of the Atari's picture (its pixels, y down) on a rectangle, smoothed
+		// The region of the screen (hi-res pixels across, lines down) taken at a grid of pixelW by
+		// pixelH, upscaled four times with Scale2x, onto the rectangle: for a game's picture drawn
+		// smooth. The upscaled picture is kept and rebuilt only when the region changes
+		drawScreenSmooth(x0, y0, x1, y1, pixelW, pixelH, l, r, t, b, z = -2) {
+			if (!screen.indices) return;
+			const cols = Math.floor((x1 - x0) / Math.max(1, pixelW)), rows = Math.floor((y1 - y0) / Math.max(1, pixelH));
+			if (cols <= 0 || rows <= 0) return;
+			const src = screen.indices(), stride = screen.stride, left = screen.left + x0 + (pixelW >> 1), top = screen.top + y0 + (pixelH >> 1);
+			const sampled = new Uint8Array(cols * rows);
+			let hash = cols * 1000003 + rows;
+			for (let r = 0; r < rows; r++) { const o = (top + r * pixelH) * stride + left; for (let c = 0; c < cols; c++) { const v = src[o + c * pixelW]; sampled[r * cols + c] = v; hash = (hash * 31 + v) | 0; } }
+			if (smooth.hash !== hash || smooth.texture === null || smooth.texture.width !== 4 * cols) {
+				const twice = scale2x(sampled, cols, rows), four = scale2x(twice, 2 * cols, 2 * rows), colours = screen.colours();
+				if (smooth.texture === null || smooth.texture.width !== 4 * cols || smooth.texture.height !== 4 * rows) smooth.texture = new Texture(4 * cols, 4 * rows);
+				const px = new Uint32Array(smooth.texture.pixels.buffer);
+				for (let i = 0; i < four.length; i++) px[i] = colours[four[i]];
+				smooth.texture.finalize();
+				g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MIN_FILTER, g.LINEAR); g.texParameteri(g.TEXTURE_2D, g.TEXTURE_MAG_FILTER, g.LINEAR);
+				smooth.hash = hash;
+			}
+			api.BindTexture(C.TEXTURE_2D, smooth.texture.id);
+			api.Begin(C.QUADS);
+			api.TexCoord2f(0, 0); api.Vertex3f(l, t, z);
+			api.TexCoord2f(1, 0); api.Vertex3f(r, t, z);
+			api.TexCoord2f(1, 1); api.Vertex3f(r, b, z);
+			api.TexCoord2f(0, 1); api.Vertex3f(l, b, z);
+			api.End();
+			api.BindTexture(C.TEXTURE_2D, screenTexture.id);
+		},
 		drawScreen(x0, y0, x1, y1, l, r, t, b, z = -2) {
 			const s0 = x0 / screen.width, s1 = x1 / screen.width, t0 = y0 / screen.height, t1 = y1 / screen.height;
 			api.BindTexture(C.TEXTURE_2D, screenTexture.id);

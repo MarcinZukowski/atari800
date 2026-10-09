@@ -58,7 +58,8 @@ fitCanvas();
 new ResizeObserver(fitCanvas).observe($("stage"));
 const g = canvas.getContext("webgl2", { antialias: true, alpha: false, depth: true, preserveDrawingBuffer: true });
 if (!g) { log("This page needs WebGL 2."); throw new Error("no WebGL 2"); }
-const shim = makeGl(g, { width: SCREEN_W, height: SCREEN_H });
+const abgr = new Uint32Array(256);   // the palette as the canvas wants it, filled each frame
+const shim = makeGl(g, { width: SCREEN_W, height: SCREEN_H, indices: () => screen, stride: BUFFER_W, left: SCREEN_LEFT, top: 0, colours: () => abgr });
 
 /* ------------------------------ sound ------------------------------ */
 
@@ -498,7 +499,7 @@ try { for (const demo of await (await fetch("demos.json")).json()) listDemo(demo
 
 /* ------------------------------ the frame loop ------------------------------ */
 
-const rgba = new Uint8Array(SCREEN_W * SCREEN_H * 4), rgba32 = new Uint32Array(rgba.buffer), abgr = new Uint32Array(256);
+const rgba = new Uint8Array(SCREEN_W * SCREEN_H * 4), rgba32 = new Uint32Array(rgba.buffer);
 let fpsPrinted = false;   // a8.printFps was called this frame; otherwise its readout goes
 function showFrame() {
 	shim.host.beginFrame();

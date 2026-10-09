@@ -518,6 +518,26 @@ static JSValue js_gl_drawScreen(JSContext *ctx, JSValueConst this_val, int argc,
 	return JS_UNDEFINED;
 }
 
+/* gl.drawScreenSmooth(x0, y0, x1, y1, pixelW, pixelH, left, right, top, bottom, z = -2):
+   draws that region of the screen upscaled four times with Scale2x, taken at a grid of
+   pixelW hi-res pixels by pixelH lines (a game's own pixels), onto that rectangle */
+static JSValue js_gl_drawScreenSmooth(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+	float z = Z_VALUE_2D;
+	if (argc < 10)
+		return JS_ThrowTypeError(ctx, "drawScreenSmooth expects 10 or 11 arguments");
+	{
+		ARG_I(0, x0); ARG_I(1, y0); ARG_I(2, x1); ARG_I(3, y1); ARG_I(4, pw); ARG_I(5, ph);
+		ARG_F(6, l); ARG_F(7, r); ARG_F(8, t); ARG_F(9, b);
+		if (argc > 10) {
+			ARG_F(10, zz);
+			z = zz;
+		}
+		SDL_VIDEO_GL_DrawScreenRegionSmooth(x0, y0, x1, y1, pw, ph, l, r, t, b, z);
+	}
+	return JS_UNDEFINED;
+}
+
 /* gl.screenSize() -> [width, height]: the displayed area in pixels */
 static JSValue js_gl_screenSize(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
 {
@@ -594,6 +614,7 @@ static const JSCFunctionListEntry js_gl_funcs[] = {
 	JS_CFUNC_DEF("GetIntegerv", 1, js_gl_GetIntegerv),
 	JS_CFUNC_DEF("createTexture", 2, js_gl_createTexture),
 	JS_CFUNC_DEF("drawScreen", 9, js_gl_drawScreen),
+	JS_CFUNC_DEF("drawScreenSmooth", 11, js_gl_drawScreenSmooth),
 	JS_CFUNC_DEF("screenSize", 0, js_gl_screenSize),
 	JS_CFUNC_DEF("loadTextureRGBA", 3, js_gl_loadTextureRGBA),
 	JS_CFUNC_DEF("drawTriangles", 2, js_gl_drawTriangles),

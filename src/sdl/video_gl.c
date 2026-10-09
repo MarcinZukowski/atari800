@@ -1157,6 +1157,87 @@ void SDL_VIDEO_GL_DrawScreenRegion(float x0, float y0, float x1, float y1, float
 	gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filtering);
 }
 
+/* Scale2x (EPX): doubles a picture of pixel values, rounding the stairs of
+   diagonal edges from the four neighbours without inventing colours; the
+   edges are clamped. */
+static void scale2x(const UBYTE *src, int w, int h, UBYTE *dst)
+{
+	int x, y;
+	for (y = 0; y < h; y++) {
+		const UBYTE *up = src + (y > 0 ? y - 1 : 0) * w, *row = src + y * w, *down = src + (y < h - 1 ? y + 1 : y) * w;
+		UBYTE *o = dst + 2 * y * 2 * w;
+		for (x = 0; x < w; x++) {
+			UBYTE P = row[x], A = up[x], D = down[x], C = row[x > 0 ? x - 1 : 0], B = row[x < w - 1 ? x + 1 : x];
+			o[2 * x] = (C == A && C != D && A != B) ? A : P;
+			o[2 * x + 1] = (A == B && A != C && B != D) ? B : P;
+			o[2 * w + 2 * x] = (D == C && D != B && C != A) ? C : P;
+			o[2 * w + 2 * x + 1] = (B == D && B != A && D != C) ? D : P;
+		}
+	}
+}
+
+/* Draws the region x0..x1, y0..y1 of the displayed screen (hi-res pixels
+   across and lines down), taken at a grid of pixelW by pixelH, upscaled
+   four times with Scale2x, onto the rectangle l, r, t, b at depth z. The
+   upscaled picture is kept and rebuilt only when the region changes. */
+void SDL_VIDEO_GL_DrawScreenRegionSmooth(int x0, int y0, int x1, int y1, int pixelW, int pixelH, float l, float r, float t, float b, float z)
+{
+	static GLuint texture = 0;
+	static UBYTE *sampled = NULL, *last = NULL, *twice = NULL, *four = NULL;
+	static Uint32 *rgba = NULL;
+	static int capacity = 0, lastCols = -1, lastRows = -1;
+	int cols, rows, c, rr, changed;
+	const UBYTE *screen = (const UBYTE *) Screen_atari + Screen_WIDTH * VIDEOMODE_src_offset_top + VIDEOMODE_src_offset_left;
+
+	if (pixelW < 1) pixelW = 1;
+	if (pixelH < 1) pixelH = 1;
+	cols = (x1 - x0) / pixelW; rows = (y1 - y0) / pixelH;
+	if (cols <= 0 || rows <= 0 || x0 < 0 || y0 < 0 || x1 > VIDEOMODE_src_width || y1 > VIDEOMODE_src_height)
+		return;
+	if (cols * rows > capacity) {
+		capacity = cols * rows;
+		free(sampled); free(last); free(twice); free(four); free(rgba);
+		sampled = (UBYTE *) Util_malloc(capacity);
+		last = (UBYTE *) Util_malloc(capacity);
+		twice = (UBYTE *) Util_malloc(capacity * 4);
+		four = (UBYTE *) Util_malloc(capacity * 16);
+		rgba = (Uint32 *) Util_malloc(capacity * 16 * sizeof(Uint32));
+		lastCols = -1;
+	}
+	for (rr = 0; rr < rows; rr++) {
+		const UBYTE *line = screen + (size_t) (y0 + rr * pixelH + pixelH / 2) * Screen_WIDTH + x0 + pixelW / 2;
+		for (c = 0; c < cols; c++)
+			sampled[rr * cols + c] = line[c * pixelW];
+	}
+	changed = cols != lastCols || rows != lastRows || memcmp(sampled, last, cols * rows) != 0;
+	if (texture == 0)
+		gl.GenTextures(1, &texture);
+	gl.BindTexture(GL_TEXTURE_2D, texture);
+	if (changed) {
+		int n = cols * rows * 16, i;
+		scale2x(sampled, cols, rows, twice);
+		scale2x(twice, 2 * cols, 2 * rows, four);
+		for (i = 0; i < n; i++) {
+			int v = Colours_table[four[i]];
+			rgba[i] = 0xff000000u | ((v & 0xff) << 16) | (v & 0xff00) | ((v >> 16) & 0xff);   /* RGBA in memory */
+		}
+		memcpy(last, sampled, cols * rows);
+		lastCols = cols; lastRows = rows;
+		gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 4 * cols, 4 * rows, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
+		gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	}
+	gl.Begin(GL_QUADS);
+	gl.TexCoord2f(0, 0); gl.Vertex3f(l, t, z);
+	gl.TexCoord2f(1, 0); gl.Vertex3f(r, t, z);
+	gl.TexCoord2f(1, 1); gl.Vertex3f(r, b, z);
+	gl.TexCoord2f(0, 1); gl.Vertex3f(l, b, z);
+	gl.End();
+	gl.BindTexture(GL_TEXTURE_2D, textures[0]);
+}
+
 /* The displayed screen's size in pixels */
 void SDL_VIDEO_GL_ScreenSize(int *width, int *height)
 {
