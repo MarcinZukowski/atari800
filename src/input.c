@@ -130,6 +130,31 @@ static unsigned int compute_adler32_of_screen(void);
 static int recording_version;
 #define GZBUFSIZE 256
 static char gzbuf[GZBUFSIZE+1];
+/* The next value of the playback file, read across lines: a recording writes all of a
+   frame's inputs on one line, older files (and generated ones) one value a line */
+static char *pb_pos = NULL;
+static unsigned int playback_value(int hex)
+{
+	for (;;) {
+		while (pb_pos != NULL && (*pb_pos == ' ' || *pb_pos == '\t' || *pb_pos == '\r' || *pb_pos == '\n'))
+			pb_pos++;
+		if (pb_pos != NULL && *pb_pos != '\0') {
+			char *end;
+			unsigned long v = hex ? strtoul(pb_pos, &end, 16) : (unsigned long) strtol(pb_pos, &end, 10);
+			if (end == pb_pos) {	/* not a number: skip the rest of the line */
+				pb_pos = NULL;
+				continue;
+			}
+			pb_pos = end;
+			return (unsigned int) v;
+		}
+		if (gzgets(playbackfp, gzbuf, GZBUFSIZE) == NULL) {
+			pb_pos = NULL;
+			return 0;
+		}
+		pb_pos = gzbuf;
+	}
+}
 #define EVENT_RECORDING_VERSION 1
 #endif
 
@@ -453,8 +478,9 @@ void INPUT_Frame(void)
 	*/
 #ifdef EVENT_RECORDING
 	if (playingback) {
-		gzgets(playbackfp, gzbuf, GZBUFSIZE);
-		sscanf(gzbuf, "%d %d %d ", &INPUT_key_code, &INPUT_key_shift, &INPUT_key_consol);
+		INPUT_key_code = (int) playback_value(FALSE);
+		INPUT_key_shift = (int) playback_value(FALSE);
+		INPUT_key_consol = (int) playback_value(FALSE);
 	}
 	if (recording) {
 		gzprintf(recordfp, "%d %d %d ", INPUT_key_code, INPUT_key_shift, INPUT_key_consol);
@@ -537,8 +563,7 @@ void INPUT_Frame(void)
 	/* handle joysticks */
 #ifdef EVENT_RECORDING
 	if (playingback) {
-		gzgets(playbackfp, gzbuf, GZBUFSIZE);
-		sscanf(gzbuf,"%d ",&i);
+		i = (int) playback_value(FALSE);
 	} else {
 #endif
 		i = PLATFORM_PORT(0);
@@ -553,8 +578,7 @@ void INPUT_Frame(void)
 	STICK[1] = (i >> 4) & 0x0f;
 #ifdef EVENT_RECORDING
 	if (playingback) {
-		gzgets(playbackfp, gzbuf, GZBUFSIZE);
-		sscanf(gzbuf,"%d ",&i);
+		i = (int) playback_value(FALSE);
 	} else {
 #endif
 		i = PLATFORM_PORT(1);
@@ -596,8 +620,7 @@ void INPUT_Frame(void)
 #ifdef EVENT_RECORDING
 		if(playingback){
 			int trigtemp;
-			gzgets(playbackfp, gzbuf, GZBUFSIZE);
-			sscanf(gzbuf,"%d ",&trigtemp);
+			trigtemp = (int) playback_value(FALSE);
 			TRIG_input[i] = trigtemp;
 
 		} else {
@@ -881,6 +904,7 @@ static void update_adler32_of_screen(void)
 {
 	unsigned int adler32val = 0;
 	static unsigned int adler32_errors = 0;
+	static unsigned int frame = 0;
 	static int first = TRUE;
 	if (first) { /* don't calculate the first frame */
 		first = FALSE;
@@ -895,14 +919,14 @@ static void update_adler32_of_screen(void)
 	}
 	if (playingback) {
 		unsigned int pb_adler32val;
-		gzgets(playbackfp, gzbuf, GZBUFSIZE);
-		sscanf(gzbuf, "%08X ", &pb_adler32val);
+		pb_adler32val = playback_value(TRUE);
 		if (pb_adler32val != adler32val){
-			Log_print("adler32 does not match");
+			Log_print("adler32 does not match (frame %u of the playback)", frame);
 			adler32_errors++;
 		}
 		
 	}
+	frame++;
 	if (playingback && gzeof(playbackfp)) {
 		playingback = FALSE;
 		gzclose(playbackfp);
@@ -956,8 +980,7 @@ int INPUT_PlaybackInt(void)
 	int i = 0;
 #ifdef EVENT_RECORDING
 	if (playingback) {
-		gzgets(playbackfp, gzbuf, GZBUFSIZE);
-		sscanf(gzbuf, "%d", &i);
+		i = (int) playback_value(FALSE);
 	}
 #endif
 	return i;
