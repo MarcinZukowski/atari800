@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "antic.h"
 #include "cpu.h"
@@ -59,10 +60,26 @@ static int inside_menu = 0;
 static int alt_held = 0;    /* extensions off while held */
 static int ctrl_held = 0;   /* acceleration off while held */
 
-/* A8_EXT_SELECT=<part of an extension name> activates that extension as soon
-   as its fingerprint matches, without going through the TAB menu. For
-   developing and testing extensions. */
+/* A8_EXT_SELECT=<part of an extension name> (any case) activates that
+   extension as soon as its fingerprint matches, without going through the TAB
+   menu; A8_EXT_SELECT='*' activates whichever extension's fingerprint matches
+   first, the running program's. For developing and testing extensions. */
 static const char *preselect_name = NULL;
+
+static int name_matches(const char *name, const char *part)
+{
+	size_t n = strlen(part);
+	if (strcmp(part, "*") == 0)
+		return TRUE;
+	for (; *name != '\0'; name++) {
+		size_t k = 0;
+		while (k < n && name[k] != '\0' && toupper((unsigned char) name[k]) == toupper((unsigned char) part[k]))
+			k++;
+		if (k == n)
+			return TRUE;
+	}
+	return n == 0;
+}
 
 char ext_dir[FILENAME_MAX] = "data/ext";
 
@@ -163,7 +180,7 @@ void ext_init(void)
 {
 	preselect_name = getenv("A8_EXT_SELECT");
 	if (preselect_name != NULL)
-		printf("A8_EXT_SELECT: will activate the first extension matching '%s' once its fingerprint matches\n", preselect_name);
+		printf("A8_EXT_SELECT: will activate %s once its fingerprint matches\n", strcmp(preselect_name, "*") == 0 ? "the running program's extension" : "the first extension matching the name");
 
 	ext_js_init();
 }
@@ -248,7 +265,7 @@ void ext_frame(void)
 	else if (preselect_name != NULL) {
 		int i;
 		for (i = 0; i < num_extensions; i++) {
-			if (strstr(extensions[i]->name, preselect_name) != NULL && detect(extensions[i])) {
+			if (name_matches(extensions[i]->name, preselect_name) && detect(extensions[i])) {
 				printf("A8_EXT_SELECT: activating %s\n", extensions[i]->name);
 				activate(extensions[i]);
 				break;
