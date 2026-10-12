@@ -32,6 +32,9 @@
 #include "platform.h"
 #include "pokeysnd.h"
 #include "util.h"
+#if defined(AUDIO_RECORDING)
+#include "file_export.h"
+#endif
 
 #define DEBUG 0 || __MINT__
 
@@ -396,6 +399,12 @@ static void UpdateSyncBuffer(void)
 	}
 
 	if (Atari800_turbo && sync_est_fill > sync_max_fill) {
+#if defined(AUDIO_RECORDING)
+		/* A recording keeps every frame's sound (it is written as the samples are made): only
+		   the speakers skip what they cannot keep up with */
+		if (File_Export_IsRecording())
+			POKEYSND_UpdateProcessBuffer();
+#endif
 		PLATFORM_SoundUnlock();
 		return;
 	}
