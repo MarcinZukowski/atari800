@@ -569,9 +569,9 @@ static const JSCFunctionListEntry js_a8_funcs[] = {
 	JS_CFUNC_DEF("setSpeed", 1, js_a8_setSpeed),
 	JS_PROP_INT32_DEF("OP_RTS", OP_RTS, JS_PROP_ENUMERABLE),
 	JS_PROP_INT32_DEF("OP_NOP", OP_NOP, JS_PROP_ENUMERABLE),
-	JS_OBJECT_DEF("antic", js_a8_antic_funcs, 6, JS_PROP_ENUMERABLE),
-	JS_OBJECT_DEF("gtia", js_a8_gtia_funcs, 23, JS_PROP_ENUMERABLE),
-	JS_OBJECT_DEF("cpu", js_a8_cpu_funcs, 6, JS_PROP_ENUMERABLE),
+	JS_OBJECT_DEF("antic", js_a8_antic_funcs, (int) (sizeof(js_a8_antic_funcs) / sizeof(js_a8_antic_funcs[0])), JS_PROP_ENUMERABLE),
+	JS_OBJECT_DEF("gtia", js_a8_gtia_funcs, (int) (sizeof(js_a8_gtia_funcs) / sizeof(js_a8_gtia_funcs[0])), JS_PROP_ENUMERABLE),
+	JS_OBJECT_DEF("cpu", js_a8_cpu_funcs, (int) (sizeof(js_a8_cpu_funcs) / sizeof(js_a8_cpu_funcs[0])), JS_PROP_ENUMERABLE),
 };
 
 /* Wraps existing C memory in a typed array without copying. The memory is
