@@ -171,9 +171,18 @@ static void deactivate(void)
 	printf("%s: the program is gone\n", current->name);
 	ext_set_code_injections(NULL, 0);
 	current = NULL;
-	/* whatever pace the extension set (a8.setSpeed) goes with it */
-	Atari800_turbo = FALSE;
-	Atari800_turbo_speed = 0;
+	/* whatever pace the extension set (a8.setSpeed) goes with it: the user's own comes back */
+	if (ext_user_turbo_speed >= 0) {
+		Atari800_turbo = FALSE;
+		Atari800_turbo_speed = ext_user_turbo_speed;
+		ext_user_turbo_speed = -1;
+	}
+}
+
+int ext_user_turbo_speed = -1;
+int ext_turbo_speed_to_save(int current)
+{
+	return ext_user_turbo_speed >= 0 ? ext_user_turbo_speed : current;
 }
 
 void ext_init(void)

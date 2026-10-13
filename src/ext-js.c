@@ -613,8 +613,11 @@ static JSValue js_a8_setSpeed(JSContext *c, JSValueConst this_val, int argc, JSV
 	int percent;
 	if (argc < 1 || JS_ToInt32(c, &percent, argv[0]) || percent < 0 || percent > 10000)
 		return JS_ThrowRangeError(c, "setSpeed(percent): 0 (unlimited) or 1..10000");
+	if (ext_user_turbo_speed < 0)
+		ext_user_turbo_speed = Atari800_turbo_speed;   /* the user's own, saved in the configuration and back after the extension */
+	/* 100: the real pace, the turbo off, and the user's turbo speed for the turbo key (F12) */
 	Atari800_turbo = percent != 100;
-	Atari800_turbo_speed = percent;
+	Atari800_turbo_speed = percent == 100 ? ext_user_turbo_speed : percent;
 	return JS_UNDEFINED;
 }
 

@@ -23,6 +23,10 @@ extern char ext_dir[];
 int ext_initialise(int *argc, char *argv[]);
 int ext_read_config(char *option, char *parameters);
 void ext_write_config(FILE *fp);
+/* The turbo speed to save in the configuration: the user's own, not the one an extension set with
+   a8.setSpeed (ext_user_turbo_speed keeps it from the first change, -1: none made) */
+extern int ext_user_turbo_speed;
+int ext_turbo_speed_to_save(int current);
 
 /* Hooks called by the emulator */
 void ext_init(void);

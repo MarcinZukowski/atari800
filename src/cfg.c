@@ -29,6 +29,9 @@
 #include "cassette.h"
 #include "binload.h"
 #include "cfg.h"
+#ifdef WITH_EXT
+#include "ext.h"
+#endif
 #include "devices.h"
 #include "esc.h"
 #include "log.h"
@@ -439,7 +442,11 @@ int CFG_WriteConfig(void)
 	fprintf(fp, "ENABLE_MAPRAM=%d\n", MEMORY_enable_mapram);
 
 	fprintf(fp, "DISABLE_BASIC=%d\n", Atari800_disable_basic);
+#ifdef WITH_EXT
+	fprintf(fp, "TURBO_SPEED=%d\n", ext_turbo_speed_to_save(Atari800_turbo_speed));   /* (not an extension's pace) */
+#else
 	fprintf(fp, "TURBO_SPEED=%d\n", Atari800_turbo_speed);
+#endif
 	fprintf(fp, "ENABLE_SIO_PATCH=%d\n", ESC_enable_sio_patch);
 	fprintf(fp, "ENABLE_SLOW_XEX_LOADING=%d\n", BINLOAD_slow_xex_loading);
 	fprintf(fp, "ENABLE_H_PATCH=%d\n", Devices_enable_h_patch);
