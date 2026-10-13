@@ -179,11 +179,6 @@ static void deactivate(void)
 	}
 }
 
-int ext_user_turbo_speed = -1;
-int ext_turbo_speed_to_save(int current)
-{
-	return ext_user_turbo_speed >= 0 ? ext_user_turbo_speed : current;
-}
 
 void ext_init(void)
 {

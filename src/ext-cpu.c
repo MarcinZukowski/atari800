@@ -210,3 +210,11 @@ int ext_fakecpu_until_after_op(int end_op, int max_insns)
 {
 	return fakecpu_until(0, end_op, 1, max_insns);
 }
+
+/* The user's turbo speed while an extension has set its own (a8.setSpeed; -1: none set): what the
+   configuration saves (shared by the native and the web build, which both write the configuration) */
+int ext_user_turbo_speed = -1;
+int ext_turbo_speed_to_save(int current)
+{
+	return ext_user_turbo_speed >= 0 ? ext_user_turbo_speed : current;
+}
