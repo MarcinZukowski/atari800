@@ -28,6 +28,7 @@ export function makeA8(M, host) {
 
 	return {
 		host: "web",
+		tv: () => (M._web_is_pal() ? "pal" : "ntsc"),   // the machine's TV system
 		panel: null,   // the active extension's own element in the page; the host sets it
 		mem: new Uint8Array(heap, M._web_mem(), 0x10000),
 		// The picture as last drawn, an Atari colour a pixel, and where the displayed part lies in it

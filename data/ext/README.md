@@ -66,6 +66,7 @@ Two globals form the API (see [ext-js.c](../../src/ext-js.c) and
   ```js
   if (a8.host === "web") { const button = document.createElement("button"); a8.panel.append(button); }
   ```
+* `a8.tv()` (web build) - the machine's TV system: `"pal"` or `"ntsc"`.
 * `a8.extDir` - the directory of the extension being loaded or activated, for the files it
   ships; a script reads it at the top of its modules:
   ```js

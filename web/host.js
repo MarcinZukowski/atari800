@@ -35,7 +35,8 @@ console.log = (...args) => log(args.join(" "));   // what the extensions print s
 /* ------------------------------ the emulator ------------------------------ */
 
 const M = await createAtari800({ print: (s) => { if (!/adler32/.test(s)) log(s); }, printErr: (s) => log(s) });
-M.callMain(["-nobasic", "-320xe"]);
+// ?tv=ntsc: an NTSC machine (PAL otherwise)
+M.callMain(["-nobasic", "-320xe", ...(params.get("tv") === "ntsc" ? ["-ntsc"] : [])]);
 const heap = M.HEAPU8.buffer;
 const screen = new Uint8Array(heap, M._web_screen(), BUFFER_W * SCREEN_H);
 const colours = new Int32Array(heap, M._web_colours(), 256);
@@ -306,13 +307,18 @@ log(`${extensions.length} extensions: ${extensions.map((e) => e.dir.split("/").p
 // ext/extensions.json, if the site has it, says where the extensions' source is: { "source": "https://.../tree/main" }
 // (an extension can say so itself with a `source` property); may name the site: "title" and "titleLink" for the
 // heading, "links" ([{ "text", "url" }]) for a line of links under it; and may list "demos" that come with the
-// extensions ([{ "title", "url", "hover", "ext", "menu" }]), listed under Demos before the site's own
-let sourceBase = null, builtInDemos = [];
+// extensions ([{ "title", "url", "hover", "ext", "menu", "tv" }]), listed under Demos before the site's own;
+// "recent": false leaves out Recent (the programs loaded before); "autoload": a program the page loads when its
+// address names none
+let sourceBase = null, builtInDemos = [], keepRecent = true, autoload = null;
 if (listing.includes("ext/extensions.json")) {
 	try {
 		const site = await (await fetch("ext/extensions.json")).json();
 		sourceBase = site.source || null;
 		builtInDemos = site.demos || [];
+		keepRecent = site.recent !== false;
+		autoload = site.autoload || null;
+		if (!keepRecent) $("recent-section").remove();
 		if (site.title) $("title").textContent = site.title;
 		if (site.titleLink) { const a = document.createElement("a"); a.href = site.titleLink; a.textContent = $("title").textContent; $("title").textContent = ""; $("title").append(a); }
 		for (const link of site.links || []) { const a = document.createElement("a"); a.href = link.url; a.textContent = link.text; $("links").append(a); }
@@ -372,7 +378,7 @@ function buildMenu(ext) {
 // The extension whose fingerprint is in memory: its data files are fetched first, since the scripts read them without waiting
 async function activate(ext) {
 	loading = ext;
-	for (const path of listing.filter((p) => p.startsWith(ext.dir + "/") && !/\.(js|md|atr|xex|a8s)$/i.test(p))) {   // (programs beside it are demos, not data)
+	for (const path of listing.filter((p) => p.startsWith(ext.dir + "/") && !/\.(js|md|atr|xex|a8s|car)$/i.test(p))) {   // (programs beside it are demos, not data)
 		if (!files.has(path)) { try { files.set(path, await fileBytes(path)); } catch (e) { log(e.message); } }
 	}
 	if (loading !== ext) return;   // something else was loaded meanwhile
@@ -432,6 +438,7 @@ const recent = (() => {
 	};
 })();
 async function showRecent() {
+	if (!keepRecent) return;
 	let list = [];
 	try {
 		list = await recent.list();
@@ -469,7 +476,7 @@ function load(name, bytes) {
 	M._free(p);
 	log(ok ? `loaded ${name}` : `could not load ${name}`);
 	$("drop").classList.toggle("hidden", !!ok);
-	if (ok) recent.put(name, bytes).then(showRecent, (e) => log(`the program is not kept for Recent: ${e && e.message || e}`));
+	if (ok && keepRecent) recent.put(name, bytes).then(showRecent, (e) => log(`the program is not kept for Recent: ${e && e.message || e}`));
 	return ok;
 }
 // From an address: the page's own site, or another that lets other sites fetch from it
@@ -493,15 +500,16 @@ showRecent();
 {
 	const url = params.get("url") || params.get("state") || params.get("file");
 	if (url) await loadUrl(url);
+	else if (autoload) { const bytes = await fileBytes(autoload).catch(() => null); if (bytes) load(decodeURIComponent(autoload.split("/").pop()), bytes); }
 }
-// A demo under Demos: { "title", "url", "hover" (shown when the pointer rests on it), "ext", "menu",
+// A demo under Demos: { "title", "url", "hover" (shown when the pointer rests on it), "ext", "menu", "tv",
 // "variants" }: a variant ({ "title", "url", "hover" }, say a saved game of the same program) is a
 // second link in the same row, its title in parentheses
 function demoLink(demo, parent) {
 	const link = document.createElement("a"), query = new URLSearchParams();
 	const url = demo.url || demo.state || demo.file;
 	if (url) query.set("url", url);
-	for (const key of ["ext", "menu"]) if (demo[key] || (parent && parent[key])) query.set(key, demo[key] || parent[key]);
+	for (const key of ["ext", "menu", "tv"]) if (demo[key] || (parent && parent[key])) query.set(key, demo[key] || parent[key]);
 	link.href = "?" + query; link.textContent = parent ? `(${demo.title})` : demo.title; link.className = "button";
 	if (demo.hover) link.title = demo.hover;
 	return link;

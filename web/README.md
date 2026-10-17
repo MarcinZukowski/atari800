@@ -77,7 +77,8 @@ Demos show five rows and scroll beyond that):
 `hover` is shown when the pointer rests on the link. A demo may have
 `"variants": [{ "title": "gameplay", "url": "...", "hover": "..." }]`, say a
 saved game of the same program: each is a second link in the row, its title
-in parentheses. Demos that come with the
+in parentheses. `"tv": "ntsc"` runs it on an NTSC machine (`?tv=ntsc` in the
+page's address; PAL otherwise). Demos that come with the
 extensions themselves are listed the same way from `"demos"` in the
 extensions' `extensions.json` (below), before the site's; their files live
 beside the extensions (`"url": "ext/yoomp/yoomp.atr"`), and the build keeps
@@ -88,7 +89,8 @@ If the extensions' directory has an `extensions.json` with
 extension's source there (that address plus its directory name). The same
 file may name the site: `"title"` and `"titleLink"` replace the heading and
 link it, and `"links": [{ "text": "...", "url": "..." }]` adds a line of
-links under it.
+links under it. `"recent": false` leaves out Recent, and `"autoload":
+"ext/..."` names a program the page loads when its address names none.
 
 Keys: arrows and right Ctrl are the joystick, F2/F3/F4 Option/Select/Start,
 F5 reset (with right Shift a cold start), F6 Help, F7 Break. Right Shift and
