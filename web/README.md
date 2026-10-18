@@ -125,9 +125,9 @@ The page fills the window: a bar on the left for the page's own controls,
 the picture, and a bar on the right for the active extension (its name, a
 link to its source, its menu, and its panel). A menu entry with two values
 shows both, the one in force lit, and a click on it changes it. "Full screen" gives the
-picture the whole screen with the bars lying over it; they fade out after
-three seconds without the mouse moving or a key other than the Atari's, and
-come back when either happens.
+picture the whole screen, with nothing else on it (no bars, and the pointer
+hides after three seconds without the mouse moving); Esc held, or the
+browser's own way, leaves it.
 
 ## Putting it online
 

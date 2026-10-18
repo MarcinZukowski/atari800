@@ -214,17 +214,15 @@ function sendInput() {
 
 /* ------------------------------ full screen ------------------------------ */
 
-// In full screen the two bars lie over the picture and fade out when the
-// mouse has been still, and no key but the Atari's pressed, for a while
+// In full screen only the picture shows (Esc held, or the browser's way, leaves);
+// the pointer hides when the mouse has been still for a while
 const IDLE_AFTER = 3000;
 let idleTimer = 0;
 function wake() {
 	document.body.classList.remove("idle");
 	clearTimeout(idleTimer);
 	if (document.body.classList.contains("fullscreen")) idleTimer = setTimeout(() => {
-		// not while the pointer is on a bar or a list is open
-		if (document.querySelector(".bar:hover") || document.activeElement instanceof HTMLSelectElement) wake();
-		else document.body.classList.add("idle");
+		document.body.classList.add("idle");
 	}, IDLE_AFTER);
 }
 function setFullscreenLayout(on) {
