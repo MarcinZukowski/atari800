@@ -304,7 +304,7 @@ log(`${extensions.length} extensions: ${extensions.map((e) => e.dir.split("/").p
 
 // ext/extensions.json, if the site has it, says where the extensions' source is: { "source": "https://.../tree/main" }
 // (an extension can say so itself with a `source` property); may name the site: "title" and "titleLink" for the
-// heading, "links" ([{ "text", "url" }]) for a line of links under it; and may list "demos" that come with the
+// heading (and the tab), "links" ([{ "text", "url" }]) for a line of links under it; and may list "demos" that come with the
 // extensions ([{ "title", "url", "hover", "ext", "menu", "tv" }]), listed under Demos before the site's own;
 // "recent": false leaves out Recent (the programs loaded before); "autoload": a program the page loads when its
 // address names none
@@ -317,7 +317,7 @@ if (listing.includes("ext/extensions.json")) {
 		keepRecent = site.recent !== false;
 		autoload = site.autoload || null;
 		if (!keepRecent) $("recent-section").remove();
-		if (site.title) $("title").textContent = site.title;
+		if (site.title) $("title").textContent = document.title = site.title;
 		if (site.titleLink) { const a = document.createElement("a"); a.href = site.titleLink; a.textContent = $("title").textContent; $("title").textContent = ""; $("title").append(a); }
 		for (const link of site.links || []) { const a = document.createElement("a"); a.href = link.url; a.textContent = link.text; $("links").append(a); }
 	}

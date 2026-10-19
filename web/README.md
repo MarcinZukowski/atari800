@@ -87,8 +87,8 @@ such a file where it would otherwise leave out a disk image.
 If the extensions' directory has an `extensions.json` with
 `{ "source": "https://.../tree/main" }`, the page shows a link to the active
 extension's source there (that address plus its directory name). The same
-file may name the site: `"title"` and `"titleLink"` replace the heading and
-link it, and `"links": [{ "text": "...", "url": "..." }]` adds a line of
+file may name the site: `"title"` and `"titleLink"` replace the heading (and
+the browser tab's title) and link it, and `"links": [{ "text": "...", "url": "..." }]` adds a line of
 links under it. `"recent": false` leaves out Recent, and `"autoload":
 "ext/..."` names a program the page loads when its address names none.
 
